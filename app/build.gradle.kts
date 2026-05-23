@@ -6,8 +6,6 @@ plugins {
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
     id("io.gitlab.arturbosch.detekt")
 }
 
@@ -16,7 +14,7 @@ android {
     compileSdk = libs.versions.compile.sdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.ivy.wallet"
+        applicationId = "com.pavel.wallet"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
         versionName = libs.versions.version.name.get()
@@ -163,7 +161,6 @@ dependencies {
     implementation(libs.bundles.compose)
     implementation(libs.bundles.activity)
     implementation(libs.bundles.google)
-    implementation(libs.bundles.firebase)
     implementation(libs.datastore)
     implementation(libs.androidx.security)
     implementation(libs.androidx.biometrics)
