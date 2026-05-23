@@ -1,5 +1,11 @@
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
+plugins {
+    // Auto-provisions a matching JDK toolchain (e.g. JDK 17) when one isn't installed locally.
+    // See https://github.com/gradle/foojay-toolchains
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
