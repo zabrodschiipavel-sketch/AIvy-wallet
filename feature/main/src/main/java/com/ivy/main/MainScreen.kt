@@ -18,6 +18,7 @@ import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.ivyWalletCtx
 import com.ivy.legacy.utils.onScreenStart
+import com.ivy.navigation.AiInputScreen
 import com.ivy.navigation.EditPlannedScreen
 import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.MainScreen
@@ -103,6 +104,9 @@ private fun BoxWithConstraintsScope.UI(
                     plannedPaymentRuleId = null
                 )
             )
+        },
+        onAddWithAi = {
+            nav.navigateTo(AiInputScreen)
         },
 
         showAddAccountModal = {
