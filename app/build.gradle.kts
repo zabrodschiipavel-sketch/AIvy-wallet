@@ -120,6 +120,7 @@ android {
 }
 
 dependencies {
+    implementation(projects.feature.aiInput)
     implementation(projects.feature.attributions)
     implementation(projects.feature.balance)
     implementation(projects.feature.budgets)

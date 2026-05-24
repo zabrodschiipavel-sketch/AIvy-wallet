@@ -147,3 +147,5 @@ data object DisclaimerScreen : Screen
 data object PollScreen : Screen
 
 data object AiSettingsScreen : Screen
+
+data object AiInputScreen : Screen
