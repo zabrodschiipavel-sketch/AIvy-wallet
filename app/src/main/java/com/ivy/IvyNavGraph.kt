@@ -17,6 +17,7 @@ import com.ivy.importdata.csvimport.ImportCSVScreen
 import com.ivy.loans.loan.LoansScreen
 import com.ivy.loans.loandetails.LoanDetailsScreen
 import com.ivy.main.MainScreen
+import com.ivy.navigation.AiSettingsScreen
 import com.ivy.navigation.AttributionsScreen
 import com.ivy.navigation.BalanceScreen
 import com.ivy.navigation.BudgetScreen
@@ -51,6 +52,7 @@ import com.ivy.releases.ReleasesScreenImpl
 import com.ivy.reports.ReportScreen
 import com.ivy.search.SearchScreen
 import com.ivy.settings.SettingsScreen
+import com.ivy.settings.ai.AiSettingsScreenImpl
 import com.ivy.transaction.EditTransactionScreen
 import com.ivy.transactions.TransactionsScreen
 
@@ -88,5 +90,6 @@ fun BoxWithConstraintsScope.IvyNavGraph(screen: Screen?) {
         ReleasesScreen -> ReleasesScreenImpl()
         DisclaimerScreen -> DisclaimerScreenImpl()
         PollScreen -> PollScreen()
+        AiSettingsScreen -> AiSettingsScreenImpl()
     }
 }

@@ -40,6 +40,7 @@ object AiModule {
      */
     @Provides
     @Singleton
+    @AiHttpClient
     fun provideGeminiHttpClient(json: Json): HttpClient = HttpClient(OkHttp) {
         install(ContentNegotiation) { json(json) }
         install(HttpTimeout) {

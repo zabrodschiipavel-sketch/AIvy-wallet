@@ -1,5 +1,6 @@
 package com.ivy.ai.data
 
+import com.ivy.ai.di.AiHttpClient
 import com.ivy.ai.domain.ParsedTransaction
 import com.ivy.ai.domain.TransactionTypeGuess
 import io.ktor.client.HttpClient
@@ -35,6 +36,12 @@ interface GeminiClient {
         model: String = DEFAULT_MODEL,
     ): String
 
+    /**
+     * Trivial round-trip that verifies the configured key + network reach the model.
+     * Used by the Settings "Test connection" button. Throws on failure.
+     */
+    suspend fun ping(model: String = DEFAULT_MODEL)
+
     companion object {
         const val DEFAULT_MODEL: String = "gemini-3.1-flash-lite"
     }
@@ -43,7 +50,7 @@ interface GeminiClient {
 class GeminiException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 class GeminiClientImpl @Inject constructor(
-    private val httpClient: HttpClient,
+    @AiHttpClient private val httpClient: HttpClient,
     private val keyStore: GeminiApiKeyStore,
 ) : GeminiClient {
 
@@ -78,6 +85,21 @@ class GeminiClientImpl @Inject constructor(
         return response.candidates.firstOrNull()
             ?.content?.parts?.firstOrNull()?.text
             ?: throw GeminiException("Gemini returned no candidates")
+    }
+
+    override suspend fun ping(model: String) {
+        val schema = buildJsonObject {
+            put("type", "OBJECT")
+            put("properties", buildJsonObject {
+                put("reply", buildJsonObject { put("type", "STRING") })
+            })
+            put("required", buildJsonArray { add("reply") })
+        }
+        generateStructured(
+            prompt = "Ответь строго JSON-объектом {\"reply\":\"ok\"}.",
+            schema = schema,
+            model = model,
+        )
     }
 }
 
