@@ -109,7 +109,7 @@ google-play-services = { module = "com.google.android.gms:play-services-tasks", 
 google-play-review = { module = "com.google.android.play:review-ktx", version = "2.0.1" }
 
 # AndroidX
-androidx-security = { module = "androidx.security:security-crypto", version = "1.0.0" }
+androidx-security = { module = "androidx.security:security-crypto-ktx", version = "1.1.0-alpha06" }
 androidx-biometrics = { module = "androidx.biometric:biometric", version = "1.2.0-alpha05" }
 androidx-activity = { module = "androidx.activity:activity-ktx", version = "1.9.3" }
 appcompat-activity = { module = "androidx.appcompat:appcompat", version = "1.7.0" }
