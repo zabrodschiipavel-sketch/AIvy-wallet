@@ -78,6 +78,14 @@ class IvyFeatures @Inject constructor() : Features {
         defaultValue = false
     )
 
+    override val aiTransactionEntry = BoolFeature(
+        key = "ai_transaction_entry",
+        group = FeatureGroup.AI,
+        name = "Add transactions via AI",
+        description = "Show the \"Add via AI\" option that turns free-form text into a transaction using Gemini",
+        defaultValue = false
+    )
+
     override val allFeatures: List<BoolFeature>
         get() = listOf(
             sortCategoriesAscending,
@@ -87,7 +95,8 @@ class IvyFeatures @Inject constructor() : Features {
             showCategorySearchBar,
             hideTotalBalance,
             standardKeypadLayout,
-            showAccountColorsInTransactions
+            showAccountColorsInTransactions,
+            aiTransactionEntry
             /* will be uncommented when this functionality
              * will be available across the application in up-coming PRs
             showDecimalNumber

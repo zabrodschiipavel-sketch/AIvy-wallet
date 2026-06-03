@@ -22,6 +22,15 @@ out/
 build/
 **/build/
 
+# Stray GRADLE_USER_HOME contents that leak into project root
+# when Android Studio is misconfigured. None of these should ever be committed.
+/wrapper/
+/caches/
+/daemon/
+/native/
+/android/
+gradle/gradle-daemon-jvm.properties
+
 **/.DS_Store
 
 # Local configuration file (sdk path, etc)

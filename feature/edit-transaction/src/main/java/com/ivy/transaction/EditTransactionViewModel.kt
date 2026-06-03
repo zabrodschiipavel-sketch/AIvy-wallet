@@ -167,16 +167,24 @@ class EditTransactionViewModel @Inject constructor(
 
             loadedTransaction = screen.initialTransactionId?.let {
                 trnByIdAct(it)
-            } ?: Transaction(
-                accountId = defaultAccountId(
-                    screen = screen,
-                    accounts = getAccounts
-                ),
-                categoryId = screen.categoryId,
-                type = screen.type,
-                amount = BigDecimal.ZERO,
-                toAmount = BigDecimal.ZERO
-            )
+            } ?: run {
+                // New transaction — pre-fill from the optional screen extras (e.g. AI input).
+                val prefillAmount = screen.amount?.takeIf { it > 0.0 }?.toBigDecimal()
+                    ?: BigDecimal.ZERO
+                Transaction(
+                    accountId = defaultAccountId(
+                        screen = screen,
+                        accounts = getAccounts
+                    ),
+                    categoryId = screen.categoryId,
+                    type = screen.type,
+                    amount = prefillAmount,
+                    toAmount = prefillAmount,
+                    title = screen.title,
+                    description = screen.description,
+                    dateTime = screen.dateTime,
+                )
+            }
 
             tags = tagList.await()
             transactionAssociatedTags =

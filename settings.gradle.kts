@@ -1,5 +1,11 @@
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
+plugins {
+    // Auto-provisions a matching JDK toolchain (e.g. JDK 17) when one isn't installed locally.
+    // See https://github.com/gradle/foojay-toolchains
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -18,6 +24,7 @@ include(":ci-actions:issue-assign")
 include(":ci-actions:issue-create-comment")
 include(":ci-actions:pr-description-check")
 include(":feature:accounts")
+include(":feature:ai-input")
 include(":feature:attributions")
 include(":feature:balance")
 include(":feature:budgets")
@@ -41,8 +48,8 @@ include(":feature:reports")
 include(":feature:search")
 include(":feature:settings")
 include(":feature:transactions")
+include(":shared:ai")
 include(":shared:base")
-include(":shared:common-ui")
 include(":shared:data:core")
 include(":shared:data:core-testing")
 include(":shared:data:model")
