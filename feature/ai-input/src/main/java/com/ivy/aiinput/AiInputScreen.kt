@@ -2,7 +2,6 @@ package com.ivy.aiinput
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,24 +13,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ivy.ai.domain.ParsedTransaction
-import com.ivy.ai.domain.TransactionTypeGuess
+import com.ivy.navigation.AiSettingsScreen
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
 
@@ -52,11 +48,6 @@ private fun AiInputUi(
     onEvent: (AiInputEvent) -> Unit,
 ) {
     val nav = navigation()
-
-    // When save succeeds the VM transitions to Phase.Saved; we close the screen here.
-    LaunchedEffect(uiState.phase) {
-        if (uiState.phase == Phase.Saved) nav.back()
-    }
 
     Scaffold(
         topBar = {
@@ -80,17 +71,13 @@ private fun AiInputUi(
         ) {
             InputCard(uiState = uiState, onEvent = onEvent)
 
-            when (uiState.phase) {
-                Phase.Preview, Phase.Saving -> uiState.parsed?.let {
-                    PreviewCard(
-                        parsed = it,
-                        defaultCurrency = uiState.defaultCurrency,
-                        saving = uiState.phase == Phase.Saving,
-                        onSave = { onEvent(AiInputEvent.Save) },
-                        onReset = { onEvent(AiInputEvent.Reset) },
-                    )
-                }
-                else -> Unit
+            uiState.error?.let { err ->
+                ErrorCard(
+                    error = err,
+                    canRetry = uiState.inputText.isNotBlank() && uiState.phase != Phase.Parsing,
+                    onRetry = { onEvent(AiInputEvent.Parse) },
+                    onOpenAiSettings = { nav.navigateTo(AiSettingsScreen) },
+                )
             }
         }
     }
@@ -115,6 +102,10 @@ private fun InputCard(
                 text = "Например: «вчера 1500 продукты Пятёрочка» или «зарплата 80000».",
                 style = MaterialTheme.typography.bodySmall,
             )
+            Text(
+                text = "После распознавания откроется форма транзакции — там можно всё проверить и сохранить.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             OutlinedTextField(
                 value = uiState.inputText,
                 onValueChange = { onEvent(AiInputEvent.InputChanged(it)) },
@@ -122,13 +113,12 @@ private fun InputCard(
                 label = { Text("Текст") },
                 minLines = 2,
                 maxLines = 5,
-                enabled = uiState.phase != Phase.Parsing && uiState.phase != Phase.Saving,
+                enabled = uiState.phase != Phase.Parsing,
             )
             Spacer(Modifier.height(4.dp))
 
             val canParse = uiState.inputText.isNotBlank() &&
                 uiState.phase != Phase.Parsing &&
-                uiState.phase != Phase.Saving &&
                 !uiState.loadingContext
             Button(
                 onClick = { onEvent(AiInputEvent.Parse) },
@@ -156,89 +146,55 @@ private fun InputCard(
 }
 
 @Composable
-private fun PreviewCard(
-    parsed: ParsedTransaction,
-    defaultCurrency: String,
-    saving: Boolean,
-    onSave: () -> Unit,
-    onReset: () -> Unit,
+private fun ErrorCard(
+    error: AiError,
+    canRetry: Boolean,
+    onRetry: () -> Unit,
+    onOpenAiSettings: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val message = when (error) {
+        AiError.NoAccounts ->
+            "Сначала создайте хотя бы один счёт — к нему будет привязана транзакция."
+        AiError.MissingApiKey ->
+            "Не настроен ключ Gemini API. Откройте «Настройки → AI» и добавьте ключ."
+        AiError.Network ->
+            "Не удалось связаться с Gemini. Проверьте интернет-соединение и попробуйте снова."
+        is AiError.Failed -> error.message
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Распознано",
+                text = "Не получилось",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
-            FieldRow("Сумма", parsed.amount?.let { "%.2f".format(it) } ?: "не определена")
-            FieldRow("Валюта", parsed.currency ?: defaultCurrency)
-            FieldRow("Тип", parsed.transactionType?.label() ?: "—")
-            FieldRow("Категория", parsed.category ?: "—")
-            FieldRow("Счёт", parsed.account ?: "— (возьмётся первый)")
-            FieldRow("Дата", parsed.date ?: "сегодня")
-            FieldRow("Описание", parsed.description ?: "—")
+            Text(text = message, style = MaterialTheme.typography.bodyMedium)
 
-            Spacer(Modifier.height(4.dp))
+            when (error) {
+                AiError.MissingApiKey -> Button(
+                    onClick = onOpenAiSettings,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Открыть настройки AI") }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onReset,
-                    modifier = Modifier.weight(1f),
-                    enabled = !saving,
-                ) { Text("Начать заново") }
-                val amount = parsed.amount
-                Button(
-                    onClick = onSave,
-                    modifier = Modifier.weight(1f),
-                    enabled = !saving && amount != null && amount > 0.0,
-                ) {
-                    if (saving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(16.dp),
-                            strokeWidth = 2.dp,
-                        )
-                        Text("  Сохраняю…")
-                    } else {
-                        Text("Сохранить")
-                    }
+                AiError.Network, is AiError.Failed -> if (canRetry) {
+                    Button(
+                        onClick = onRetry,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Повторить") }
                 }
+
+                AiError.NoAccounts -> Unit
             }
-            Text(
-                text = "Сумму, категорию и счёт можно изменить позже, отредактировав транзакцию в списке.",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
-}
-
-@Composable
-private fun FieldRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(0.35f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(0.65f),
-        )
-    }
-}
-
-private fun TransactionTypeGuess.label(): String = when (this) {
-    TransactionTypeGuess.EXPENSE -> "Расход"
-    TransactionTypeGuess.INCOME -> "Доход"
-    TransactionTypeGuess.TRANSFER -> "Перевод (будет сохранён как расход)"
 }
