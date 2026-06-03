@@ -47,7 +47,26 @@ interface GeminiClient {
     }
 }
 
-class GeminiException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class GeminiException(
+    message: String,
+    val reason: Reason = Reason.Unknown,
+    cause: Throwable? = null,
+) : Exception(message, cause) {
+    /** Coarse failure category so callers can show an actionable message. */
+    enum class Reason {
+        /** No API key configured — the user must set one in Settings → AI. */
+        MissingApiKey,
+
+        /** Network/transport failure reaching the Gemini endpoint. */
+        Network,
+
+        /** The call succeeded but the model returned no usable content. */
+        EmptyResponse,
+
+        /** Anything else (unexpected HTTP status, serialization, etc.). */
+        Unknown,
+    }
+}
 
 class GeminiClientImpl @Inject constructor(
     @AiHttpClient private val httpClient: HttpClient,
@@ -60,7 +79,10 @@ class GeminiClientImpl @Inject constructor(
         model: String,
     ): String {
         val apiKey = keyStore.get()
-            ?: throw GeminiException("Gemini API key is not configured. Set it in Settings → AI.")
+            ?: throw GeminiException(
+                "Gemini API key is not configured. Set it in Settings → AI.",
+                reason = GeminiException.Reason.MissingApiKey,
+            )
 
         val request = GeminiRequest(
             contents = listOf(Content(parts = listOf(Part(text = prompt)))),
@@ -79,12 +101,19 @@ class GeminiClientImpl @Inject constructor(
                 setBody(request)
             }.body()
         } catch (e: Exception) {
-            throw GeminiException("Network error calling Gemini: ${e.message}", e)
+            throw GeminiException(
+                "Network error calling Gemini: ${e.message}",
+                reason = GeminiException.Reason.Network,
+                cause = e,
+            )
         }
 
         return response.candidates.firstOrNull()
             ?.content?.parts?.firstOrNull()?.text
-            ?: throw GeminiException("Gemini returned no candidates")
+            ?: throw GeminiException(
+                "Gemini returned no candidates",
+                reason = GeminiException.Reason.EmptyResponse,
+            )
     }
 
     override suspend fun ping(model: String) {
