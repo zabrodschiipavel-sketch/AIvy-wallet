@@ -39,11 +39,14 @@ fun BoxWithConstraintsScope.MainScreen(screen: MainScreen) {
         viewModel.start(screen)
     }
 
+    val aiEnabled = viewModel.aiTransactionEntry.asEnabledState()
+
     val ivyContext = ivyWalletCtx()
     UI(
         screen = screen,
         tab = ivyContext.mainTab,
         baseCurrency = currency,
+        aiEnabled = aiEnabled,
         selectTab = viewModel::selectTab,
         onCreateAccount = viewModel::createAccount
     )
@@ -57,6 +60,7 @@ private fun BoxWithConstraintsScope.UI(
     tab: MainTab,
 
     baseCurrency: String,
+    aiEnabled: Boolean,
 
     selectTab: (MainTab) -> Unit,
     onCreateAccount: (CreateAccountData) -> Unit,
@@ -71,6 +75,7 @@ private fun BoxWithConstraintsScope.UI(
     val nav = navigation()
     BottomBar(
         tab = tab,
+        aiEnabled = aiEnabled,
         selectTab = selectTab,
 
         onAddIncome = {
@@ -138,6 +143,7 @@ private fun PreviewMainScreen() {
             screen = MainScreen,
             tab = MainTab.HOME,
             baseCurrency = "BGN",
+            aiEnabled = false,
             selectTab = {},
             onCreateAccount = { }
         )
