@@ -82,8 +82,10 @@ class IvyFeatures @Inject constructor() : Features {
         key = "ai_transaction_entry",
         group = FeatureGroup.AI,
         name = "Add transactions via AI",
-        description = "Show the \"Add via AI\" option that turns free-form text into a transaction using Gemini",
-        defaultValue = false
+        description = "Make AI the primary way to add a transaction: tapping + opens free-form " +
+            "AI entry (Gemini), while manual entry stays available via long-press. " +
+            "Turn off to restore the manual add menu as the default.",
+        defaultValue = true
     )
 
     override val allFeatures: List<BoolFeature>

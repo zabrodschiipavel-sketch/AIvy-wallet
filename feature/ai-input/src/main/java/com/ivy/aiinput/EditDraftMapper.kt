@@ -22,6 +22,7 @@ internal data class EditDraft(
     val categoryId: UUID?,
     val amount: Double?,
     val title: String?,
+    val description: String?,
     val dateTime: Instant?,
 )
 
@@ -65,6 +66,7 @@ internal fun ParsedTransaction.toEditDraft(
         categoryId = categoryId,
         amount = amount?.takeIf { it > 0.0 },
         title = description,
+        description = description,
         dateTime = dateTime,
     )
 }

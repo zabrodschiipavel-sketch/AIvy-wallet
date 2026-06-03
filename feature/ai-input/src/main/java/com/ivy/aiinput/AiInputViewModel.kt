@@ -111,7 +111,7 @@ class AiInputViewModel @Inject constructor(
                 categoryId = draft.categoryId,
                 amount = draft.amount,
                 title = draft.title,
-                description = null,
+                description = draft.description,
                 dateTime = draft.dateTime,
             )
         )
