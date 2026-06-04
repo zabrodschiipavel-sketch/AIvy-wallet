@@ -79,9 +79,10 @@ class EditDraftMapperTest {
     }
 
     @Test
-    fun `uses description as the title`() {
-        parsed(description = "Пятёрочка").toEditDraft(accounts, categories)
-            .title shouldBe "Пятёрочка"
+    fun `fills both title and description from the parsed description`() {
+        val draft = parsed(description = "Пятёрочка").toEditDraft(accounts, categories)
+        draft.title shouldBe "Пятёрочка"
+        draft.description shouldBe "Пятёрочка"
     }
 
     @Test

@@ -1,8 +1,10 @@
 package com.ivy.wallet.ui.theme.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,6 +24,7 @@ import com.ivy.wallet.ui.theme.GradientIvy
 import com.ivy.wallet.ui.theme.GradientRed
 import com.ivy.wallet.ui.theme.White
 
+@OptIn(ExperimentalFoundationApi::class)
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
 fun IvyCircleButton(
@@ -33,6 +36,7 @@ fun IvyCircleButton(
     tint: Color = White,
     enabled: Boolean = true,
     hasShadow: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     IvyIcon(
@@ -59,7 +63,17 @@ fun IvyCircleButton(
                 },
                 shape = UI.shapes.rFull
             )
-            .clickable(onClick = onClick, enabled = enabled)
+            .then(
+                if (onLongClick != null) {
+                    Modifier.combinedClickable(
+                        enabled = enabled,
+                        onLongClick = onLongClick,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier.clickable(onClick = onClick, enabled = enabled)
+                }
+            )
             .padding(all = backgroundPadding),
         icon = icon,
         tint = tint,

@@ -169,7 +169,6 @@ fun BoxWithConstraintsScope.BottomBar(
 
     TransactionButtons(
         buttonsShownPercent = buttonsShownPercent,
-        aiEnabled = aiEnabled,
 
         fabStartX = fabStartX,
         fabStartY = fabStartY,
@@ -178,7 +177,6 @@ fun BoxWithConstraintsScope.BottomBar(
         onAddExpense = onAddExpense,
         onAddTransfer = onAddTransfer,
         onAddPlannedPayment = onAddPlannedPayment,
-        onAddWithAi = onAddWithAi,
     )
 
     var dragOffset by remember {
@@ -256,11 +254,21 @@ fun BoxWithConstraintsScope.BottomBar(
         tint = when (tab) {
             MainTab.HOME -> White
             MainTab.ACCOUNTS -> White
-        }
+        },
+        // When AI is the primary entry, long-pressing the FAB reveals the manual menu.
+        onLongClick = if (tab == MainTab.HOME && aiEnabled && !expanded) {
+            { expanded = true }
+        } else {
+            null
+        },
     ) {
         when (tab) {
-            MainTab.HOME -> {
-                expanded = !expanded
+            MainTab.HOME -> when {
+                // Tapping while the menu is open closes it.
+                expanded -> expanded = false
+                // AI is the primary action; manual entry lives behind a long-press.
+                aiEnabled -> onAddWithAi()
+                else -> expanded = true
             }
 
             MainTab.ACCOUNTS -> {
@@ -273,7 +281,6 @@ fun BoxWithConstraintsScope.BottomBar(
 @Composable
 private fun TransactionButtons(
     buttonsShownPercent: Float,
-    aiEnabled: Boolean,
 
     fabStartX: Float,
     fabStartY: Float,
@@ -282,7 +289,6 @@ private fun TransactionButtons(
     onAddExpense: () -> Unit,
     onAddTransfer: () -> Unit,
     onAddPlannedPayment: () -> Unit,
-    onAddWithAi: () -> Unit,
 ) {
     val ivyContext = ivyWalletCtx()
 
@@ -318,33 +324,6 @@ private fun TransactionButtons(
             solidBackground = true
         ) {
             onAddPlannedPayment()
-        }
-
-        // AI input button — sits one row above the "Planned payment" button.
-        // Same horizontal centering; vertical offset stacks it visibly higher
-        // when the FAB menu is expanded. Hidden unless the AI feature flag is on.
-        if (aiEnabled) {
-            IvyOutlinedButton(
-                modifier = Modifier
-                    .layout { measurable, constraints ->
-                        val placeable = measurable.measure(constraints)
-                        layout(placeable.width, placeable.height) {
-                            placeable.place(
-                                x = ivyContext.screenWidth / 2 - placeable.width / 2,
-                                y = buttonCenterY.roundToInt() - 48.dp.roundToPx() - placeable.height -
-                                    FAB_BUTTON_SIZE.roundToPx() - 64.dp.roundToPx(),
-                            )
-                        }
-                    }
-                    .padding(horizontal = 8.dp)
-                    .alpha(buttonsShownPercent)
-                    .zIndex(200f),
-                iconStart = R.drawable.ic_custom_atom_m,
-                text = "Добавить через AI",
-                solidBackground = true,
-            ) {
-                onAddWithAi()
-            }
         }
 
         // Add INCOME ------------------------------------------------------------------------------

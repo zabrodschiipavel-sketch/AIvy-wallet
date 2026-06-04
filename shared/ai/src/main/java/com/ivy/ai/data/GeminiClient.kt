@@ -10,12 +10,12 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -133,11 +133,20 @@ class GeminiClientImpl @Inject constructor(
 }
 
 /**
- * Parses Gemini's structured-output JSON into [ParsedTransaction].
- * Tolerant: missing fields become null rather than failures.
+ * Parses Gemini's structured-output JSON (an array of transactions) into
+ * [ParsedTransaction]s. Tolerant: missing fields become null rather than failures,
+ * and a single bare object (if the model returns one) is treated as a one-item list.
  */
-internal fun parseTransactionJson(raw: String, json: Json): ParsedTransaction {
-    val obj = json.parseToJsonElement(raw).jsonObject
+internal fun parseTransactionsJson(raw: String, json: Json): List<ParsedTransaction> {
+    val objects: List<JsonObject> = when (val element = json.parseToJsonElement(raw)) {
+        is JsonArray -> element.mapNotNull { it as? JsonObject }
+        is JsonObject -> listOf(element)
+        else -> emptyList()
+    }
+    return objects.map(::parseTransactionObject)
+}
+
+private fun parseTransactionObject(obj: JsonObject): ParsedTransaction {
     fun str(key: String): String? = obj[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
     fun dbl(key: String): Double? = obj[key]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
 
@@ -157,11 +166,19 @@ internal fun parseTransactionJson(raw: String, json: Json): ParsedTransaction {
 }
 
 /**
- * Builds the JSON Schema for [ParsedTransaction] with category/account enumerations
- * constrained to the lists the caller provides. This is what keeps Gemini from
- * inventing nonexistent categories.
+ * Builds the JSON Schema for the model response: an ARRAY of transaction objects, each with
+ * category/account enumerations constrained to the lists the caller provides. The enum is what
+ * keeps Gemini from inventing nonexistent categories.
  */
 internal fun buildParseSchema(
+    categoryNames: List<String>,
+    accountNames: List<String>,
+): JsonObject = buildJsonObject {
+    put("type", "ARRAY")
+    put("items", buildTransactionItemSchema(categoryNames, accountNames))
+}
+
+private fun buildTransactionItemSchema(
     categoryNames: List<String>,
     accountNames: List<String>,
 ): JsonObject = buildJsonObject {
