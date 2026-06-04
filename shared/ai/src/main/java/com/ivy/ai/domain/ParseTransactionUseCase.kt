@@ -2,7 +2,7 @@ package com.ivy.ai.domain
 
 import com.ivy.ai.data.GeminiClient
 import com.ivy.ai.data.buildParseSchema
-import com.ivy.ai.data.parseTransactionJson
+import com.ivy.ai.data.parseTransactionsJson
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import javax.inject.Inject
@@ -23,11 +23,11 @@ class ParseTransactionUseCase @Inject constructor(
         categoryNames: List<String>,
         accountNames: List<String>,
         today: LocalDate = LocalDate.now(),
-    ): Result<ParsedTransaction> = runCatching {
+    ): Result<List<ParsedTransaction>> = runCatching {
         val prompt = buildPrompt(userText, categoryNames, accountNames, today)
         val schema = buildParseSchema(categoryNames, accountNames)
         val raw = gemini.generateStructured(prompt, schema)
-        parseTransactionJson(raw, json)
+        parseTransactionsJson(raw, json)
     }
 
     private fun buildPrompt(
@@ -36,9 +36,9 @@ class ParseTransactionUseCase @Inject constructor(
         accountNames: List<String>,
         today: LocalDate,
     ): String = buildString {
-        appendLine("Ты помощник для учёта личных финансов. Извлеки из текста пользователя одну транзакцию и верни её строго по схеме JSON.")
+        appendLine("Ты помощник для учёта личных финансов. Извлеки из текста пользователя ВСЕ транзакции и верни их строго по схеме JSON — массивом объектов (по одному на каждую транзакцию). Если транзакция одна — верни массив из одного элемента.")
         appendLine()
-        appendLine("Правила:")
+        appendLine("Правила (для каждой транзакции):")
         appendLine("- amount — положительное число (даже для расхода).")
         appendLine("- transactionType — EXPENSE если потратил, INCOME если получил, TRANSFER если перевод между своими счетами.")
         appendLine("- date — ISO-формат (YYYY-MM-DD). Сегодня: $today.")
