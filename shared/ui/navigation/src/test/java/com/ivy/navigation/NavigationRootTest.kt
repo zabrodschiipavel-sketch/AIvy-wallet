@@ -3,6 +3,8 @@ package com.ivy.navigation
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.lifecycle.HasDefaultViewModelProviderFactory
@@ -27,6 +29,11 @@ import app.cash.paparazzi.Paparazzi
 import app.cash.turbine.test
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -63,22 +70,28 @@ class NavigationRootTest {
         val host = TestHost()
         val activityViewModel = ViewModelProvider(host)[ActivityViewModel::class.java]
         val navigation = Navigation().apply { navigateTo(MainScreen) }
+        val renders = Channel<RenderedScreen?>(Channel.UNLIMITED)
+        val composition = backgroundScope.launch(Dispatchers.Unconfined) {
+            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation, renders) }
+                .collect {}
+        }
         try {
-            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation) }.test {
-                val main = awaitItem()
+            renders.receiveAsFlow().test {
+                val main = checkNotNull(awaitItem())
                 navigation.navigateTo(FeaturesScreen)
-                val features = awaitItem()
+                val features = checkNotNull(awaitItem())
 
                 assertFalse(activityViewModel.cleared)
                 assertFalse(main.viewModel.cleared)
                 assertNotSame(main.viewModel, features.viewModel)
                 navigation.back()
-                assertSame(main.viewModel, awaitItem().viewModel)
+                assertSame(main.viewModel, checkNotNull(awaitItem()).viewModel)
                 assertTrue(features.viewModel.cleared)
                 assertFalse(activityViewModel.cleared)
                 cancelAndIgnoreRemainingEvents()
             }
         } finally {
+            composition.cancelAndJoin()
             host.viewModelStore.clear()
         }
     }
@@ -87,12 +100,17 @@ class NavigationRootTest {
     fun `same screen entries have separate SavedStateHandles and pop clears only the child`() = runTest {
         val host = TestHost()
         val navigation = Navigation().apply { navigateTo(SettingsScreen) }
+        val renders = Channel<RenderedScreen?>(Channel.UNLIMITED)
+        val composition = backgroundScope.launch(Dispatchers.Unconfined) {
+            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation, renders) }
+                .collect {}
+        }
         try {
-            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation) }.test {
-                val first = awaitItem()
+            renders.receiveAsFlow().test {
+                val first = checkNotNull(awaitItem())
                 first.viewModel.handle["draft"] = "first draft"
                 navigation.navigateTo(SettingsScreen)
-                val second = awaitItem()
+                val second = checkNotNull(awaitItem())
                 second.viewModel.handle["draft"] = "second draft"
 
                 assertNotSame(first.owner, second.owner)
@@ -101,13 +119,15 @@ class NavigationRootTest {
                 assertSame(second.owner, second.lifecycleOwner)
                 assertEquals("first draft", first.viewModel.handle.get<String>("draft"))
                 navigation.back()
-                val restored = awaitItem()
+                val restored = checkNotNull(awaitItem())
                 assertSame(first.viewModel, restored.viewModel)
                 assertEquals("first draft", restored.viewModel.handle.get<String>("draft"))
                 assertTrue(second.viewModel.cleared)
+                assertFalse(first.viewModel.cleared)
                 cancelAndIgnoreRemainingEvents()
             }
         } finally {
+            composition.cancelAndJoin()
             host.viewModelStore.clear()
         }
     }
@@ -117,44 +137,61 @@ class NavigationRootTest {
         val host = TestHost()
         val activityViewModel = ViewModelProvider(host)[ActivityViewModel::class.java]
         val navigation = Navigation().apply { navigateTo(MainScreen) }
+        val renders = Channel<RenderedScreen?>(Channel.UNLIMITED)
+        val composition = backgroundScope.launch(Dispatchers.Unconfined) {
+            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation, renders) }
+                .collect {}
+        }
         try {
-            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation) }.test {
-                val main = awaitItem()
+            renders.receiveAsFlow().test {
+                val main = checkNotNull(awaitItem())
                 navigation.navigateTo(SettingsScreen)
-                val settings = awaitItem()
-                navigation.resetBackStack()
-                navigation.navigateTo(OnboardingScreen)
-                awaitItem()
+                val settings = checkNotNull(awaitItem())
+                Snapshot.withMutableSnapshot {
+                    navigation.resetBackStack()
+                    navigation.navigateTo(OnboardingScreen)
+                }
+                val onboarding = checkNotNull(awaitItem())
 
                 assertTrue(main.viewModel.cleared)
                 assertTrue(settings.viewModel.cleared)
+                assertFalse(onboarding.viewModel.cleared)
+                assertFalse(activityViewModel.cleared)
+                navigation.clear()
+                assertEquals(null, awaitItem())
+                assertTrue(onboarding.viewModel.cleared)
                 assertFalse(activityViewModel.cleared)
                 cancelAndIgnoreRemainingEvents()
             }
         } finally {
+            composition.cancelAndJoin()
             host.viewModelStore.clear()
         }
     }
 
     @Composable
-    private fun render(host: TestHost, navigation: Navigation): RenderedScreen {
-        var result: RenderedScreen? = null
+    private fun render(
+        host: TestHost,
+        navigation: Navigation,
+        renders: Channel<RenderedScreen?>,
+    ) {
         CompositionLocalProvider(
             LocalViewModelStoreOwner provides host,
             LocalLifecycleOwner provides host,
             LocalSavedStateRegistryOwner provides host,
         ) {
-            NavigationRoot(navigation) {
-                val viewModel = screenScopedViewModel<ScreenViewModel>(ScreenFactory)
-                result = RenderedScreen(
-                    viewModel,
+            NavigationRoot(navigation) { screen ->
+                val result = if (screen == null) null else RenderedScreen(
+                    screenScopedViewModel<ScreenViewModel>(ScreenFactory),
                     checkNotNull(LocalViewModelStoreOwner.current),
                     LocalSavedStateRegistryOwner.current,
                     LocalLifecycleOwner.current,
                 )
+                // A nested restart group can recompose without re-running Molecule's
+                // outer producer. Observe committed renders here, not a local return.
+                SideEffect { check(renders.trySend(result).isSuccess) }
             }
         }
-        return checkNotNull(result)
     }
 
     private data class RenderedScreen(

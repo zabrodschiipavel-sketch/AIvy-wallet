@@ -27,12 +27,6 @@ fun NavigationRoot(
 ) {
     val entries = navigation.entries
     val entry = entries.lastOrNull()
-    if (entry == null) {
-        CompositionLocalProvider(LocalNavigation provides navigation) {
-            navGraph(null)
-        }
-        return
-    }
     val hostStoreOwner = checkNotNull(LocalViewModelStoreOwner.current)
     val hostFactory = checkNotNull(hostStoreOwner as? HasDefaultViewModelProviderFactory)
     val hostLifecycle = LocalLifecycleOwner.current.lifecycle
@@ -43,37 +37,40 @@ fun NavigationRoot(
     val saveableStateHolder = rememberSaveableStateHolder()
     val savedEntryIds = remember { mutableSetOf<String>() }
 
+    // Reconcile even an empty stack: clear() must release the last entry too.
     SideEffect {
         stores.retainEntries(entries)
         val retainedIds = entries.mapTo(mutableSetOf()) { it.id }
         (savedEntryIds - retainedIds).forEach(saveableStateHolder::removeState)
         savedEntryIds.retainAll(retainedIds)
-        savedEntryIds.add(entry.id)
+        entry?.let { savedEntryIds.add(it.id) }
     }
 
-    CompositionLocalProvider(
-        LocalNavigation provides navigation,
-    ) {
-        key(entry.id) {
-            val owner = stores.owner(entry)
-            owner.attach(hostFactory, hostLifecycle.currentState)
-            DisposableEffect(owner, hostLifecycle) {
-                val observer = LifecycleEventObserver { _, _ ->
-                    owner.updateHostState(hostLifecycle.currentState)
+    CompositionLocalProvider(LocalNavigation provides navigation) {
+        if (entry == null) {
+            navGraph(null)
+        } else {
+            key(entry.id) {
+                val owner = stores.owner(entry)
+                owner.attach(hostFactory, hostLifecycle.currentState)
+                DisposableEffect(owner, hostLifecycle) {
+                    val observer = LifecycleEventObserver { _, _ ->
+                        owner.updateHostState(hostLifecycle.currentState)
+                    }
+                    hostLifecycle.addObserver(observer)
+                    onDispose {
+                        hostLifecycle.removeObserver(observer)
+                        owner.detach()
+                    }
                 }
-                hostLifecycle.addObserver(observer)
-                onDispose {
-                    hostLifecycle.removeObserver(observer)
-                    owner.detach()
-                }
-            }
-            saveableStateHolder.SaveableStateProvider(entry.id) {
-                CompositionLocalProvider(
-                    LocalViewModelStoreOwner provides owner,
-                    LocalLifecycleOwner provides owner,
-                    LocalSavedStateRegistryOwner provides owner,
-                ) {
-                    navGraph(entry.screen)
+                saveableStateHolder.SaveableStateProvider(entry.id) {
+                    CompositionLocalProvider(
+                        LocalViewModelStoreOwner provides owner,
+                        LocalLifecycleOwner provides owner,
+                        LocalSavedStateRegistryOwner provides owner,
+                    ) {
+                        navGraph(entry.screen)
+                    }
                 }
             }
         }
