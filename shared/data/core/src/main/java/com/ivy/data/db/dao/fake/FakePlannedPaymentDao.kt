@@ -10,6 +10,8 @@ import java.util.UUID
 class FakePlannedPaymentDao : PlannedPaymentRuleDao, WritePlannedPaymentRuleDao {
     private val items = mutableListOf<PlannedPaymentRuleEntity>()
 
+    override suspend fun findAllForRestore(): List<PlannedPaymentRuleEntity> = items.toList()
+
     override suspend fun findAll(): List<PlannedPaymentRuleEntity> {
         return items
     }

@@ -16,6 +16,56 @@ internal data class BackupMergePlan(
 internal object BackupMergePlanner {
     fun plan(incoming: IvyWalletCompleteData, current: IvyWalletCompleteData): BackupMergePlan {
         require(incoming.formatVersion in 1..2) { "Unsupported backup version ${incoming.formatVersion}" }
+        forbidResurrection(
+            "account",
+            incoming.accounts.filterNot { it.isDeleted },
+            current.accounts.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "category",
+            incoming.categories.filterNot { it.isDeleted },
+            current.categories.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "budget",
+            incoming.budgets.filterNot { it.isDeleted },
+            current.budgets.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "loan",
+            incoming.loans.filterNot { it.isDeleted },
+            current.loans.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "loan record",
+            incoming.loanRecords.filterNot { it.isDeleted },
+            current.loanRecords.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "planned payment",
+            incoming.plannedPaymentRules.filterNot { it.isDeleted },
+            current.plannedPaymentRules.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "transaction",
+            incoming.transactions.filterNot { it.isDeleted },
+            current.transactions.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "settings",
+            incoming.settings.filterNot { it.isDeleted },
+            current.settings.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "tag",
+            incoming.tags.filterNot { it.isDeleted },
+            current.tags.filter { it.isDeleted },
+        ) { it.id }
+        forbidResurrection(
+            "tag association",
+            incoming.tagAssociations.filterNot { it.isDeleted },
+            current.tagAssociations.filter { it.isDeleted },
+        ) { it.tagId to it.associatedId }
         val data = normalize(incoming)
         val existing = normalize(current)
         val warnings = mutableListOf<String>()
@@ -107,6 +157,10 @@ internal object BackupMergePlanner {
 
     private fun validatePlannedPayments(data: IvyWalletCompleteData, existing: IvyWalletCompleteData) {
         val accountIds = (existing.accounts + data.accounts).map { it.id }.toSet()
+        val archivedIds = (existing.accounts + data.accounts).filter { it.archived }.map { it.id }.toSet()
+        (existing.plannedPaymentRules + data.plannedPaymentRules).forEach {
+            require(it.accountId !in archivedIds) { "Planned payment ${it.id} points to an archived account" }
+        }
         data.plannedPaymentRules.forEach {
             positive(it.amount, "planned payment ${it.id}")
             require(it.accountId in accountIds && it.startDate != null) { "Invalid planned payment ${it.id}" }
@@ -170,6 +224,13 @@ internal object BackupMergePlanner {
                 it.copy(lastSyncedTime = Instant.EPOCH)
             },
         )
+    }
+
+    private fun <T, K> forbidResurrection(name: String, incoming: List<T>, deleted: List<T>, id: (T) -> K) {
+        val deletedIds = deleted.map(id).toSet()
+        incoming.forEach {
+            require(id(it) !in deletedIds) { "Conflicting $name ID ${id(it)}; resurrection is forbidden" }
+        }
     }
 
     private fun <T, K> additions(name: String, incoming: List<T>, current: List<T>, id: (T) -> K): List<T> {

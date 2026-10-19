@@ -70,6 +70,46 @@ class BackupDataUseCaseAndroidTest {
     }
 
     @Test
+    fun restoreSnapshotPreservesDeletedIdentitiesButExportExcludesThem() = runBlocking {
+        val payload = completeRestorePayload()
+        val json = KotlinxSerializationModule.provideJson()
+        db.writeAccountDao.saveMany(payload.accounts)
+        db.writeCategoryDao.saveMany(payload.categories)
+        db.writeTransactionDao.saveMany(payload.transactions)
+        val sql = db.openHelper.writableDatabase
+        listOf("accounts", "categories", "transactions").forEach {
+            sql.execSQL("UPDATE $it SET isDeleted = 1")
+        }
+        val exported = json.decodeFromString<IvyWalletCompleteData>(useCase.generateJsonBackup())
+        org.junit.Assert.assertTrue(exported.accounts.isEmpty())
+        org.junit.Assert.assertTrue(exported.categories.isEmpty())
+        org.junit.Assert.assertTrue(exported.transactions.isEmpty())
+        // Isolate each collision so an earlier entity cannot hide a filtered reader.
+        val probes = listOf(
+            IvyWalletCompleteData(formatVersion = 2, accounts = payload.accounts),
+            IvyWalletCompleteData(formatVersion = 2, categories = payload.categories),
+            IvyWalletCompleteData(formatVersion = 2, transactions = payload.transactions),
+        )
+        for ((index, probe) in probes.withIndex()) {
+            var failure: Exception? = null
+            try {
+                useCase.importJson(json.encodeToString(probe), onProgress = {})
+            } catch (e: Exception) {
+                failure = e
+            }
+            org.junit.Assert.assertNotNull("Restore missed tombstone probe $index", failure)
+            org.junit.Assert.assertTrue(
+                "Expected identity conflict: $failure",
+                generateSequence<Throwable>(failure) { it.cause }
+                    .any { it.message.orEmpty().contains("Conflicting") }
+            )
+        }
+        org.junit.Assert.assertTrue(db.accountDao.findAll().isEmpty())
+        org.junit.Assert.assertTrue(db.categoryDao.findAll().isEmpty())
+        org.junit.Assert.assertTrue(db.transactionDao.findAll().isEmpty())
+    }
+
+    @Test
     fun restoreTransactionRollsBackOnFailure() = runBlocking {
         val account = com.ivy.data.db.entity.AccountEntity(
             name = "Rollback probe",

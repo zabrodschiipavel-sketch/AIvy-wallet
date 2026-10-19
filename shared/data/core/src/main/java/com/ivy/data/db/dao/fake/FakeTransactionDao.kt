@@ -12,6 +12,8 @@ import java.util.UUID
 class FakeTransactionDao : TransactionDao, WriteTransactionDao {
     private val items = mutableListOf<TransactionEntity>()
 
+    override suspend fun findAllForRestore(): List<TransactionEntity> = items.toList()
+
     override suspend fun findAll(): List<TransactionEntity> {
         return items
             .filter { !it.isDeleted }

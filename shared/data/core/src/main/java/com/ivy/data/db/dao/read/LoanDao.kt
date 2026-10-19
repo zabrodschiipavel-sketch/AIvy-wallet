@@ -10,6 +10,9 @@ interface LoanDao {
     @Query("SELECT * FROM loans WHERE isDeleted = 0 ORDER BY orderNum ASC")
     suspend fun findAll(): List<LoanEntity>
 
+    @Query("SELECT * FROM loans")
+    suspend fun findAllForRestore(): List<LoanEntity>
+
     @Query("SELECT * FROM loans WHERE isSynced = :synced AND isDeleted = :deleted")
     suspend fun findByIsSyncedAndIsDeleted(synced: Boolean, deleted: Boolean = false): List<LoanEntity>
 

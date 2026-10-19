@@ -10,6 +10,8 @@ import java.util.UUID
 class FakeBudgetDao : BudgetDao, WriteBudgetDao {
     private val items = mutableListOf<BudgetEntity>()
 
+    override suspend fun findAllForRestore(): List<BudgetEntity> = items.toList()
+
     override suspend fun findAll(): List<BudgetEntity> {
         return items
     }

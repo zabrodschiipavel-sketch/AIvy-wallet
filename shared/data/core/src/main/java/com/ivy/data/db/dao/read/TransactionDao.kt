@@ -12,6 +12,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY dateTime DESC, dueDate ASC")
     suspend fun findAll(): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactions")
+    suspend fun findAllForRestore(): List<TransactionEntity>
+
     @Suppress("FunctionNaming")
     @Deprecated("legacy remove")
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 LIMIT 1")
