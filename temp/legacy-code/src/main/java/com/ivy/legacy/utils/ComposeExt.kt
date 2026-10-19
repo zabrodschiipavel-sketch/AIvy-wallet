@@ -5,7 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -108,28 +108,30 @@ fun Modifier.drawColoredShadow(
     shadowRadius: Dp = 16.dp,
     offsetX: Dp = 0.dp,
     offsetY: Dp = 8.dp
-) = this.drawBehind {
+) = this.drawWithCache {
     val transparentColor = android.graphics.Color.toArgb(color.copy(alpha = 0.0f).value.toLong())
     val shadowColor = android.graphics.Color.toArgb(color.copy(alpha = alpha).value.toLong())
-    this.drawIntoCanvas {
-        val paint = Paint()
-        val frameworkPaint = paint.asFrameworkPaint()
-        frameworkPaint.color = transparentColor
-        frameworkPaint.setShadowLayer(
-            shadowRadius.toPx(),
-            offsetX.toPx(),
-            offsetY.toPx(),
-            shadowColor
-        )
-        it.drawRoundRect(
-            0f,
-            0f,
-            this.size.width,
-            this.size.height,
-            borderRadius.toPx(),
-            borderRadius.toPx(),
-            paint
-        )
+    val paint = Paint()
+    val frameworkPaint = paint.asFrameworkPaint()
+    frameworkPaint.color = transparentColor
+    frameworkPaint.setShadowLayer(
+        shadowRadius.toPx(),
+        offsetX.toPx(),
+        offsetY.toPx(),
+        shadowColor
+    )
+    onDrawBehind {
+        drawIntoCanvas {
+            it.drawRoundRect(
+                0f,
+                0f,
+                size.width,
+                size.height,
+                borderRadius.toPx(),
+                borderRadius.toPx(),
+                paint
+            )
+        }
     }
 }
 

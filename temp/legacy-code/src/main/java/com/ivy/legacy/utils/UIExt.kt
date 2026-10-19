@@ -12,55 +12,22 @@ import android.view.WindowInsetsController
 import android.view.inputmethod.InputMethodManager
 import androidx.annotation.FloatRange
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.doOnLayout
 import kotlin.math.roundToInt
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun keyboardVisibleState(): State<Boolean> {
-    val rootView = LocalView.current
-
-    val keyboardVisible = remember {
-        mutableStateOf(false)
-    }
-
-    com.ivy.legacy.utils.onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardVisible.value = it
-        }
-    }
-
-    return keyboardVisible
-}
-
-@Deprecated("Old design system. Use `:ivy-design` and Material3")
-fun View.addKeyboardListener(keyboardCallback: (visible: Boolean) -> Unit) {
-    doOnLayout {
-        // get init state of keyboard
-        var keyboardVisible = isKeyboardOpen(this)
-
-        // callback as soon as the layout is set with whether the keyboard is open or not
-        keyboardCallback(keyboardVisible)
-
-        // whenever the layout resizes/changes, callback with the state of the keyboard.
-        viewTreeObserver.addOnGlobalLayoutListener {
-            val keyboardUpdateCheck = isKeyboardOpen(this)
-            // since the observer is hit quite often, only callback when there is a change.
-            if (keyboardUpdateCheck != keyboardVisible) {
-                keyboardCallback(keyboardUpdateCheck)
-                keyboardVisible = keyboardUpdateCheck
-            }
-        }
-    }
-}
+fun keyboardVisibleState(): State<Boolean> = rememberUpdatedState(WindowInsets.isImeVisible)
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 fun isKeyboardOpen(rootView: View): Boolean {

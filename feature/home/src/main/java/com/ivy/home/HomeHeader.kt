@@ -18,12 +18,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,7 +83,7 @@ internal fun HomeHeader(
     onSelectPreviousMonth: () -> Unit,
 ) {
     Column {
-        val percentExpanded by animateFloatAsState(
+        val percentExpanded = animateFloatAsState(
             targetValue = if (expanded) 1f else 0f,
             animationSpec = springBounce(
                 stiffness = Spring.StiffnessLow
@@ -106,9 +110,12 @@ internal fun HomeHeader(
 
         Spacer(Modifier.height(16.dp))
 
-        if (percentExpanded < 0.5f) {
+        val dividerVisible by remember(percentExpanded) {
+            derivedStateOf { percentExpanded.value < 0.5f }
+        }
+        if (dividerVisible) {
             TransactionsDividerLine(
-                modifier = Modifier.alpha(1f - percentExpanded),
+                modifier = Modifier.graphicsLayer { alpha = (1f - percentExpanded.value).coerceIn(0f, 1f) },
                 paddingHorizontal = 0.dp
             )
         }
@@ -117,7 +124,7 @@ internal fun HomeHeader(
 
 @Composable
 private fun HeaderStickyRow(
-    percentExpanded: Float,
+    percentExpanded: State<Float>,
     name: String,
     period: TimePeriod,
     currency: String,
@@ -129,6 +136,9 @@ private fun HeaderStickyRow(
     onHiddenBalanceClick: () -> Unit,
     onSelectPreviousMonth: () -> Unit,
 ) {
+    val balanceVisible by remember(percentExpanded) {
+        derivedStateOf { percentExpanded.value < 1f }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,7 +152,7 @@ private fun HeaderStickyRow(
         ) {
             Text(
                 modifier = Modifier
-                    .alpha(percentExpanded)
+                    .graphicsLayer { alpha = percentExpanded.value.coerceIn(0f, 1f) }
                     .testTag("home_greeting_text"),
                 text = if (name.isNotNullOrBlank()) {
                     stringResource(
@@ -161,10 +171,10 @@ private fun HeaderStickyRow(
             )
 
             // Balance mini row
-            if (percentExpanded < 1f) {
+            if (balanceVisible) {
                 BalanceRowMini(
                     modifier = Modifier
-                        .alpha(alpha = 1f - percentExpanded)
+                        .graphicsLayer { alpha = (1f - percentExpanded.value).coerceIn(0f, 1f) }
                         .clickableNoIndication(rememberInteractionSource()) {
                             if (hideBalance) {
                                 onHiddenBalanceClick()

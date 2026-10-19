@@ -50,7 +50,7 @@ import com.ivy.design.l0_system.style
 import com.ivy.frp.test.TestingContext
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.addKeyboardListener
+import com.ivy.legacy.utils.keyboardVisibleState
 import com.ivy.legacy.utils.clickableNoIndication
 import com.ivy.legacy.utils.consumeClicks
 import com.ivy.legacy.utils.densityScope
@@ -59,7 +59,6 @@ import com.ivy.legacy.utils.hideKeyboard
 import com.ivy.legacy.utils.keyboardOnlyWindowInsets
 import com.ivy.legacy.utils.lerp
 import com.ivy.legacy.utils.navigationBarInsets
-import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.springBounce
 import com.ivy.design.utils.thenIf
 import com.ivy.legacy.utils.verticalSwipeListener
@@ -117,13 +116,7 @@ fun BoxWithConstraintsScope.EditBottomSheet(
     convertedAmountCurrencyCode: String? = null,
 ) {
     val rootView = LocalView.current
-    var keyboardShown by remember { mutableStateOf(false) }
-
-    onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardShown = it
-        }
-    }
+    val keyboardShown by keyboardVisibleState()
 
     val keyboardShownInsetDp by animateDpAsState(
         targetValue = densityScope {

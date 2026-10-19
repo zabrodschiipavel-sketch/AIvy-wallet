@@ -17,10 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +39,7 @@ import com.ivy.design.l0_system.style
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.addKeyboardListener
+import com.ivy.legacy.utils.keyboardVisibleState
 import com.ivy.legacy.utils.clickableNoIndication
 import com.ivy.legacy.utils.closeDay
 import com.ivy.legacy.utils.formatDateWeekDayLong
@@ -57,7 +57,6 @@ import com.ivy.wallet.ui.theme.components.IntervalPickerRow
 import com.ivy.wallet.ui.theme.components.IvyCircleButton
 import com.ivy.wallet.ui.theme.components.IvyDividerLine
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
@@ -298,17 +297,11 @@ private fun MultipleTimes(
 
     Spacer(Modifier.height(16.dp))
 
-    val rootView = LocalView.current
-    val coroutineScope = rememberCoroutineScope()
-
-    onScreenStart {
-        rootView.addKeyboardListener { keyboardShown ->
-            if (keyboardShown) {
-                coroutineScope.launch {
-                    delay(200)
-                    modalScrollState.animateScrollTo(modalScrollState.maxValue)
-                }
-            }
+    val keyboardShown by keyboardVisibleState()
+    LaunchedEffect(keyboardShown, modalScrollState) {
+        if (keyboardShown) {
+            delay(200)
+            modalScrollState.animateScrollTo(modalScrollState.maxValue)
         }
     }
 
