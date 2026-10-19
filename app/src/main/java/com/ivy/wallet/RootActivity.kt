@@ -20,6 +20,9 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -105,7 +108,23 @@ class RootActivity : AppCompatActivity(), RootScreen {
             }
 
             val appLocked by viewModel.appLocked.collectAsState()
-            when (appLocked) {
+            val startupError by viewModel.startupError.collectAsState()
+            if (startupError) {
+                IvyMaterial3Theme(dark = isSystemInDarkTheme, isTrueBlack = false) {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        title = { Text("Unable to start") },
+                        text = { Text("Your data could not be prepared. Please retry.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                viewModel.start(isSystemInDarkTheme, intent)
+                            }) {
+                                Text("Retry")
+                            }
+                        },
+                    )
+                }
+            } else when (appLocked) {
                 null -> { // display nothing
                 }
                 true -> {

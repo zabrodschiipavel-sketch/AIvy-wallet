@@ -8,6 +8,7 @@ import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
+import com.ivy.data.backup.RestorePreferencesRecovery
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.repository.LegalRepository
 import com.ivy.frp.test.TestIdlingResource
@@ -23,6 +24,7 @@ import com.ivy.ui.R
 import com.ivy.wallet.domain.deprecated.logic.notification.TransactionReminderLogic
 import com.ivy.wallet.migrations.MigrationsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -43,6 +45,7 @@ class RootViewModel @Inject constructor(
     private val transactionReminderLogic: TransactionReminderLogic,
     private val migrationsManager: MigrationsManager,
     private val legalRepo: LegalRepository,
+    private val restorePreferencesRecovery: RestorePreferencesRecovery,
 ) : ViewModel() {
 
     companion object {
@@ -56,47 +59,66 @@ class RootViewModel @Inject constructor(
     private val _appLocked = MutableStateFlow<Boolean?>(null)
     val appLocked = _appLocked.readOnly()
 
+    private val _startupError = MutableStateFlow(false)
+    val startupError = _startupError.readOnly()
+
+    private var initializationJob: Job? = null
+    private var initialized = false
+    private var latestSystemDarkMode = false
+
+    @Suppress("TooGenericExceptionCaught")
     fun start(systemDarkMode: Boolean, intent: Intent) {
-        viewModelScope.launch {
+        latestSystemDarkMode = systemDarkMode
+        if (initializationJob?.isActive == true) return
+
+        initializationJob = viewModelScope.launch {
             TestIdlingResource.increment()
+            try {
+                // A committed restore journal must be replayed before any startup reads.
+                restorePreferencesRecovery.recoverPending()
+                val savedTheme = ioThread { settingsDao.findAll().firstOrNull()?.theme }
+                ivyContext.switchTheme(
+                    savedTheme ?: if (latestSystemDarkMode) Theme.DARK else Theme.LIGHT
+                )
+                if (!initialized) {
+                    val startDay = ioThread {
+                        sharedPrefs.getInt(SharedPrefs.START_DATE_OF_MONTH, 1)
+                    }
+                    val lockEnabled = ioThread {
+                        sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false)
+                    }
+                    val onboarded = ioThread { isOnboardingCompleted() }
+                    val disclaimerAccepted = legalRepo.isDisclaimerAccepted()
 
-            ioThread {
-                val theme = settingsDao.findAll().firstOrNull()?.theme
-                    ?: if (systemDarkMode) Theme.DARK else Theme.LIGHT
-                ivyContext.switchTheme(theme)
-
-                ivyContext.initStartDayOfMonthInMemory(sharedPrefs = sharedPrefs)
-            }
-
-            TestIdlingResource.decrement()
-        }
-
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
-            ioThread {
-                appLockEnabled = sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false)
-                // initial app locked state
-                _appLocked.value = appLockEnabled
-
-                if (isOnboardingCompleted()) {
-                    navigateOnboardedUser(intent)
-                } else {
-                    nav.navigateTo(OnboardingScreen)
+                    // viewModelScope runs on Main; never mutate navigation on IO.
+                    ivyContext.setStartDayOfMonth(startDay)
+                    appLockEnabled = lockEnabled
+                    if (onboarded) {
+                        navigateOnboardedUser(intent)
+                    } else {
+                        nav.navigateTo(OnboardingScreen)
+                    }
+                    if (!disclaimerAccepted) {
+                        nav.navigateTo(DisclaimerScreen)
+                    }
+                    initialized = true
+                    _appLocked.value = lockEnabled
+                    viewModelScope.launch {
+                        // executeMigrations retains its existing two-second delay.
+                        migrationsManager.executeMigrations()
+                    }
                 }
-                if (!legalRepo.isDisclaimerAccepted()) {
-                    nav.navigateTo(DisclaimerScreen)
-                }
+                _startupError.value = false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Do not expose exception details or allow entry into an unrecovered app.
+                _startupError.value = true
+            } finally {
+                TestIdlingResource.decrement()
             }
-
-            TestIdlingResource.decrement()
-        }
-
-        viewModelScope.launch {
-            migrationsManager.executeMigrations()
         }
     }
-
     private fun navigateOnboardedUser(intent: Intent) {
         if (!handleSpecialStart(intent)) {
             nav.navigateTo(MainScreen)
