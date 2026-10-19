@@ -6,7 +6,19 @@ import unittest
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from quality import baseline_entries, feature_edges, lint_errors
+from quality import baseline_entries, feature_edges, inspect_badging, lint_errors
+
+
+class CandidateGateTest(unittest.TestCase):
+    def test_verified_release_package(self):
+        self.assertEqual(inspect_badging("package: name='com.ivy.wallet.optimized' versionCode='1'"),
+                         "com.ivy.wallet.optimized")
+
+    def test_rejects_missing_wrong_and_debuggable_package(self):
+        for badging in ("", "package: name='com.ivy.wallet.optimized.debug'",
+                        "package: name='com.ivy.wallet.optimized'\napplication-debuggable"):
+            with self.subTest(badging=badging), self.assertRaises(ValueError):
+                inspect_badging(badging)
 
 
 class LintGateTest(unittest.TestCase):

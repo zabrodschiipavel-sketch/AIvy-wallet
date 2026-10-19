@@ -123,12 +123,23 @@ def sha256(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def candidate(apk: Path, root: Path, output: Path) -> dict:
+def inspect_badging(badging: str) -> str:
+    package = re.search(r"^package: name='([^']+)'", badging, re.M)
+    if not package or package.group(1) != "com.ivy.wallet.optimized":
+        raise ValueError("Candidate APK has unexpected or missing package")
+    if re.search(r"^application-debuggable(?:\s|$)", badging, re.M):
+        raise ValueError("Candidate APK is debuggable")
+    return package.group(1)
+
+
+def candidate(apk: Path, root: Path, output: Path, aapt: Path) -> dict:
     if not apk.is_file() or apk.stat().st_size == 0:
         raise ValueError("Candidate APK is missing or empty")
+    package = inspect_badging(subprocess.check_output(
+        [str(aapt), "dump", "badging", str(apk)], text=True, encoding="utf-8"))
     metadata = {"schema": 1, "commit": git(root, "rev-parse", "HEAD").decode().strip(),
                 "apk": apk.name, "sha256": sha256(apk), "bytes": apk.stat().st_size,
-                "variant": "release", "package": "com.ivy.wallet.optimized"}
+                "variant": "release", "package": package}
     output.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     return metadata
 
@@ -143,6 +154,7 @@ def main() -> int:
     package = commands.add_parser("candidate")
     package.add_argument("apk", type=Path)
     package.add_argument("--out", type=Path, required=True)
+    package.add_argument("--aapt", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command == "lint":
@@ -153,7 +165,7 @@ def main() -> int:
         elif args.command == "ratchet":
             print(json.dumps(ratchet(args.root.resolve()), indent=2))
         else:
-            print(json.dumps(candidate(args.apk, args.root, args.out), indent=2))
+            print(json.dumps(candidate(args.apk, args.root, args.out, args.aapt), indent=2))
         return 0
     except (OSError, ValueError, KeyError, ET.ParseError, subprocess.CalledProcessError) as error:
         print(f"QUALITY CHECK FAILED: {error}")

@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '21'}
       - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "build-tools;34.0.0"
       - name: Verify successful quality run and exact main SHA
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,10 +54,15 @@ jobs:
           assert os.environ['KEYSTORE_B64'] and os.environ['STORE_PASSWORD'] and os.environ['KEY_ALIAS'] and os.environ['KEY_PASSWORD']
           pathlib.Path('sign.jks').write_bytes(__import__('base64').b64decode(os.environ['KEYSTORE_B64'],validate=True))
           PY
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs candidate/app-release-unsigned.apk >/dev/null && exit 1 || true
-          $ANDROID_HOME/build-tools/35.0.0/apksigner sign --ks sign.jks --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out Ivy-Wallet.apk candidate/app-release-unsigned.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose Ivy-Wallet.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging Ivy-Wallet.apk | grep -F "package: name='com.ivy.wallet.optimized'"
+          python scripts/quality.py candidate candidate/app-release-unsigned.apk --out inspected.json --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt"
+          $ANDROID_HOME/build-tools/34.0.0/zipalign -f -v 4 candidate/app-release-unsigned.apk aligned.apk
+          $ANDROID_HOME/build-tools/34.0.0/zipalign -c -v 4 aligned.apk
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign --ks sign.jks --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out Ivy-Wallet.apk aligned.apk
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose Ivy-Wallet.apk
+          sha256sum Ivy-Wallet.apk > Ivy-Wallet.apk.sha256
       - name: Draft GitHub release
         env: {GH_TOKEN: '${{ github.token }}'}
-        run: gh release create "candidate-${{ inputs.head_sha }}" Ivy-Wallet.apk --draft --title "Verified candidate ${{ inputs.head_sha }}" --notes "Signed promotion of successful Quality run ${{ inputs.run_id }} at ${{ inputs.head_sha }}. Not announced or deployed."
+        run: gh release create "candidate-${{ inputs.head_sha }}" Ivy-Wallet.apk Ivy-Wallet.apk.sha256 --draft --title "Verified candidate ${{ inputs.head_sha }}" --notes "Signed promotion of successful Quality run ${{ inputs.run_id }} at ${{ inputs.head_sha }}."
+      - name: Remove signing material
+        if: always()
+        run: rm -f sign.jks
