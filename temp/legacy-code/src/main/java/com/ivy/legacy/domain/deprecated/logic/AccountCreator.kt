@@ -9,7 +9,8 @@ import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.model.primitive.ColorInt
 import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
-import com.ivy.data.repository.AccountRepository
+import com.ivy.data.account.AccountBalanceWriteCommand
+import arrow.core.getOrElse
 import com.ivy.data.repository.CurrencyRepository
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.WalletAccountLogic
@@ -22,7 +23,7 @@ import com.ivy.legacy.datamodel.Account as LegacyAccount
 class AccountCreator @Inject constructor(
     private val accountLogic: WalletAccountLogic,
     private val accountDao: AccountDao,
-    private val accountRepository: AccountRepository,
+    private val accountWrite: AccountBalanceWriteCommand,
     private val currencyRepository: CurrencyRepository,
 ) {
 
@@ -31,36 +32,23 @@ class AccountCreator @Inject constructor(
         onRefreshUI: suspend () -> Unit
     ) {
         ioThread {
-            val account = either {
-                Account(
-                    id = AccountId(value = UUID.randomUUID()),
-                    name = NotBlankTrimmedString.from(data.name).bind(),
-                    asset = AssetCode.from(data.currency).bind(),
-                    color = ColorInt(data.color.toArgb()),
-                    icon = data.icon?.let(IconAsset::from)?.getOrNull(),
-                    includeInBalance = data.includeBalance,
-                    orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
-                    archived = false,
-                )
-            }.getOrNull() ?: return@ioThread
-            accountRepository.save(account)
-
-            val legacyAccount = LegacyAccount(
-                name = data.name,
-                currency = data.currency,
-                color = data.color.toArgb(),
-                icon = data.icon,
-                includeInBalance = data.includeBalance,
-                orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
-                isSynced = false,
-                id = account.id.value,
-                archived = false,
-            )
-            accountLogic.adjustBalance(
-                account = legacyAccount,
-                actualBalance = 0.0,
-                newBalance = data.balance
-            )
+            require(data.balance.isFinite()) { "Balance must be finite" }
+            accountWrite.save(account = {
+                either {
+                    Account(
+                        id = AccountId(UUID.randomUUID()),
+                        name = NotBlankTrimmedString.from(data.name).bind(),
+                        asset = AssetCode.from(data.currency).bind(),
+                        color = ColorInt(data.color.toArgb()),
+                        icon = data.icon?.let { IconAsset.from(it).bind() },
+                        includeInBalance = data.includeBalance,
+                        orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
+                        archived = false,
+                    )
+                }.getOrElse { throw IllegalArgumentException(it) }
+            }, adjustment = { account ->
+                accountLogic.balanceAdjustment(account, 0.0, data.balance)
+            })
         }
 
         onRefreshUI()
@@ -75,15 +63,19 @@ class AccountCreator @Inject constructor(
             isSynced = false
         )
         ioThread {
-            val account = legacyAccount.toDomainAccount(currencyRepository).getOrNull()
-                ?: return@ioThread
-            accountRepository.save(account)
-
-            accountLogic.adjustBalance(
-                account = updatedLegacyAccount,
-                actualBalance = accountLogic.calculateAccountBalance(updatedLegacyAccount),
-                newBalance = newBalance
-            )
+            require(newBalance.isFinite()) { "Balance must be finite" }
+            require(!legacyAccount.isDeleted) { "Cannot save a deleted account" }
+            legacyAccount.icon?.let {
+                IconAsset.from(it).getOrElse { error -> throw IllegalArgumentException(error) }
+            }
+            accountWrite.save(account = {
+                updatedLegacyAccount.toDomainAccount(currencyRepository)
+                    .getOrElse { throw IllegalArgumentException(it) }
+            }, adjustment = { account ->
+                accountLogic.balanceAdjustment(
+                    account, accountLogic.calculateAccountBalance(updatedLegacyAccount), newBalance,
+                )
+            })
         }
 
         onRefreshUI()

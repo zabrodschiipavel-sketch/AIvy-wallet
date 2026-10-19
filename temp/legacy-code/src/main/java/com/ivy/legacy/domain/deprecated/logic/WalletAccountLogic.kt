@@ -43,8 +43,11 @@ class WalletAccountLogic @Inject constructor(
         isFiat: Boolean? = null,
         trnIsSyncedFlag: Boolean = false, // TODO: Remove this once Bank Integration trn sync is properly implemented
     ) {
+        require(newBalance.isFinite()) { "Balance must be finite" }
         val ab = actualBalance ?: calculateAccountBalance(account)
+        require(ab.isFinite()) { "Actual balance must be finite" }
         val diff = ab - newBalance
+        require(diff.isFinite()) { "Adjustment must be finite" }
 
         val finalDiff = if (isFiat == true && abs(diff) < 0.009) 0.0 else diff
         when {
@@ -58,7 +61,8 @@ class WalletAccountLogic @Inject constructor(
                     dateTime = timeProvider.utcNow(),
                     accountId = account.id,
                     isSynced = trnIsSyncedFlag
-                ).toDomain(transactionMapper)?.let {
+                ).toDomain(transactionMapper).let { mapped ->
+                    val it = requireNotNull(mapped) { "Cannot map balance adjustment" }
                     transactionRepository.save(it)
                 }
             }
@@ -73,10 +77,37 @@ class WalletAccountLogic @Inject constructor(
                     dateTime = timeProvider.utcNow(),
                     accountId = account.id,
                     isSynced = trnIsSyncedFlag
-                ).toDomain(transactionMapper)?.let {
+                ).toDomain(transactionMapper).let { mapped ->
+                    val it = requireNotNull(mapped) { "Cannot map balance adjustment" }
                     transactionRepository.save(it)
                 }
             }
+        }
+    }
+
+    /** Build without reading repository memos: the new account is not committed yet. */
+    fun balanceAdjustment(
+        account: com.ivy.data.model.Account,
+        actualBalance: Double,
+        newBalance: Double,
+    ): com.ivy.data.model.Transaction? {
+        require(actualBalance.isFinite() && newBalance.isFinite()) { "Balance must be finite" }
+        val delta = newBalance - actualBalance
+        require(delta.isFinite()) { "Adjustment must be finite" }
+        if (delta == 0.0) return null
+        val value = com.ivy.data.model.PositiveValue(
+            com.ivy.data.model.primitive.PositiveDouble.from(abs(delta))
+                .getOrElse { throw IllegalArgumentException(it) }, account.asset,
+        )
+        val id = com.ivy.data.model.TransactionId(java.util.UUID.randomUUID())
+        val title = com.ivy.data.model.primitive.NotBlankTrimmedString.from("Adjust balance")
+            .getOrElse { throw IllegalArgumentException(it) }
+        val metadata = com.ivy.data.model.TransactionMetadata(null, null, loanRecordId = null)
+        val now = timeProvider.utcNow()
+        return if (delta > 0) {
+            Income(id, title, null, null, now, true, metadata, emptyList(), value, account.id)
+        } else {
+            Expense(id, title, null, null, now, true, metadata, emptyList(), value, account.id)
         }
     }
 
@@ -85,7 +116,7 @@ class WalletAccountLogic @Inject constructor(
     ): Double {
         val accountList = account.toDomainAccount(currencyRepository)
             .map { a -> listOf(a) }
-            .getOrElse { emptyList() }
+            .getOrElse { throw IllegalArgumentException(it) }
 
         val includeTransfersInCalc =
             sharedPrefs.getBoolean(SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE, false)
