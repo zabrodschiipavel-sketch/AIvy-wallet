@@ -6,14 +6,12 @@ import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.repository.CurrencyRepository
-import com.ivy.wallet.domain.action.account.AccountsAct
-import com.ivy.wallet.domain.action.viewmodel.home.UpdateAccCacheAct
+import com.ivy.legacy.domain.action.settings.UpdateSettingsAct
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -28,8 +26,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
     private val repository = mockk<CurrencyRepository>()
-    private val accounts = mockk<AccountsAct>()
-    private val cache = mockk<UpdateAccCacheAct>()
+    private val settings = mockk<UpdateSettingsAct>()
     private val observer = mockk<DataObserver>(relaxed = true)
     private val toaster = mockk<Toaster>(relaxed = true)
 
@@ -37,8 +34,8 @@ class SettingsViewModelTest {
         settingsDao = mockk(), ivyContext = mockk(), logoutLogic = mockk(),
         sharedPrefs = mockk(), backupDataUseCase = mockk(), startDayOfMonthAct = mockk(),
         updateStartDayOfMonthAct = mockk(), syncExchangeRatesUseCase = mockk(relaxed = true),
-        settingsAct = mockk(), updateSettingsAct = mockk(), settingsWriter = mockk(),
-        currencyRepository = repository, accountsAct = accounts, updateAccCacheAct = cache,
+        settingsAct = mockk(), updateSettingsAct = settings, settingsWriter = mockk(),
+        currencyRepository = repository,
         dataObserver = observer, toaster = toaster, exportCsvUseCase = mockk(), context = mockk()
     )
 
@@ -54,23 +51,21 @@ class SettingsViewModelTest {
         try {
             val saved = CompletableDeferred<Unit>()
             coEvery { repository.setBaseBaseCurrency(any()) } coAnswers { saved.await() }
-            coEvery { accounts(Unit) } returns persistentListOf()
-            coEvery { cache(any()) } coAnswers {
+            coEvery { settings.refreshAccountCache() } coAnswers {
                 currency(vm) shouldBe ""
-                firstArg()
+                Unit
             }
             vm = viewModel()
             vm.onEvent(SettingsEvent.SetCurrency("EUR"))
             runCurrent()
             currency(vm) shouldBe ""
-            coVerify(exactly = 0) { accounts(Unit) }
+            coVerify(exactly = 0) { settings.refreshAccountCache() }
             saved.complete(Unit)
             runCurrent()
             currency(vm) shouldBe "EUR"
             coVerifyOrder {
                 repository.setBaseBaseCurrency(AssetCode.unsafe("EUR"))
-                accounts(Unit)
-                cache(any())
+                settings.refreshAccountCache()
                 observer.post(DataWriteEvent.AllDataChange)
             }
         } finally {
@@ -96,7 +91,7 @@ class SettingsViewModelTest {
             currency(vm) shouldBe ""
             coVerify(exactly = 1) { toaster.show(any<String>(), any()) }
             coVerify(exactly = 0) { observer.post(any()) }
-            coVerify(exactly = 0) { accounts(Unit) }
+            coVerify(exactly = 0) { settings.refreshAccountCache() }
         } finally {
             Dispatchers.resetMain()
         }
