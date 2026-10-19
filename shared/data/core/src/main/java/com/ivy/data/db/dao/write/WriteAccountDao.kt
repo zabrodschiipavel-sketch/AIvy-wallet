@@ -5,6 +5,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import androidx.room.Transaction
 import com.ivy.data.db.entity.AccountEntity
+import com.ivy.data.model.AccountHistoryException
 import java.util.UUID
 
 @Dao
@@ -62,5 +63,3 @@ interface WriteAccountDao {
     @Query("DELETE FROM accounts")
     suspend fun deleteAll()
 }
-
-class AccountHistoryException(message: String) : IllegalArgumentException(message)
