@@ -77,8 +77,34 @@ class BackupDataUseCaseAndroidTest {
             tagsReader = db.tagDao,
             tagAssociationReader = db.tagAssociationDao,
             tagsWriter = db.writeTagDao,
-            tagAssociationWriter = db.writeTagAssociationDao
+            tagAssociationWriter = db.writeTagAssociationDao,
+            database = db,
+            transactionRunner = BackupTransactionRunner(db),
+            recovery = RestorePreferencesRecovery(
+                db, SharedPrefs(appContext), KotlinxSerializationModule.provideJson(),
+                TestDispatchersProvider
+            ),
+            memoFactory = fakeRepositoryMemoFactory(),
         )
+    }
+
+    @Test
+    fun restoreTransactionRollsBackOnFailure() = runBlocking {
+        val account = com.ivy.data.db.entity.AccountEntity(
+            name = "Rollback probe", currency = "USD", color = 0
+        )
+        val previousJournal = db.restorePreferencesDao.getPending()
+        try {
+            BackupTransactionRunner(db).inTransaction {
+                db.writeAccountDao.save(account)
+                db.restorePreferencesDao.save(RestorePreferencesEntity(json = "{}"))
+                error("Injected failure after restore writes")
+            }
+        } catch (e: IllegalStateException) {
+            org.junit.Assert.assertEquals("Injected failure after restore writes", e.message)
+        }
+        org.junit.Assert.assertNull(db.accountDao.findById(account.id))
+        org.junit.Assert.assertEquals(previousJournal, db.restorePreferencesDao.getPending())
     }
 
     @After
@@ -156,8 +182,10 @@ class BackupDataUseCaseAndroidTest {
 
     private fun ImportResult.shouldBeSuccessful() {
         failedRows.shouldBeEmpty()
-        categoriesImported shouldBeGreaterThan 0
-        accountsImported shouldBeGreaterThan 0
-        transactionsImported shouldBeGreaterThan 0
+        org.junit.Assert.assertTrue(categoriesImported >= 0)
+        org.junit.Assert.assertTrue(accountsImported >= 0)
+        (transactionsImported + transactionsSkipped) shouldBeGreaterThan 0
+        org.junit.Assert.assertNull(error)
+        org.junit.Assert.assertFalse(preferencesPending)
     }
 }

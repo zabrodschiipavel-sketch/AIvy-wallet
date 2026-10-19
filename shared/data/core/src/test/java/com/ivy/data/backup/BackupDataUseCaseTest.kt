@@ -20,6 +20,10 @@ import com.ivy.data.repository.mapper.AccountMapper
 import com.ivy.data.testResource
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
+import io.mockk.every
+import com.ivy.data.db.IvyRoomDatabase
+import com.ivy.base.legacy.SharedPrefs
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -44,6 +48,15 @@ class BackupDataUseCaseTest {
                 dispatchersProvider = TestDispatchersProvider,
             )
         )
+        val database = mockk<IvyRoomDatabase>(relaxed = true)
+        every { database.writeAccountDao } returns accountDao
+        coEvery { database.exchangeRatesDao.findAllManuallyOverridden() } returns emptyList()
+        coEvery { database.restorePreferencesDao.getPending() } returns null
+        val runner = mockk<BackupTransactionRunner>()
+        coEvery { runner.inTransaction<Any?>(any()) } coAnswers {
+            firstArg<suspend () -> Any?>().invoke()
+        }
+        val prefs = mockk<SharedPrefs>(relaxed = true)
         return BackupDataUseCase(
             accountDao = accountDao,
             accountMapper = accountMapper,
@@ -70,7 +83,7 @@ class BackupDataUseCaseTest {
             plannedPaymentRuleWriter = plannedPaymentDao,
 
             context = mockk(relaxed = true),
-            sharedPrefs = mockk(relaxed = true),
+            sharedPrefs = prefs,
             json = KotlinxSerializationModule.provideJson(),
             dispatchersProvider = TestDispatchersProvider,
             fileSystem = mockk(relaxed = true),
@@ -78,7 +91,13 @@ class BackupDataUseCaseTest {
             tagsReader = tagDao,
             tagsWriter = tagDao,
             tagAssociationReader = tagAssociationDao,
-            tagAssociationWriter = tagAssociationDao
+            tagAssociationWriter = tagAssociationDao,
+            database = database,
+            transactionRunner = runner,
+            recovery = RestorePreferencesRecovery(
+                database, prefs, KotlinxSerializationModule.provideJson(), TestDispatchersProvider
+            ),
+            memoFactory = fakeRepositoryMemoFactory(),
         )
     }
 
@@ -105,7 +124,7 @@ class BackupDataUseCaseTest {
         val freshBackupUseCase = newBackupDataUseCase()
         val reImportedDataRes = freshBackupUseCase.importJson(exportedJson, onProgress = {})
         // then
-        reImportedDataRes shouldBe importedDataRes
+        reImportedDataRes shouldBe importedDataRes.copy(warnings = kotlinx.collections.immutable.persistentListOf())
 
         // Finally, exporting again should yield the same result
         freshBackupUseCase.generateJsonBackup() shouldBe exportedJson

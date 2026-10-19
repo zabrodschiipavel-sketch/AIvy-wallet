@@ -33,17 +33,14 @@ import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.mapper.AccountMapper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.async
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import timber.log.Timber
 import java.io.File
-import java.io.FileOutputStream
 import java.util.UUID
 import javax.inject.Inject
 
-// TODO: Legacy code, needs improvements
 class BackupDataUseCase @Inject constructor(
     private val accountDao: AccountDao,
     private val budgetDao: BudgetDao,
@@ -72,314 +69,138 @@ class BackupDataUseCase @Inject constructor(
     private val tagsReader: TagDao,
     private val tagAssociationReader: TagAssociationDao,
     private val tagsWriter: WriteTagDao,
-    private val tagAssociationWriter: WriteTagAssociationDao
+    private val tagAssociationWriter: WriteTagAssociationDao,
+    private val database: com.ivy.data.db.IvyRoomDatabase,
+    private val transactionRunner: BackupTransactionRunner,
+    private val recovery: RestorePreferencesRecovery,
+    private val memoFactory: com.ivy.data.repository.RepositoryMemoFactory,
 ) {
-    suspend fun exportToFile(
-        zipFileUri: Uri
-    ) {
-        val jsonString = generateJsonBackup()
-        val file = createJsonDataFile(jsonString)
-        zip(context = context, zipFileUri, listOf(file))
-        clearCacheDir()
-    }
-
-    private fun createJsonDataFile(jsonString: String): File {
-        val fileNamePrefix = "data"
-        val fileNameSuffix = ".json"
-        val outputDir = context.cacheDir
-
-        val file = File.createTempFile(fileNamePrefix, fileNameSuffix, outputDir)
-        FileOutputStream(file).use { it.write(jsonString.toByteArray(Charsets.UTF_16)) }
-
-        return file
-    }
-
-    suspend fun generateJsonBackup(): String {
-        return withContext(dispatchersProvider.io) {
-            val accounts = async { accountDao.findAll() }
-            val budgets = async { budgetDao.findAll() }
-            val categories = async { categoryDao.findAll() }
-            val loanRecords = async { loanRecordDao.findAll() }
-            val loans = async { loanDao.findAll() }
-            val plannedPaymentRules =
-                async { plannedPaymentRuleDao.findAll() }
-            val settings = async { settingsDao.findAll() }
-            val transactions = async { transactionDao.findAll() }
-            val sharedPrefs = async { getSharedPrefsData() }
-            val tags = async { tagsReader.findAll() }
-            val tagAssociations = async { tagAssociationReader.findAll() }
-
-            val completeData = IvyWalletCompleteData(
-                accounts = accounts.await(),
-                budgets = budgets.await(),
-                categories = categories.await(),
-                loanRecords = loanRecords.await(),
-                loans = loans.await(),
-                plannedPaymentRules = plannedPaymentRules.await(),
-                settings = settings.await(),
-                transactions = transactions.await(),
-                sharedPrefs = sharedPrefs.await(),
-                tags = tags.await(),
-                tagAssociations = tagAssociations.await()
-            )
-
-            json.encodeToString(completeData)
+    suspend fun exportToFile(zipFileUri: Uri) {
+        val dir = ownedTempDirectory()
+        try {
+            val file = File(dir, "data.json")
+            file.writeText(generateJsonBackup(), Charsets.UTF_16)
+            zip(context = context, zipFileUri, listOf(file))
+        } finally {
+            dir.deleteRecursively()
         }
     }
 
-    private fun getSharedPrefsData(): HashMap<String, String> {
-        val hashmap = HashMap<String, String>()
-        hashmap[SharedPrefs.SHOW_NOTIFICATIONS] =
-            sharedPrefs.getBoolean(SharedPrefs.SHOW_NOTIFICATIONS, true).toString()
+    private fun ownedTempDirectory(): File =
+        File(context.cacheDir, "backup-${UUID.randomUUID()}").also {
+            check(it.mkdir()) { "Could not create backup directory" }
+        }
 
-        hashmap[SharedPrefs.APP_LOCK_ENABLED] =
-            sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false).toString()
+    private suspend fun snapshot() = IvyWalletCompleteData(
+        formatVersion = 2,
+        accounts = accountDao.findAll(),
+        budgets = budgetDao.findAll(),
+        categories = categoryDao.findAll(),
+        loanRecords = loanRecordDao.findAll(),
+        loans = loanDao.findAll(),
+        plannedPaymentRules = plannedPaymentRuleDao.findAll(),
+        settings = settingsDao.findAll(),
+        transactions = transactionDao.findAll(),
+        sharedPrefs = getSharedPrefsData(),
+        tags = tagsReader.findAll(),
+        tagAssociations = tagAssociationReader.findAll(),
+        manualExchangeRates = database.exchangeRatesDao.findAllManuallyOverridden(),
+    )
 
-        hashmap[SharedPrefs.HIDE_CURRENT_BALANCE] =
-            sharedPrefs.getBoolean(SharedPrefs.HIDE_CURRENT_BALANCE, false).toString()
-
-        hashmap[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE] =
-            sharedPrefs.getBoolean(SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE, false).toString()
-
-        return hashmap
+    suspend fun generateJsonBackup(): String = withContext(dispatchersProvider.io) {
+        recovery.withRestoreLock {
+            recovery.recoverPendingLocked()
+            json.encodeToString(transactionRunner.inTransaction { snapshot() })
+        }
     }
+
+    private fun getSharedPrefsData(): HashMap<String, String> = HashMap(
+        RestorePreferenceKeys.associateWith { key ->
+            sharedPrefs.getBoolean(key, key == SharedPrefs.SHOW_NOTIFICATIONS).toString()
+        }
+    )
 
     suspend fun importBackupFile(
         backupFileUri: Uri,
         onProgress: suspend (progressPercent: Double) -> Unit
     ): ImportResult = withContext(dispatchersProvider.io) {
-        return@withContext try {
-            val jsonString = try {
-                extractAndReadBackupZip(backupFileUri, onProgress)
+        val dir = ownedTempDirectory()
+        try {
+            val text = try {
+                unzip(context, backupFileUri, dir)
+                onProgress(0.1)
+                val files = dir.listFiles().orEmpty().filter {
+                    it.isFile && it.extension.equals("json", ignoreCase = true)
+                }
+                check(files.size == 1) { "Expected exactly one JSON backup file" }
+                fileSystem.read(files.single().toUri(), Charsets.UTF_16).getOrNull()
+                    ?: error("Could not read extracted backup")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
+                // Legacy fixtures and standalone JSON backups are UTF-16.
                 fileSystem.read(backupFileUri, Charsets.UTF_16).getOrNull()
-            } ?: ""
-
-            importJson(jsonString, onProgress, clearCacheDir = true)
-        } catch (e: Exception) {
-            Timber.e("Import error: $e")
-            ImportResult(
-                rowsFound = 0,
-                transactionsImported = 0,
-                accountsImported = 0,
-                categoriesImported = 0,
-                failedRows = persistentListOf()
-            )
+                    ?: error("Could not read backup as archive or UTF-16 JSON: ${e.message}")
+            }
+            importJson(text, onProgress)
         } finally {
-            dataObserver.post(DataWriteEvent.AllDataChange)
+            dir.deleteRecursively()
         }
     }
 
-    private suspend fun extractAndReadBackupZip(
-        backupFileUri: Uri,
-        onProgress: suspend (progressPercent: Double) -> Unit
-    ): String? {
-        val folderName = "backup" + System.currentTimeMillis()
-        val cacheFolderPath = File(context.cacheDir, folderName)
-
-        unzip(context, backupFileUri, cacheFolderPath)
-
-        val filesArray = cacheFolderPath.listFiles()
-
-        onProgress(0.05)
-
-        if (filesArray == null || filesArray.isEmpty()) {
-            error("Couldn't unzip")
-        }
-
-        val filesList = filesArray.toList().filter {
-            hasJsonExtension(it)
-        }
-
-        onProgress(0.1)
-
-        if (filesList.size != 1) {
-            error("Didn't unzip exactly one file.")
-        }
-
-        return fileSystem.read(filesList[0].toUri(), Charsets.UTF_16).getOrNull()
-    }
-
+    @Suppress("UNUSED_PARAMETER") // Retained for source compatibility; never clear the shared cache.
     suspend fun importJson(
         jsonString: String,
         onProgress: suspend (Double) -> Unit = {},
         clearCacheDir: Boolean = false,
-    ): ImportResult {
-        val modifiedJsonString = accommodateExistingAccountsAndCategories(jsonString)
-        val ivyWalletCompleteData = modifiedJsonString?.let {
-            json.decodeFromString<IvyWalletCompleteData>(it)
-        } ?: error("Failed to parse backup JSON.")
-
+    ): ImportResult = withContext(dispatchersProvider.io) {
+        val incoming = json.decodeFromString<IvyWalletCompleteData>(jsonString)
         onProgress(0.4)
-        insertDataToDb(completeData = ivyWalletCompleteData, onProgress = onProgress)
-        onProgress(1.0)
-
-        if (clearCacheDir) {
-            clearCacheDir()
-        }
-
-        return ImportResult(
-            rowsFound = ivyWalletCompleteData.transactions.size,
-            transactionsImported = ivyWalletCompleteData.transactions.size,
-            accountsImported = ivyWalletCompleteData.accounts.size,
-            categoriesImported = ivyWalletCompleteData.categories.size,
-            failedRows = persistentListOf()
-        )
-    }
-
-    private suspend fun accommodateExistingAccountsAndCategories(jsonString: String?): String? {
-        if (jsonString == null) return null
-
-        val ivyWalletCompleteData = json.decodeFromString<IvyWalletCompleteData>(jsonString)
-        val replacementPairs = getReplacementPairs(ivyWalletCompleteData)
-
-        var modifiedString = jsonString
-        replacementPairs.forEach {
-            modifiedString = modifiedString!!.replace(it.first.toString(), it.second.toString())
-        }
-
-        return modifiedString
-    }
-
-    private suspend fun insertDataToDb(
-        completeData: IvyWalletCompleteData,
-        onProgress: suspend (progressPercent: Double) -> Unit = {}
-    ) {
-        withContext(dispatchersProvider.io) {
-            transactionWriter.saveMany(completeData.transactions)
-            onProgress(0.6)
-
-            val accounts = async {
-                val domainAccounts = with(accountMapper) {
-                    completeData.accounts.mapNotNull { entity ->
-                        entity.toDomain().getOrNull()
-                    }
-                }
-                accountRepository.saveMany(domainAccounts)
+        recovery.withRestoreLock {
+            // Never overwrite a previously committed but unrecovered journal.
+            recovery.recoverPendingLocked()
+            val plan = transactionRunner.inTransaction {
+                val plan = BackupMergePlanner.plan(incoming, snapshot())
+                val data = plan.additions
+                database.writeAccountDao.saveMany(data.accounts)
+                categoryWriter.saveMany(data.categories)
+                plannedPaymentRuleWriter.saveMany(data.plannedPaymentRules)
+                loanWriter.saveMany(data.loans)
+                loanRecordWriter.saveMany(data.loanRecords)
+                budgetWriter.saveMany(data.budgets)
+                transactionWriter.saveMany(data.transactions)
+                tagsWriter.save(data.tags)
+                tagAssociationWriter.save(data.tagAssociations)
+                settingsWriter.saveMany(data.settings)
+                database.writeExchangeRatesDao.saveMany(data.manualExchangeRates)
+                database.restorePreferencesDao.save(
+                    RestorePreferencesEntity(json = json.encodeToString(plan.preferences))
+                )
+                plan
             }
-            val budgets = async { budgetWriter.saveMany(completeData.budgets) }
-            val categories =
-                async { categoryWriter.saveMany(completeData.categories) }
-            accounts.await()
-            budgets.await()
-            categories.await()
-
-            onProgress(0.7)
-
-            val loans = async { loanWriter.saveMany(completeData.loans) }
-            val loanRecords =
-                async { loanRecordWriter.saveMany(completeData.loanRecords) }
-
-            loans.await()
-            loanRecords.await()
-
-            onProgress(0.8)
-
-            val tags = async { tagsWriter.save(completeData.tags) }
-            val tagAssociations = async { tagAssociationWriter.save(completeData.tagAssociations) }
-
-            val plannedPayments =
-                async { plannedPaymentRuleWriter.saveMany(completeData.plannedPaymentRules) }
-            val settings = async {
-                settingsWriter.deleteAll()
-                settingsWriter.saveMany(completeData.settings)
+            // Everything below happens after Room has committed.
+            memoFactory.invalidateAll()
+            var preferenceError: String? = null
+            try {
+                recovery.recoverPendingLocked()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                preferenceError = e.message ?: "Preference recovery failed"
+            } finally {
+                dataObserver.post(DataWriteEvent.AllDataChange)
             }
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.SHOW_NOTIFICATIONS,
-                (completeData.sharedPrefs[SharedPrefs.SHOW_NOTIFICATIONS] ?: "true").toBoolean()
+            ImportResult(
+                rowsFound = incoming.transactions.size,
+                transactionsImported = plan.additions.transactions.size,
+                accountsImported = plan.additions.accounts.size,
+                categoriesImported = plan.additions.categories.size,
+                failedRows = persistentListOf(),
+                transactionsSkipped = plan.skippedTransactions,
+                warnings = plan.warnings.toPersistentList(),
+                error = preferenceError,
+                preferencesPending = preferenceError != null,
             )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.APP_LOCK_ENABLED,
-                (completeData.sharedPrefs[SharedPrefs.APP_LOCK_ENABLED] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.HIDE_CURRENT_BALANCE,
-                (completeData.sharedPrefs[SharedPrefs.HIDE_CURRENT_BALANCE] ?: "false").toBoolean()
-            )
-
-            sharedPrefs.putBoolean(
-                SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE,
-                (
-                        completeData.sharedPrefs[SharedPrefs.TRANSFERS_AS_INCOME_EXPENSE]
-                            ?: "false"
-                        ).toBoolean()
-            )
-
-            plannedPayments.await()
-            settings.await()
-            tags.await()
-            tagAssociations.await()
-
-            onProgress(0.9)
         }
-    }
-
-    /** This is used to replace account & category Ids in backup data with existing Ids
-     *  This removes the problem of duplicate Accounts & Categories
-     *
-     *  returns a Pair<A,B> of IDs where A is the UUID that needs to be replaced with B
-     */
-    private suspend fun getReplacementPairs(
-        completeData: IvyWalletCompleteData
-    ): List<Pair<UUID, UUID>> {
-        return withContext(dispatchersProvider.io) {
-            val existingAccountsList = accountDao.findAll()
-            val existingCategoryList = categoryDao.findAll()
-
-            val backupAccountsList = completeData.accounts
-            val backupCategoryList = completeData.categories
-
-            if (existingAccountsList.isEmpty() && existingCategoryList.isEmpty()) {
-                return@withContext emptyList()
-            }
-
-            val sumAccountList = existingAccountsList + backupAccountsList
-            val sumCategoriesList = existingCategoryList + backupCategoryList
-
-            val accountsReplace = async {
-                sumAccountList.groupBy { it.name }.filter { it.value.size == 2 }.map {
-                    val accountsZero = it.value[0]
-                    val accountsFirst = it.value[1]
-
-                    if (backupAccountsList.contains(accountsZero)) {
-                        Pair(accountsZero.id, accountsFirst.id)
-                    } else {
-                        Pair(accountsFirst.id, accountsZero.id)
-                    }
-                }
-            }
-
-            val categoriesReplace = async {
-                sumCategoriesList.groupBy { it.name }.filter { it.value.size == 2 }.map {
-                    val categoryZero = it.value[0]
-                    val categoryFirst = it.value[1]
-
-                    if (completeData.categories.contains(categoryZero)) {
-                        Pair(categoryZero.id, categoryFirst.id)
-                    } else {
-                        Pair(categoryFirst.id, categoryZero.id)
-                    }
-                }
-            }
-
-            accountsReplace.await() + categoriesReplace.await()
-        }
-    }
-
-    private fun hasJsonExtension(file: File): Boolean {
-        val name = file.name
-        val lastIndexOf = name.lastIndexOf(".")
-        if (lastIndexOf == -1) {
-            return false
-        }
-
-        return (name.substring(lastIndexOf).equals(".json", true))
-    }
-
-    private fun clearCacheDir() {
-        context.cacheDir.deleteRecursively()
     }
 }
