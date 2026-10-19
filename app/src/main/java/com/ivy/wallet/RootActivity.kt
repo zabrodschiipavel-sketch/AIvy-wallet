@@ -23,9 +23,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -110,19 +112,8 @@ class RootActivity : AppCompatActivity(), RootScreen {
             val appLocked by viewModel.appLocked.collectAsState()
             val startupError by viewModel.startupError.collectAsState()
             if (startupError) {
-                IvyMaterial3Theme(dark = isSystemInDarkTheme, isTrueBlack = false) {
-                    AlertDialog(
-                        onDismissRequest = {},
-                        title = { Text("Unable to start") },
-                        text = { Text("Your data could not be prepared. Please retry.") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                viewModel.start(isSystemInDarkTheme, intent)
-                            }) {
-                                Text("Retry")
-                            }
-                        },
-                    )
+                StartupRecoveryErrorDialog(dark = isSystemInDarkTheme) {
+                    viewModel.start(isSystemInDarkTheme, intent)
                 }
             } else {
                 when (appLocked) {
@@ -136,14 +127,8 @@ class RootActivity : AppCompatActivity(), RootScreen {
                             timeFormatter = timeFormatter,
                         ) {
                             AppLockedScreen(
-                                onShowOSBiometricsModal = {
-                                    authenticateWithOSBiometricsModal(
-                                        biometricPromptCallback = viewModel.handleBiometricAuthResult()
-                                    )
-                                },
-                                onContinueWithoutAuthentication = {
-                                    viewModel.unlockApp()
-                                }
+                                onShowOSBiometricsModal = ::requestAppAuthentication,
+                                onContinueWithoutAuthentication = viewModel::unlockApp,
                             )
                         }
                     }
@@ -174,6 +159,29 @@ class RootActivity : AppCompatActivity(), RootScreen {
                 dateTimePicker.Content()
             }
         }
+    }
+
+    @Composable
+    private fun StartupRecoveryErrorDialog(
+        dark: Boolean,
+        modifier: Modifier = Modifier,
+        onRetry: () -> Unit,
+    ) {
+        IvyMaterial3Theme(dark = dark, isTrueBlack = false) {
+            AlertDialog(
+                modifier = modifier,
+                onDismissRequest = {},
+                title = { Text("Unable to start") },
+                text = { Text("Your data could not be prepared. Please retry.") },
+                confirmButton = {
+                    TextButton(onClick = onRetry) { Text("Retry") }
+                },
+            )
+        }
+    }
+
+    private fun requestAppAuthentication() {
+        authenticateWithOSBiometricsModal(viewModel.handleBiometricAuthResult())
     }
 
     private fun setupApp() {
