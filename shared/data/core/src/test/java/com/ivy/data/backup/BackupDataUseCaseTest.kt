@@ -13,10 +13,7 @@ import com.ivy.data.db.dao.fake.FakeSettingsDao
 import com.ivy.data.db.dao.fake.FakeTagAssociationDao
 import com.ivy.data.db.dao.fake.FakeTagDao
 import com.ivy.data.db.dao.fake.FakeTransactionDao
-import com.ivy.data.repository.AccountRepository
-import com.ivy.data.repository.CurrencyRepository
 import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
-import com.ivy.data.repository.mapper.AccountMapper
 import com.ivy.data.testResource
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
@@ -45,13 +42,6 @@ class BackupDataUseCaseTest {
         memoFactory: com.ivy.data.repository.RepositoryMemoFactory = fakeRepositoryMemoFactory(),
         pendingAfterWrite: Boolean = false,
     ): BackupDataUseCase {
-        val accountMapper = AccountMapper(
-            CurrencyRepository(
-                settingsDao = settingsDao,
-                writeSettingsDao = settingsDao,
-                dispatchersProvider = TestDispatchersProvider,
-            )
-        )
         val database = mockk<IvyRoomDatabase>(relaxed = true)
         every { database.writeAccountDao } returns accountDao
         coEvery { database.exchangeRatesDao.findAllManuallyOverridden() } returns emptyList()
@@ -69,14 +59,6 @@ class BackupDataUseCaseTest {
         }
         return BackupDataUseCase(
             accountDao = accountDao,
-            accountMapper = accountMapper,
-            accountRepository = AccountRepository(
-                accountDao = accountDao,
-                writeAccountDao = accountDao,
-                mapper = accountMapper,
-                dispatchersProvider = TestDispatchersProvider,
-                memoFactory = fakeRepositoryMemoFactory(),
-            ),
             budgetDao = budgetDao,
             categoryDao = categoryDao,
             loanRecordDao = loanRecordDao,

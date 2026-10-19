@@ -29,8 +29,6 @@ import com.ivy.data.db.dao.write.WriteTagAssociationDao
 import com.ivy.data.db.dao.write.WriteTagDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
 import com.ivy.data.file.FileSystem
-import com.ivy.data.repository.AccountRepository
-import com.ivy.data.repository.mapper.AccountMapper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -53,8 +51,6 @@ class BackupDataUseCase @Inject constructor(
     private val transactionDao: TransactionDao,
     private val transactionWriter: WriteTransactionDao,
     private val sharedPrefs: SharedPrefs,
-    private val accountRepository: AccountRepository,
-    private val accountMapper: AccountMapper,
     private val categoryWriter: WriteCategoryDao,
     private val settingsWriter: WriteSettingsDao,
     private val budgetWriter: WriteBudgetDao,
@@ -92,7 +88,7 @@ class BackupDataUseCase @Inject constructor(
             check(it.mkdir()) { "Could not create backup directory" }
         }
 
-    private suspend fun snapshot() = IvyWalletCompleteData(
+    private suspend fun snapshot(): IvyWalletCompleteData = IvyWalletCompleteData(
         formatVersion = 2,
         accounts = accountDao.findAll(),
         budgets = budgetDao.findAll(),

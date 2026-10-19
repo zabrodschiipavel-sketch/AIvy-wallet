@@ -13,10 +13,7 @@ import com.ivy.base.legacy.SharedPrefs
 import com.ivy.data.DataObserver
 import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.file.FileSystem
-import com.ivy.data.repository.AccountRepository
-import com.ivy.data.repository.CurrencyRepository
 import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
-import com.ivy.data.repository.mapper.AccountMapper
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import kotlinx.coroutines.runBlocking
@@ -38,13 +35,6 @@ class BackupDataUseCaseAndroidTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, IvyRoomDatabase::class.java).build()
         val appContext = InstrumentationRegistry.getInstrumentation().context
-        val accountMapper = AccountMapper(
-            currencyRepository = CurrencyRepository(
-                settingsDao = db.settingsDao,
-                writeSettingsDao = db.writeSettingsDao,
-                dispatchersProvider = TestDispatchersProvider,
-            )
-        )
         useCase = BackupDataUseCase(
             accountDao = db.accountDao,
             budgetDao = db.budgetDao,
@@ -56,14 +46,6 @@ class BackupDataUseCaseAndroidTest {
             transactionDao = db.transactionDao,
             transactionWriter = db.writeTransactionDao,
             sharedPrefs = SharedPrefs(appContext),
-            accountRepository = AccountRepository(
-                accountDao = db.accountDao,
-                writeAccountDao = db.writeAccountDao,
-                mapper = accountMapper,
-                dispatchersProvider = TestDispatchersProvider,
-                memoFactory = fakeRepositoryMemoFactory(),
-            ),
-            accountMapper = accountMapper,
             categoryWriter = db.writeCategoryDao,
             settingsWriter = db.writeSettingsDao,
             budgetWriter = db.writeBudgetDao,

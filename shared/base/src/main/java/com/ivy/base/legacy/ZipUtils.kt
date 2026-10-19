@@ -20,7 +20,7 @@ const val DEFAULT_MAX_UNZIP_ENTRIES = 32
 const val DEFAULT_MAX_UNZIP_ENTRY_BYTES = 128L * 1024L * 1024L
 const val DEFAULT_MAX_UNZIP_TOTAL_BYTES = 256L * 1024L * 1024L
 
-data class UnzipLimits(
+class UnzipLimits(
     val maxEntries: Int = DEFAULT_MAX_UNZIP_ENTRIES,
     val maxEntryBytes: Long = DEFAULT_MAX_UNZIP_ENTRY_BYTES,
     val maxTotalBytes: Long = DEFAULT_MAX_UNZIP_TOTAL_BYTES

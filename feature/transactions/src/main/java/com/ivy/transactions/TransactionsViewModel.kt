@@ -17,7 +17,6 @@ import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.AccountDao
-import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
 import com.ivy.data.model.AccountId
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
@@ -27,7 +26,6 @@ import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.TagRepository
-import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.design.l0_system.RedLight
 import com.ivy.domain.features.Features
@@ -92,8 +90,6 @@ class TransactionsViewModel @Inject constructor(
     private val calcAccIncomeExpenseAct: CalcAccIncomeExpenseAct,
     private val calcTrnsIncomeExpenseAct: LegacyCalcTrnsIncomeExpenseAct,
     private val exchangeAct: ExchangeAct,
-    private val transactionRepository: TransactionRepository,
-    private val plannedPaymentRuleWriter: WritePlannedPaymentRuleDao,
     private val transactionMapper: TransactionMapper,
     private val tagRepository: TagRepository,
     private val timeProvider: TimeProvider,
