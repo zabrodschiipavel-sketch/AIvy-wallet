@@ -1,6 +1,5 @@
 package com.ivy.base.legacy
 
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -82,7 +81,7 @@ class ZipUtilsTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun duplicateEntryNoOverwrite() {
-        val bytes = archive("dup.txt" to "one".toByteArray(), "dup.txt" to "two".toByteArray())
+        val bytes = archive("dup.txt" to "one".toByteArray(), "sub/../dup.txt" to "two".toByteArray())
         unzip(ByteArrayInputStream(bytes), freshDir("t6"))
     }
 
@@ -113,7 +112,6 @@ class ZipUtilsTest {
         assertEquals(32, DEFAULT_MAX_UNZIP_ENTRIES)
         assertEquals(128L * 1024L * 1024L, DEFAULT_MAX_UNZIP_ENTRY_BYTES)
         assertEquals(256L * 1024L * 1024L, DEFAULT_MAX_UNZIP_TOTAL_BYTES)
-        assertArrayEquals(byteArrayOf(1, 2, 3), byteArrayOf(1, 2, 3))
     }
 
     @Test(expected = IllegalStateException::class)
@@ -142,6 +140,24 @@ class ZipUtilsTest {
         unzip(tracking, freshDir("t11"))
 
         assertTrue(tracking.closed)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun directoryPayloadCannotBypassByteLimit() {
+        unzip(ByteArrayInputStream(archive("directory/" to ByteArray(16))), freshDir("directoryData"),
+            UnzipLimits(maxEntryBytes = 4))
+    }
+
+    @Test
+    fun rejectedDestinationClosesInputStream() {
+        val tracking = CloseTrackingInputStream(ByteArrayInputStream(archive("ok" to byteArrayOf(1))))
+        val destination = tmp.newFile("occupiedFile")
+        try {
+            unzip(tracking, destination)
+            org.junit.Assert.fail("Expected occupied destination to fail")
+        } catch (_: IllegalStateException) {
+            assertTrue(tracking.closed)
+        }
     }
 
     private class CloseTrackingInputStream(private val delegate: InputStream) : InputStream() {

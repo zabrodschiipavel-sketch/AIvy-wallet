@@ -60,8 +60,9 @@ fun ImportResultUI(
 
         Spacer(Modifier.height(24.dp))
 
-        val importSuccess = result.transactionsImported > 0 &&
-                result.transactionsImported > result.rowsFound / 2
+        val processedTransactions = result.transactionsImported + result.transactionsSkipped
+        val importSuccess = result.error == null && result.failedRows.isEmpty() &&
+            (processedTransactions > 0 || result.accountsImported > 0 || result.categoriesImported > 0)
         Text(
             modifier = Modifier.padding(horizontal = 32.dp),
             text = if (importSuccess) stringResource(R.string.success) else stringResource(R.string.failure),
@@ -73,8 +74,23 @@ fun ImportResultUI(
 
         Spacer(Modifier.height(32.dp))
 
+        result.error?.let { message ->
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = message,
+                color = Red,
+            )
+        }
+        result.warnings.forEach { warning ->
+            Text(
+                modifier = Modifier.padding(horizontal = 32.dp),
+                text = warning,
+                color = UI.colors.pureInverse,
+            )
+        }
+
         val successPercent = if (result.rowsFound > 0) {
-            (result.transactionsImported / result.rowsFound.toDouble()) * 100
+            (processedTransactions / result.rowsFound.toDouble()) * 100
         } else {
             0.0
         }
@@ -95,7 +111,7 @@ fun ImportResultUI(
 
         // TODO: Implement "See failed imports"
 
-        if (!isManualCsvImport) {
+        if (!isManualCsvImport && result.failedRows.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
@@ -253,7 +269,7 @@ private fun FailedSectionUI(
             modifier = Modifier.padding(horizontal = 32.dp),
             text = stringResource(
                 R.string.rows_from_csv_not_recognized,
-                result.rowsFound - result.transactionsImported
+                maxOf(0, result.rowsFound - result.transactionsImported - result.transactionsSkipped)
             ),
             style = UI.typo.nB2.style(
                 fontWeight = FontWeight.Bold,

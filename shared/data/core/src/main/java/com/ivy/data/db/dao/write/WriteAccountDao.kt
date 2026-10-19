@@ -14,7 +14,8 @@ interface WriteAccountDao {
     suspend fun save(value: AccountEntity) {
         val previous = accountForWrite(value.id)
         val previousCurrency = previous?.currency ?: baseCurrencyForWrite()
-        if (previous != null && previousCurrency != value.currency && hasFinancialReferences(value.id)) {
+        val nextCurrency = value.currency ?: baseCurrencyForWrite()
+        if (previous != null && previousCurrency != nextCurrency && hasFinancialReferences(value.id)) {
             throw AccountHistoryException("An account with financial history cannot change currency. Create a new account and transfer the balance.")
         }
         if (value.archived && hasActiveRules(value.id)) {

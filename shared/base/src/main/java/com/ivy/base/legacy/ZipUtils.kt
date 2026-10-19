@@ -28,10 +28,9 @@ data class UnzipLimits(
 
 fun zip(context: Context, zipFile: Uri, files: List<File>) {
     context.contentResolver.openFileDescriptor(zipFile, MODE_WRITE).use { descriptor ->
-        descriptor?.fileDescriptor?.let {
-            ZipOutputStream(BufferedOutputStream(FileOutputStream(it))).use { outStream ->
-                zip(outStream, files)
-            }
+        val target = descriptor?.fileDescriptor ?: throw IOException("Cannot open backup for writing")
+        ZipOutputStream(BufferedOutputStream(FileOutputStream(target))).use { outStream ->
+            zip(outStream, files)
         }
     }
 }
@@ -80,9 +79,8 @@ fun unzip(inputStream: InputStream, location: File, limits: UnzipLimits = UnzipL
     require(limits.maxEntryBytes > 0) { "maxEntryBytes must be positive." }
     require(limits.maxTotalBytes > 0) { "maxTotalBytes must be positive." }
 
-    val destinationDir = prepareEmptyDestination(location)
-
     ZipInputStream(BufferedInputStream(inputStream)).use { zipInputStream ->
+        val destinationDir = prepareEmptyDestination(location)
         var entryCount = 0
         var totalBytes = 0L
         var entry: ZipEntry?
@@ -96,7 +94,9 @@ fun unzip(inputStream: InputStream, location: File, limits: UnzipLimits = UnzipL
                 }
                 val outputFile = resolveSecureOutputFile(destinationDir, entry!!.name)
                 if (entry!!.isDirectory) {
-                    if (!outputFile.isDirectory) outputFile.mkdirs()
+                    check(outputFile.isDirectory || outputFile.mkdirs()) { "Could not create archive directory" }
+                    // closeEntry() drains unread bytes. Directory entries must not bypass byte limits.
+                    require(zipInputStream.read() == -1) { "Archive directory contains file data" }
                 } else {
                     val parentDir = outputFile.parentFile
                     if (parentDir != null && !parentDir.isDirectory) parentDir.mkdirs()
@@ -131,11 +131,11 @@ private fun prepareEmptyDestination(location: File): File {
             throw IllegalStateException("Location file must be directory or not exist")
         }
         val existing = canonicalDestination.listFiles()
-        if (existing != null && existing.isNotEmpty()) {
+        if (existing == null || existing.isNotEmpty()) {
             throw IllegalStateException("Location directory must be empty")
         }
     } else {
-        canonicalDestination.mkdirs()
+        check(canonicalDestination.mkdirs()) { "Could not create unzip destination" }
     }
     return canonicalDestination
 }
