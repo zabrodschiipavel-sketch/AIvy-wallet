@@ -30,7 +30,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
@@ -60,6 +62,7 @@ import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import com.ivy.widget.transaction.AddTransactionWidget
 import com.ivy.widget.transaction.AddTransactionWidgetCompact
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
@@ -101,8 +104,8 @@ class RootActivity : AppCompatActivity(), RootScreen {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setupApp()
+        observePreparedSettings()
         setContent {
-            val viewModel: RootViewModel = viewModel()
             val isSystemInDarkTheme = isSystemInDarkTheme()
 
             LaunchedEffect(isSystemInDarkTheme) {
@@ -189,9 +192,20 @@ class RootActivity : AppCompatActivity(), RootScreen {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setupDatePicker()
         setupTimePicker()
-        AddTransactionWidget.updateBroadcast(this)
-        AddTransactionWidgetCompact.updateBroadcast(this)
-        WalletBalanceWidgetReceiver.updateBroadcast(this)
+    }
+
+    private fun observePreparedSettings() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.settingsPrepared.collect { generation ->
+                    if (generation > 0 && !viewModel.startupError.value) {
+                        AddTransactionWidget.updateBroadcast(this@RootActivity)
+                        AddTransactionWidgetCompact.updateBroadcast(this@RootActivity)
+                        WalletBalanceWidgetReceiver.updateBroadcast(this@RootActivity)
+                    }
+                }
+            }
+        }
     }
 
     private companion object {
