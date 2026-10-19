@@ -7,21 +7,41 @@ import com.ivy.data.DeleteOperation
 import com.ivy.data.model.sync.Identifiable
 import com.ivy.data.model.sync.UniqueId
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class RepositoryMemoFactory @Inject constructor(
     private val dataObserver: DataObserver,
     private val dispatchers: DispatchersProvider,
 ) {
+    private val lock = Any()
+    private val memos = mutableListOf<WeakReference<RepositoryMemo<*, *>>>()
+
     fun <T : Identifiable<TID>, TID : UniqueId> createMemo(
         getDataWriteSaveEvent: (List<T>) -> DataWriteEvent,
         getDateWriteDeleteEvent: (DeleteOperation<TID>) -> DataWriteEvent
-    ): RepositoryMemo<T, TID> = RepositoryMemo(
-        dataObserver = dataObserver,
-        dispatchers = dispatchers,
-        getDataWriteSaveEvent = getDataWriteSaveEvent,
-        getDataWriteDeleteEvent = getDateWriteDeleteEvent,
-    )
+    ): RepositoryMemo<T, TID> = synchronized(lock) {
+        val memo = RepositoryMemo(
+            dataObserver = dataObserver,
+            dispatchers = dispatchers,
+            getDataWriteSaveEvent = getDataWriteSaveEvent,
+            getDataWriteDeleteEvent = getDateWriteDeleteEvent,
+        )
+        memos.removeAll { it.get() == null }
+        memos.add(WeakReference(memo))
+        memo
+    }
+
+    fun invalidateAll() = synchronized(lock) {
+        memos.removeAll { reference ->
+            val memo = reference.get()
+            memo?.invalidate()
+            memo == null
+        }
+        Unit
+    }
 }
 
 class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor(
@@ -30,25 +50,44 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
     private val getDataWriteSaveEvent: (List<T>) -> DataWriteEvent,
     private val getDataWriteDeleteEvent: (DeleteOperation<TID>) -> DataWriteEvent,
 ) {
+    private val lock = Any()
+    private val memo = mutableMapOf<TID, T>()
+    private var generation = 0L
+    private var allMemoized = false
 
-    private val _memo = mutableMapOf<TID, T>()
-    val items: Map<TID, T> = _memo
-    var findAllMemoized = false
-        private set
+    val items: Map<TID, T>
+        get() = synchronized(lock) { memo.toMap() }
+
+    var findAllMemoized: Boolean
+        get() = synchronized(lock) { allMemoized }
+        private set(value) = synchronized(lock) { allMemoized = value }
+
+    fun invalidate() = synchronized(lock) {
+        generation++
+        memo.clear()
+        allMemoized = false
+    }
 
     suspend fun findAll(
         findAllOperation: suspend () -> List<T>,
         sortMemo: Collection<T>.() -> List<T>,
     ): List<T> {
-        return if (findAllMemoized) {
-            sortMemo(_memo.values)
-        } else {
-            withContext(dispatchers.io) {
-                findAllOperation().also {
-                    memoize(it)
-                    findAllMemoized = true
+        while (true) {
+            val token = synchronized(lock) {
+                if (allMemoized) return sortMemo(memo.values.toList())
+                generation
+            }
+            // Never hold a JVM monitor across suspend I/O.
+            val loaded = withContext(dispatchers.io) { findAllOperation() }
+            synchronized(lock) {
+                if (token == generation) {
+                    memo.clear()
+                    loaded.forEach { memo[it.id] = it }
+                    allMemoized = true
+                    return loaded
                 }
             }
+            // An invalidation or successful mutation superseded this load.
         }
     }
 
@@ -56,8 +95,18 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         id: TID,
         findByIdOperation: suspend (TID) -> T?
     ): T? {
-        return items[id] ?: withContext(dispatchers.io) {
-            findByIdOperation(id)?.also(::memoize)
+        while (true) {
+            val token = synchronized(lock) {
+                memo[id]?.let { return it }
+                generation
+            }
+            val loaded = withContext(dispatchers.io) { findByIdOperation(id) }
+            synchronized(lock) {
+                if (token == generation) {
+                    loaded?.let { memo[it.id] = it }
+                    return loaded
+                }
+            }
         }
     }
 
@@ -72,7 +121,10 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
     ) {
         withContext(dispatchers.io) {
             writeOperation(value)
-            memoize(value)
+            synchronized(lock) {
+                generation++
+                memo[value.id] = value
+            }
             dataObserver.post(getDataWriteSaveEvent(listOf(value)))
         }
     }
@@ -83,7 +135,10 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
     ) {
         withContext(dispatchers.io) {
             writeOperation(values)
-            memoize(values)
+            synchronized(lock) {
+                generation++
+                values.forEach { memo[it.id] = it }
+            }
             dataObserver.post(getDataWriteSaveEvent(values))
         }
     }
@@ -93,11 +148,12 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         deleteByIdOperation: suspend (TID) -> Unit,
     ) {
         withContext(dispatchers.io) {
-            _memo.remove(id)
             deleteByIdOperation(id)
-            dataObserver.post(
-                getDataWriteDeleteEvent(DeleteOperation.Just(listOf(id)))
-            )
+            synchronized(lock) {
+                generation++
+                memo.remove(id)
+            }
+            dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.Just(listOf(id))))
         }
     }
 
@@ -105,17 +161,9 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         deleteAllOperation: suspend () -> Unit,
     ) {
         withContext(dispatchers.io) {
-            _memo.clear()
             deleteAllOperation()
+            invalidate()
             dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.All))
         }
-    }
-
-    private fun memoize(items: List<T>) {
-        items.forEach(::memoize)
-    }
-
-    private fun memoize(item: T) {
-        _memo[item.id] = item
     }
 }
