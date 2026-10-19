@@ -27,7 +27,8 @@ class FakeSettingsDao : SettingsDao, WriteSettingsDao {
     }
 
     override suspend fun upsert(value: SettingsEntity) {
-        items.add(value)
+        val index = items.indexOfFirst { it.id == value.id }
+        if (index >= 0) items[index] = value else items.add(value)
     }
 
     override suspend fun baseCurrencyForWrite(): String? = items.firstOrNull()?.currency
