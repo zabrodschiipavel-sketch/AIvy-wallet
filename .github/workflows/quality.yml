@@ -1,0 +1,52 @@
+name: Quality
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  python-and-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m unittest discover -s scripts -p 'quality_tests.py' -v
+      - run: python scripts/quality.py ratchet
+  android-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests, Detekt and Paparazzi
+        run: ./gradlew testDebugUnitTest detekt verifyPaparazziDebug
+      - name: Lint with fail-closed report validation
+        run: ./gradlew lintRelease && python scripts/quality.py lint build/reports/lint/lint.xml
+      - name: Compose stability analysis
+        run: ./gradlew assembleDemo -PcomposeCompilerReports=true && ./gradlew :ci-actions:compose-stability:run
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            build/reports/lint/**
+            build/reports/detekt/**
+            ci-actions/compose-stability/ivy-compose-stability-report.txt
+      - name: Build unsigned release candidate
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: ./gradlew assembleRelease -PivyUnsignedRelease=true
+      - name: Candidate metadata
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: python scripts/quality.py candidate app/build/outputs/apk/release/app-release-unsigned.apk --out candidate.json
+      - uses: actions/upload-artifact@v4
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: unsigned-release-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/release/app-release-unsigned.apk
+            candidate.json
