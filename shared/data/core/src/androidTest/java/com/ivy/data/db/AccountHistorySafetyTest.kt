@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.ivy.base.legacy.Theme
 import com.ivy.base.model.TransactionType
+import com.ivy.data.db.entity.SettingsEntity
 import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.PlannedPaymentRuleEntity
 import com.ivy.data.db.entity.TransactionEntity
@@ -112,6 +114,32 @@ class AccountHistorySafetyTest {
         assertEquals(first, db.accountDao.findById(first.id))
         assertEquals(second, db.accountDao.findById(second.id))
         assertTrue(db.transactionDao.findAll().size == 1)
+    }
+
+    @Test
+    fun baseCurrencyChangeFreezesInheritedHistoryWithoutChangingExplicitCurrency() = runBlocking {
+        val settings = SettingsEntity(theme = Theme.AUTO, currency = "USD", bufferAmount = 0.0, name = "")
+        db.writeSettingsDao.save(settings)
+        val inherited = AccountEntity(name = "Inherited", currency = null, color = 1)
+        val explicit = AccountEntity(name = "Explicit", currency = "GBP", color = 2)
+        db.writeAccountDao.saveMany(listOf(inherited, explicit))
+        val income = TransactionEntity(
+            accountId = inherited.id,
+            type = TransactionType.INCOME,
+            amount = 10.0,
+            dateTime = Instant.EPOCH,
+        )
+        db.writeTransactionDao.save(income)
+
+        db.writeSettingsDao.save(settings.copy(currency = "EUR"))
+
+        assertEquals("EUR", db.settingsDao.findFirst().currency)
+        assertEquals(inherited.copy(currency = "USD"), db.accountDao.findById(inherited.id))
+        assertEquals(explicit, db.accountDao.findById(explicit.id))
+        assertEquals(listOf(income), db.transactionDao.findAll())
+        expectHistoryError { db.writeAccountDao.save(inherited.copy(currency = "EUR")) }
+        assertEquals(inherited.copy(currency = "USD"), db.accountDao.findById(inherited.id))
+        assertEquals(listOf(income), db.transactionDao.findAll())
     }
 
     private suspend fun expectHistoryError(block: suspend () -> Unit) {

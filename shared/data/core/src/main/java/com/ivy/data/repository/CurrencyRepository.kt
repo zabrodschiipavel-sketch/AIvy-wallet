@@ -7,6 +7,8 @@ import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.db.entity.SettingsEntity
 import com.ivy.data.model.primitive.AssetCode
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.UUID
@@ -23,6 +25,9 @@ class CurrencyRepository @Inject constructor(
         const val FALLBACK_DEFAULT_CURRENCY = "USD"
     }
 
+    private val setterMutex = Mutex()
+
+    @Volatile
     private var baseCurrencyMemo: AssetCode? = null
 
     suspend fun getBaseCurrency(): AssetCode = withContext(dispatchersProvider.io) {
@@ -40,23 +45,26 @@ class CurrencyRepository @Inject constructor(
     }
 
     suspend fun setBaseBaseCurrency(newCurrency: AssetCode) {
-        withContext(dispatchersProvider.io) {
-            val currentEntity = settingsDao.findFirstOrNull()
-                ?: SettingsEntity(
-                    theme = Theme.AUTO,
-                    currency = FALLBACK_DEFAULT_CURRENCY,
-                    bufferAmount = 0.0,
-                    name = "",
-                    isSynced = true,
-                    isDeleted = false,
-                    id = UUID.randomUUID()
-                )
-            baseCurrencyMemo = newCurrency
-            writeSettingsDao.save(
-                currentEntity.copy(
-                    currency = newCurrency.code
-                )
-            )
+        setterMutex.withLock {
+            try {
+                withContext(dispatchersProvider.io) {
+                    val currentEntity = settingsDao.findFirstOrNull()
+                        ?: SettingsEntity(
+                            theme = Theme.AUTO,
+                            currency = FALLBACK_DEFAULT_CURRENCY,
+                            bufferAmount = 0.0,
+                            name = "",
+                            isSynced = true,
+                            isDeleted = false,
+                            id = UUID.randomUUID()
+                        )
+                    writeSettingsDao.save(currentEntity.copy(currency = newCurrency.code))
+                    baseCurrencyMemo = newCurrency
+                }
+            } catch (error: Throwable) {
+                baseCurrencyMemo = null
+                throw error
+            }
         }
     }
 }
