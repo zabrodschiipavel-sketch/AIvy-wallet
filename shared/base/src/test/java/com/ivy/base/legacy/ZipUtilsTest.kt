@@ -109,9 +109,9 @@ class ZipUtilsTest {
 
     @Test
     fun defaultLimitsMatchSpec() {
-        assertEquals(32, DEFAULT_MAX_UNZIP_ENTRIES)
-        assertEquals(128L * 1024L * 1024L, DEFAULT_MAX_UNZIP_ENTRY_BYTES)
-        assertEquals(256L * 1024L * 1024L, DEFAULT_MAX_UNZIP_TOTAL_BYTES)
+        assertEquals(32, DefaultMaxUnzipEntries)
+        assertEquals(128L * 1024L * 1024L, DefaultMaxUnzipEntryBytes)
+        assertEquals(256L * 1024L * 1024L, DefaultMaxUnzipTotalBytes)
     }
 
     @Test(expected = IllegalStateException::class)
