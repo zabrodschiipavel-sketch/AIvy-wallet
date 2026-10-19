@@ -16,10 +16,15 @@ interface WriteAccountDao {
         val previousCurrency = previous?.currency ?: baseCurrencyForWrite()
         val nextCurrency = value.currency ?: baseCurrencyForWrite()
         if (previous != null && previousCurrency != nextCurrency && hasFinancialReferences(value.id)) {
-            throw AccountHistoryException("An account with financial history cannot change currency. Create a new account and transfer the balance.")
+            throw AccountHistoryException(
+                "An account with financial history cannot change currency. " +
+                    "Create a new account and transfer the balance."
+            )
         }
         if (value.archived && hasActiveRules(value.id)) {
-            throw AccountHistoryException("Move or remove this account's active planned payment rules before archiving it.")
+            throw AccountHistoryException(
+                "Move or remove this account's active planned payment rules before archiving it."
+            )
         }
         upsert(value)
     }
@@ -38,7 +43,13 @@ interface WriteAccountDao {
     @Query("SELECT currency FROM settings LIMIT 1")
     suspend fun baseCurrencyForWrite(): String?
 
-    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE accountId = :id OR toAccountId = :id) OR EXISTS(SELECT 1 FROM planned_payment_rules WHERE accountId = :id) OR EXISTS(SELECT 1 FROM loans WHERE accountId = :id) OR EXISTS(SELECT 1 FROM loan_records WHERE accountId = :id) OR EXISTS(SELECT 1 FROM budgets WHERE accountIdsSerialized LIKE '%' || :id || '%')")
+    @Query(
+        """SELECT EXISTS(SELECT 1 FROM transactions WHERE accountId = :id OR toAccountId = :id)
+            OR EXISTS(SELECT 1 FROM planned_payment_rules WHERE accountId = :id)
+            OR EXISTS(SELECT 1 FROM loans WHERE accountId = :id)
+            OR EXISTS(SELECT 1 FROM loan_records WHERE accountId = :id)
+            OR EXISTS(SELECT 1 FROM budgets WHERE accountIdsSerialized LIKE '%' || :id || '%')"""
+    )
     suspend fun hasFinancialReferences(id: UUID): Boolean
 
     @Query("SELECT EXISTS(SELECT 1 FROM planned_payment_rules WHERE accountId = :id AND isDeleted = 0)")
@@ -47,7 +58,9 @@ interface WriteAccountDao {
     @Transaction
     suspend fun deleteById(id: UUID) {
         if (hasFinancialReferences(id)) {
-            throw AccountHistoryException("This account has financial history. Archive it to preserve its transactions.")
+            throw AccountHistoryException(
+                "This account has financial history. Archive it to preserve its transactions."
+            )
         }
         deleteUnreferenced(id)
     }

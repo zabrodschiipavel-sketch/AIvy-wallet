@@ -148,11 +148,9 @@ class BackupDataUseCase @Inject constructor(
         }
     }
 
-    @Suppress("UNUSED_PARAMETER") // Retained for source compatibility; never clear the shared cache.
     suspend fun importJson(
         jsonString: String,
         onProgress: suspend (Double) -> Unit = {},
-        clearCacheDir: Boolean = false,
     ): ImportResult = withContext(dispatchersProvider.io) {
         val incoming = json.decodeFromString<IvyWalletCompleteData>(jsonString)
         onProgress(0.4)

@@ -39,68 +39,12 @@ internal object BackupMergePlanner {
         }
         val settings = mergeSettings(data.settings, existing.settings)
 
-        val accountIds = (existing.accounts + data.accounts).map { it.id }.toSet()
-        val tagIds = (existing.tags + data.tags).map { it.id }.toSet()
-        val loanIds = (existing.loans + data.loans).map { it.id }.toSet()
-        val recordIds = (existing.loanRecords + data.loanRecords).map { it.id }.toSet()
-        val transactionIds = (existing.transactions + data.transactions).map { it.id }.toSet()
+        validateAccountsAndCategories(data)
+        validateTransactions(data, existing)
+        validatePlannedPayments(data, existing)
+        validateLoans(data, existing)
+        validateOtherRecords(data, existing)
 
-        data.accounts.forEach {
-            require(it.name.isNotBlank()) { "Account ${it.id} has an empty name" }
-            validCurrency(it.currency ?: error("Account ${it.id} has no currency"))
-            require(it.orderNum.isFinite()) { "Invalid account order" }
-        }
-        data.categories.forEach {
-            require(it.name.isNotBlank() && it.orderNum.isFinite()) { "Invalid category ${it.id}" }
-        }
-        data.transactions.forEach {
-            positive(it.amount, "transaction ${it.id}")
-            require(it.accountId in accountIds) { "Transaction ${it.id} has no source account" }
-            require(it.dateTime != null || it.dueDate != null) { "Transaction ${it.id} has no date" }
-            if (it.type == TransactionType.TRANSFER) {
-                require(it.toAccountId in accountIds && it.toAccountId != it.accountId) {
-                    "Transfer ${it.id} has an invalid destination account"
-                }
-                it.toAmount?.let { amount -> positive(amount, "transfer ${it.id}") }
-            }
-            require(it.loanId == null || it.loanId in loanIds) { "Transaction ${it.id} has no linked loan" }
-            require(it.loanRecordId == null || it.loanRecordId in recordIds) {
-                "Transaction ${it.id} has no linked loan record"
-            }
-        }
-        data.plannedPaymentRules.forEach {
-            positive(it.amount, "planned payment ${it.id}")
-            require(it.accountId in accountIds && it.startDate != null) { "Invalid planned payment ${it.id}" }
-            require(it.type != TransactionType.TRANSFER) { "Unsupported planned transfer ${it.id}" }
-            require(it.oneTime || (it.intervalN != null && it.intervalN > 0 && it.intervalType != null)) {
-                "Invalid recurrence for ${it.id}"
-            }
-        }
-        data.loans.forEach {
-            positive(it.amount, "loan ${it.id}")
-            require(it.accountId == null || it.accountId in accountIds) { "Loan ${it.id} has no account" }
-        }
-        data.loanRecords.forEach {
-            positive(it.amount, "loan record ${it.id}")
-            it.convertedAmount?.let { amount -> positive(amount, "loan record ${it.id}") }
-            require(it.loanId in loanIds) { "Loan record ${it.id} has no loan" }
-            require(it.accountId == null || it.accountId in accountIds) { "Loan record ${it.id} has no account" }
-        }
-        data.budgets.forEach { positive(it.amount, "budget ${it.id}") }
-        data.tags.forEach { require(it.name.isNotBlank()) { "Tag ${it.id} has an empty name" } }
-        data.tagAssociations.forEach {
-            require(it.tagId in tagIds && it.associatedId in transactionIds) { "Dangling tag association" }
-        }
-        data.manualExchangeRates.forEach {
-            validCurrency(it.baseCurrency)
-            validCurrency(it.currency)
-            positive(it.rate, "manual exchange rate")
-            require(it.manualOverride) { "Backup exchange rates must be manual overrides" }
-        }
-        data.settings.forEach {
-            validCurrency(it.currency)
-            require(it.bufferAmount.isFinite()) { "Invalid settings buffer" }
-        }
         if (incoming.formatVersion == 1) {
             warnings += "Legacy backup has no manual exchange rates; existing rates were kept."
         }
@@ -127,6 +71,85 @@ internal object BackupMergePlanner {
             preferences = preferences,
             warnings = warnings,
         )
+    }
+
+    private fun validateAccountsAndCategories(data: IvyWalletCompleteData) {
+        data.accounts.forEach {
+            require(it.name.isNotBlank()) { "Account ${it.id} has an empty name" }
+            validCurrency(it.currency ?: error("Account ${it.id} has no currency"))
+            require(it.orderNum.isFinite()) { "Invalid account order" }
+        }
+        data.categories.forEach {
+            require(it.name.isNotBlank() && it.orderNum.isFinite()) { "Invalid category ${it.id}" }
+        }
+    }
+
+    private fun validateTransactions(data: IvyWalletCompleteData, existing: IvyWalletCompleteData) {
+        val accountIds = (existing.accounts + data.accounts).map { it.id }.toSet()
+        val loanIds = (existing.loans + data.loans).map { it.id }.toSet()
+        val recordIds = (existing.loanRecords + data.loanRecords).map { it.id }.toSet()
+        data.transactions.forEach {
+            positive(it.amount, "transaction ${it.id}")
+            require(it.accountId in accountIds) { "Transaction ${it.id} has no source account" }
+            require(it.dateTime != null || it.dueDate != null) { "Transaction ${it.id} has no date" }
+            if (it.type == TransactionType.TRANSFER) {
+                require(it.toAccountId in accountIds && it.toAccountId != it.accountId) {
+                    "Transfer ${it.id} has an invalid destination account"
+                }
+                it.toAmount?.let { amount -> positive(amount, "transfer ${it.id}") }
+            }
+            require(it.loanId == null || it.loanId in loanIds) { "Transaction ${it.id} has no linked loan" }
+            require(it.loanRecordId == null || it.loanRecordId in recordIds) {
+                "Transaction ${it.id} has no linked loan record"
+            }
+        }
+    }
+
+    private fun validatePlannedPayments(data: IvyWalletCompleteData, existing: IvyWalletCompleteData) {
+        val accountIds = (existing.accounts + data.accounts).map { it.id }.toSet()
+        data.plannedPaymentRules.forEach {
+            positive(it.amount, "planned payment ${it.id}")
+            require(it.accountId in accountIds && it.startDate != null) { "Invalid planned payment ${it.id}" }
+            require(it.type != TransactionType.TRANSFER) { "Unsupported planned transfer ${it.id}" }
+            require(it.oneTime || (it.intervalN != null && it.intervalN > 0 && it.intervalType != null)) {
+                "Invalid recurrence for ${it.id}"
+            }
+        }
+    }
+
+    private fun validateLoans(data: IvyWalletCompleteData, existing: IvyWalletCompleteData) {
+        val accountIds = (existing.accounts + data.accounts).map { it.id }.toSet()
+        val loanIds = (existing.loans + data.loans).map { it.id }.toSet()
+        data.loans.forEach {
+            positive(it.amount, "loan ${it.id}")
+            require(it.accountId == null || it.accountId in accountIds) { "Loan ${it.id} has no account" }
+        }
+        data.loanRecords.forEach {
+            positive(it.amount, "loan record ${it.id}")
+            it.convertedAmount?.let { amount -> positive(amount, "loan record ${it.id}") }
+            require(it.loanId in loanIds) { "Loan record ${it.id} has no loan" }
+            require(it.accountId == null || it.accountId in accountIds) { "Loan record ${it.id} has no account" }
+        }
+    }
+
+    private fun validateOtherRecords(data: IvyWalletCompleteData, existing: IvyWalletCompleteData) {
+        val tagIds = (existing.tags + data.tags).map { it.id }.toSet()
+        val transactionIds = (existing.transactions + data.transactions).map { it.id }.toSet()
+        data.budgets.forEach { positive(it.amount, "budget ${it.id}") }
+        data.tags.forEach { require(it.name.isNotBlank()) { "Tag ${it.id} has an empty name" } }
+        data.tagAssociations.forEach {
+            require(it.tagId in tagIds && it.associatedId in transactionIds) { "Dangling tag association" }
+        }
+        data.manualExchangeRates.forEach {
+            validCurrency(it.baseCurrency)
+            validCurrency(it.currency)
+            positive(it.rate, "manual exchange rate")
+            require(it.manualOverride) { "Backup exchange rates must be manual overrides" }
+        }
+        data.settings.forEach {
+            validCurrency(it.currency)
+            require(it.bufferAmount.isFinite()) { "Invalid settings buffer" }
+        }
     }
 
     private fun normalize(data: IvyWalletCompleteData): IvyWalletCompleteData {
@@ -166,10 +189,17 @@ internal object BackupMergePlanner {
 
     private fun mergeSettings(incoming: List<SettingsEntity>, current: List<SettingsEntity>): List<SettingsEntity> {
         require(incoming.size <= 1 && current.size <= 1) { "Backup or database contains multiple settings records" }
-        val value = incoming.singleOrNull() ?: return emptyList()
-        val previous = current.singleOrNull() ?: return listOf(value)
-        require(value.copy(id = previous.id) == previous) { "Conflicting app settings; no data was imported" }
-        return emptyList()
+        return when {
+            incoming.isEmpty() -> emptyList()
+            current.isEmpty() -> incoming
+            else -> {
+                val previous = current.single()
+                require(incoming.single().copy(id = previous.id) == previous) {
+                    "Conflicting app settings; no data was imported"
+                }
+                emptyList()
+            }
+        }
     }
 
     private fun positive(amount: Double, description: String) {

@@ -72,7 +72,7 @@ class NavigationRootTest {
         val navigation = Navigation().apply { navigateTo(MainScreen) }
         val renders = Channel<RenderedScreen?>(Channel.UNLIMITED)
         val composition = backgroundScope.launch(Dispatchers.Unconfined) {
-            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation, renders) }
+            moleculeFlow(RecompositionMode.Immediate) { Render(host, navigation, renders) }
                 .collect {}
         }
         try {
@@ -102,7 +102,7 @@ class NavigationRootTest {
         val navigation = Navigation().apply { navigateTo(SettingsScreen) }
         val renders = Channel<RenderedScreen?>(Channel.UNLIMITED)
         val composition = backgroundScope.launch(Dispatchers.Unconfined) {
-            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation, renders) }
+            moleculeFlow(RecompositionMode.Immediate) { Render(host, navigation, renders) }
                 .collect {}
         }
         try {
@@ -139,7 +139,7 @@ class NavigationRootTest {
         val navigation = Navigation().apply { navigateTo(MainScreen) }
         val renders = Channel<RenderedScreen?>(Channel.UNLIMITED)
         val composition = backgroundScope.launch(Dispatchers.Unconfined) {
-            moleculeFlow(RecompositionMode.Immediate) { render(host, navigation, renders) }
+            moleculeFlow(RecompositionMode.Immediate) { Render(host, navigation, renders) }
                 .collect {}
         }
         try {
@@ -170,7 +170,7 @@ class NavigationRootTest {
     }
 
     @Composable
-    private fun render(
+    private fun Render(
         host: TestHost,
         navigation: Navigation,
         renders: Channel<RenderedScreen?>,

@@ -20,7 +20,7 @@ class RestorePreferencesRecovery @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    suspend fun recoverPending() = withRestoreLock { recoverPendingLocked() }
+    suspend fun recoverPending(): Unit = withRestoreLock { recoverPendingLocked() }
 
     internal suspend fun <T> withRestoreLock(block: suspend () -> T): T =
         withContext(dispatchers.io) { mutex.withLock { block() } }

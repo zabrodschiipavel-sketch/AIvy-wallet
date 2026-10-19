@@ -66,7 +66,6 @@ class RootViewModel @Inject constructor(
     private var initialized = false
     private var latestSystemDarkMode = false
 
-    @Suppress("TooGenericExceptionCaught")
     fun start(systemDarkMode: Boolean, intent: Intent) {
         latestSystemDarkMode = systemDarkMode
         if (initializationJob?.isActive == true) return

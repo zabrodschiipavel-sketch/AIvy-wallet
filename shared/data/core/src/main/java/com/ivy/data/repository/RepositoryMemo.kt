@@ -36,7 +36,7 @@ class RepositoryMemoFactory @Inject constructor(
         memo
     }
 
-    fun invalidateAll() = synchronized(lock) {
+    fun invalidateAll(): Unit = synchronized(lock) {
         memos.removeAll { reference ->
             val memo = reference.get()
             memo?.invalidate()
@@ -61,11 +61,10 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
     val items: Map<TID, T>
         get() = synchronized(lock) { memo.toMap() }
 
-    var findAllMemoized: Boolean
+    val findAllMemoized: Boolean
         get() = synchronized(lock) { allMemoized }
-        private set(value) = synchronized(lock) { allMemoized = value }
 
-    fun invalidate() = synchronized(lock) {
+    fun invalidate(): Unit = synchronized(lock) {
         generation++
         memo.clear()
         allMemoized = false
@@ -127,7 +126,13 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         withContext(dispatchers.io) {
             mutationMutex.withLock {
                 val token = synchronized(lock) { generation }
-                operation()
+                try {
+                    operation()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    // The database may have committed before cancellation was delivered.
+                    invalidate()
+                    throw cancelled
+                }
                 synchronized(lock) {
                     val unchanged = token == generation
                     generation++
@@ -139,8 +144,8 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
                         allMemoized = false
                     }
                 }
-                dataObserver.post(event())
             }
+            dataObserver.post(event())
         }
     }
 

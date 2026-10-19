@@ -207,6 +207,23 @@ class RepositoryMemoTest {
     }
 
     @Test
+    fun `cancellation during write invalidates possibly committed cache`() = runTest {
+        val memo = memo()
+        val original = Item(name = "before")
+        memo.findAll({ listOf(original) }, { toList() })
+        try {
+            memo.save(original.copy(name = "after")) {
+                throw kotlinx.coroutines.CancellationException("Cancelled at commit boundary")
+            }
+            org.junit.Assert.fail("Expected cancellation")
+        } catch (_: kotlinx.coroutines.CancellationException) {
+            memo.items shouldBe emptyMap()
+            memo.findAllMemoized shouldBe false
+        }
+        coVerify(exactly = 0) { observer.post(any()) }
+    }
+
+    @Test
     fun `concurrent mutations serialize database writes and cache publication`() = runTest {
         val memo = memo()
         val first = Item(name = "first")

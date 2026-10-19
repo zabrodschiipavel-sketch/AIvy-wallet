@@ -3,7 +3,7 @@ package com.ivy.data.db
 import android.content.Context
 import com.ivy.data.backup.RestorePreferencesEntity
 import com.ivy.data.backup.RestorePreferencesDao
-import com.ivy.data.db.migration.Migration130to131_ForkSafety
+import com.ivy.data.db.migration.Migration130to131ForkSafety
 import androidx.room.*
 import androidx.room.migration.AutoMigrationSpec
 import com.ivy.data.db.dao.read.AccountDao
@@ -141,7 +141,7 @@ abstract class IvyRoomDatabase : RoomDatabase() {
             Migration127to128_PaidForDateRecord(),
             Migration128to129_DeleteIsDeleted(),
             Migration129to130_LoanIncludeNote(),
-            Migration130to131_ForkSafety()
+            Migration130to131ForkSafety()
         )
 
         @Suppress("SpreadOperator")
