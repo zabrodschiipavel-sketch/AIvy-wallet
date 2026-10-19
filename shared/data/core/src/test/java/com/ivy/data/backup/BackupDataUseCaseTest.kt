@@ -41,6 +41,7 @@ class BackupDataUseCaseTest {
         prefs: SharedPrefs = mockk(relaxed = true),
         memoFactory: com.ivy.data.repository.RepositoryMemoFactory = fakeRepositoryMemoFactory(),
         pendingAfterWrite: Boolean = false,
+        observer: DataObserver = DataObserver(),
     ): BackupDataUseCase {
         val database = mockk<IvyRoomDatabase>(relaxed = true)
         every { database.writeAccountDao } returns accountDao
@@ -78,7 +79,7 @@ class BackupDataUseCaseTest {
             sharedPrefs = prefs,
             json = KotlinxSerializationModule.provideJson(),
             dispatchersProvider = TestDispatchersProvider,
-            dataObserver = DataObserver(),
+            dataObserver = observer,
             tagsReader = tagDao,
             tagsWriter = tagDao,
             tagAssociationReader = tagAssociationDao,
@@ -98,8 +99,10 @@ class BackupDataUseCaseTest {
     @Test
     fun cancellationAtTransactionReturnStillInvalidatesCaches() = runTest {
         val memo = mockk<com.ivy.data.repository.RepositoryMemoFactory>(relaxed = true)
+        val observer = mockk<DataObserver>(relaxed = true)
         val useCase = newBackupDataUseCase(
             memoFactory = memo,
+            observer = observer,
             afterTransaction = { throw kotlinx.coroutines.CancellationException("after commit") },
         )
         val progress = mutableListOf<Double>()
@@ -111,13 +114,41 @@ class BackupDataUseCaseTest {
         }
         io.mockk.verify(exactly = 1) { memo.invalidateAll() }
         (1.0 in progress) shouldBe false
+        io.mockk.coVerify(exactly = 0) { observer.post(any()) }
+    }
+
+    @Test
+    fun cancelledCommittedImportReplaysPreferencesAndNotifiesOnce() = runTest {
+        val prefs = mockk<SharedPrefs>(relaxed = true)
+        every { prefs.commitBooleans(any()) } returns true
+        val observer = mockk<DataObserver>(relaxed = true)
+        val memo = mockk<com.ivy.data.repository.RepositoryMemoFactory>(relaxed = true)
+        val useCase = newBackupDataUseCase(
+            prefs = prefs,
+            observer = observer,
+            memoFactory = memo,
+            pendingAfterWrite = true,
+            afterTransaction = { throw kotlinx.coroutines.CancellationException("after commit") },
+        )
+        try {
+            useCase.importJson("{}")
+            error("Expected cancellation")
+        } catch (expected: kotlinx.coroutines.CancellationException) {
+            expected.message shouldBe "after commit"
+        }
+        io.mockk.verify(exactly = 1) { prefs.commitBooleans(emptyMap()) }
+        io.mockk.verify(exactly = 1) { memo.invalidateAll() }
+        io.mockk.coVerify(exactly = 1) { observer.post(com.ivy.data.DataWriteEvent.AllDataChange) }
     }
 
     @Test
     fun preferenceRecoveryFailureReturnsCommittedCountsAndFinalProgress() = runTest {
         val prefs = mockk<SharedPrefs>(relaxed = true)
         every { prefs.commitBooleans(any()) } returns false
-        val useCase = newBackupDataUseCase(prefs = prefs, pendingAfterWrite = true)
+        val observer = mockk<DataObserver>(relaxed = true)
+        val useCase = newBackupDataUseCase(
+            prefs = prefs, pendingAfterWrite = true, observer = observer,
+        )
         val progress = mutableListOf<Double>()
         val result = useCase.importJson(
             testResource("backups/450-150.json").readText(Charsets.UTF_16),
@@ -129,6 +160,7 @@ class BackupDataUseCaseTest {
         (result.error != null) shouldBe true
         progress.last() shouldBe 1.0
         io.mockk.verify(exactly = 1) { prefs.commitBooleans(any()) }
+        io.mockk.coVerify(exactly = 1) { observer.post(com.ivy.data.DataWriteEvent.AllDataChange) }
     }
 
     private suspend fun backupTestCase(backupVersion: String) {

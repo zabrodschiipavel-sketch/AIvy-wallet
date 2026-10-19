@@ -16,6 +16,14 @@ import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
 import org.junit.After
 import org.junit.Before
@@ -33,8 +41,17 @@ class BackupDataUseCaseAndroidTest {
     fun createDb() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, IvyRoomDatabase::class.java).build()
+        useCase = newUseCase()
+    }
+
+    private fun newUseCase(
+        runner: BackupTransactionRunner = BackupTransactionRunner(db),
+        observer: DataObserver = DataObserver(),
+        memoFactory: com.ivy.data.repository.RepositoryMemoFactory = fakeRepositoryMemoFactory(),
+        recovery: RestorePreferencesRecovery = newRecovery(),
+    ): BackupDataUseCase {
         val appContext = InstrumentationRegistry.getInstrumentation().context
-        useCase = BackupDataUseCase(
+        return BackupDataUseCase(
             accountDao = db.accountDao,
             budgetDao = db.budgetDao,
             categoryDao = db.categoryDao,
@@ -54,19 +71,116 @@ class BackupDataUseCaseAndroidTest {
             context = appContext,
             json = KotlinxSerializationModule.provideJson(),
             dispatchersProvider = TestDispatchersProvider,
-            dataObserver = DataObserver(),
+            dataObserver = observer,
             tagsReader = db.tagDao,
             tagAssociationReader = db.tagAssociationDao,
             tagsWriter = db.writeTagDao,
             tagAssociationWriter = db.writeTagAssociationDao,
             database = db,
-            transactionRunner = BackupTransactionRunner(db),
-            recovery = RestorePreferencesRecovery(
-                db, SharedPrefs(appContext), KotlinxSerializationModule.provideJson(),
-                TestDispatchersProvider
-            ),
-            memoFactory = fakeRepositoryMemoFactory(),
+            transactionRunner = runner,
+            recovery = recovery,
+            memoFactory = memoFactory,
         )
+    }
+
+    private fun newRecovery() = RestorePreferencesRecovery(
+        db, SharedPrefs(InstrumentationRegistry.getInstrumentation().context),
+        KotlinxSerializationModule.provideJson(), TestDispatchersProvider
+    )
+
+    @Test
+    fun cancellationAfterRoomCommitReplaysJournal() = runBlocking {
+        cancellationAfterRoomCommit(retainJournal = false)
+    }
+
+    @Test
+    fun cancellationAfterRoomCommitRetainsFailedRecovery() = runBlocking {
+        cancellationAfterRoomCommit(retainJournal = true)
+    }
+
+    private suspend fun cancellationAfterRoomCommit(retainJournal: Boolean) = withTimeout(10_000) {
+        val prefs = SharedPrefs(InstrumentationRegistry.getInstrumentation().context)
+        val beforePrefs = RestorePreferenceKeys.associateWith { prefs.getBoolean(it, false) }
+        val restoredPrefs = beforePrefs.mapValues { !it.value }
+        val observer = DataObserver()
+        val recovery = newRecovery()
+        val factory = com.ivy.data.repository.RepositoryMemoFactory(observer, TestDispatchersProvider)
+        val memo = factory.createMemo<com.ivy.data.model.Account, com.ivy.data.model.AccountId>(
+            { com.ivy.data.DataWriteEvent.SaveAccounts(it) },
+            { com.ivy.data.DataWriteEvent.DeleteAccounts(it) },
+        )
+        memo.findAll({ emptyList() }, { toList() })
+        org.junit.Assert.assertTrue(memo.findAllMemoized)
+        val runner = object : BackupTransactionRunner(db) {
+            private var cancelOnce = true
+            override suspend fun <T> inTransaction(block: suspend () -> T): T {
+                val result = super.inTransaction(block)
+                if (cancelOnce) {
+                    cancelOnce = false
+                    val cancellation = CancellationException("Injected after Room commit")
+                    currentCoroutineContext().cancel(cancellation)
+                    throw cancellation
+                }
+                return result
+            }
+        }
+        val importer = newUseCase(runner, observer, factory, recovery)
+        val account = com.ivy.data.db.entity.AccountEntity(
+            name = "Committed despite cancellation", currency = "USD", color = 0
+        )
+        val payload = IvyWalletCompleteData(
+            formatVersion = 2,
+            accounts = listOf(account),
+            sharedPrefs = HashMap(restoredPrefs.mapValues { it.value.toString() }),
+        )
+        var events = 0
+        val observed = CompletableDeferred<Unit>()
+        val collector = launch(start = CoroutineStart.UNDISPATCHED) {
+            observer.writeEvents.collect { event ->
+                org.junit.Assert.assertEquals(com.ivy.data.DataWriteEvent.AllDataChange, event)
+                events++
+                // Re-enter the same mutex from the observer. Notification must be outside it.
+                recovery.withRestoreLock { }
+                observed.complete(Unit)
+            }
+        }
+        if (retainJournal) {
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_replay BEFORE DELETE ON restore_preferences_journal " +
+                    "BEGIN SELECT RAISE(ABORT,'injected replay failure'); END;"
+            )
+        }
+        try {
+            var cancelled = false
+            val child = launch {
+                try {
+                    importer.importJson(KotlinxSerializationModule.provideJson().encodeToString(payload))
+                    error("Expected cancellation")
+                } catch (expected: CancellationException) {
+                    cancelled = true
+                }
+            }
+            child.join()
+            observed.await()
+            org.junit.Assert.assertTrue(cancelled)
+            org.junit.Assert.assertTrue(child.isCancelled)
+            org.junit.Assert.assertEquals(account, db.accountDao.findById(account.id))
+            org.junit.Assert.assertEquals(retainJournal, db.restorePreferencesDao.getPending() != null)
+            restoredPrefs.forEach { (key, value) ->
+                org.junit.Assert.assertEquals(value, prefs.getBoolean(key, !value))
+            }
+            org.junit.Assert.assertFalse(memo.findAllMemoized)
+            org.junit.Assert.assertEquals(1, events)
+            // This parent coroutine remains usable after the child cancels itself.
+            recovery.withRestoreLock { }
+        } finally {
+            collector.cancel()
+            if (retainJournal) {
+                db.openHelper.writableDatabase.execSQL("DROP TRIGGER IF EXISTS fail_replay")
+                recovery.recoverPending()
+            }
+            org.junit.Assert.assertTrue(prefs.commitBooleans(beforePrefs))
+        }
     }
 
     @Test
