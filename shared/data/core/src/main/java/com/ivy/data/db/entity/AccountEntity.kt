@@ -2,6 +2,7 @@ package com.ivy.data.db.entity
 
 import androidx.annotation.Keep
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 import com.ivy.base.kotlinxserilzation.KSerializerUUID
 import kotlinx.serialization.SerialName
@@ -25,6 +26,9 @@ data class AccountEntity(
     val orderNum: Double = 0.0,
     @SerialName("includeInBalance")
     val includeInBalance: Boolean = true,
+    @ColumnInfo(defaultValue = "0")
+    @SerialName("archived")
+    val archived: Boolean = false,
 
     @Deprecated("Obsolete field used for cloud sync. Can't be deleted because of backwards compatibility")
     @SerialName("isSynced")

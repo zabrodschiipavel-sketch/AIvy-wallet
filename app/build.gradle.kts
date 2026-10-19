@@ -18,7 +18,7 @@ android {
     compileSdk = libs.versions.compile.sdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.ivy.wallet"
+        applicationId = "com.ivy.wallet.optimized"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
         versionName = libs.versions.version.name.get()
@@ -38,10 +38,10 @@ android {
         }
 
         create("release") {
-            storeFile = file("../sign.jks")
-            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            storeFile = System.getenv("IVY_SIGNING_STORE_FILE")?.let(::file)
+            storePassword = System.getenv("IVY_SIGNING_STORE_PASSWORD")
+            keyAlias = System.getenv("IVY_SIGNING_KEY_ALIAS")
+            keyPassword = System.getenv("IVY_SIGNING_KEY_PASSWORD")
         }
     }
 
@@ -57,9 +57,13 @@ android {
             isDebuggable = false
             isDefault = false
 
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (providers.gradleProperty("ivyUnsignedRelease").orNull == "true") {
+                null
+            } else {
+                signingConfigs.getByName("release")
+            }
 
-            resValue("string", "app_name", "Ivy Wallet")
+            resValue("string", "app_name", "Ivy Wallet Optimized")
         }
 
         debug {
@@ -116,8 +120,8 @@ android {
     lint {
         disable += "ComposeViewModelInjection"
         checkDependencies = true
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
         htmlReport = true
         htmlOutput = file("${project.rootDir}/build/reports/lint/lint.html")
         xmlReport = true

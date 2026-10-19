@@ -107,3 +107,9 @@ node_modules/*
 /.idea/AndroidProjectSystem.xml
 /.idea/runConfigurations.xml
 .idea
+
+# Local Python and external release signing artifacts
+__pycache__/
+*.py[cod]
+sign.jks
+*.keystore

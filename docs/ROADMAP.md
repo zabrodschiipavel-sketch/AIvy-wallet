@@ -1,0 +1,43 @@
+# Maintained fork roadmap
+
+Approved direction: offline financial records, optional online/manual exchange rates, no upstream Firebase/polls, redesign Home/editor/navigation after data safety. Preserve existing functions and old backup import. First distribution: independently signed APK plus source.
+
+## Current status
+
+| Stage | Status | Completion gate |
+|---|---|---|
+| 0 — trustworthy baseline and delivery | In progress | Clean checkout builds; unit/screenshot/Android/lint/Detekt/Compose results recorded; negative controls fail |
+| 1 — data integrity | In progress | Atomic restore/compound writes, safe account lifecycle, truthful import, safe ZIP, failure-injection and populated migration tests |
+| 2 — financial core | Planned | Decimal money, explicit missing FX, stable recurrence instances, versioned backup contracts used by active features |
+| 3 — lifecycle/navigation | In progress, intermediate implementation only | Per-entry ownership, AndroidX navigation, restored routes/drafts, latest-query cancellation and duplicate-save protection |
+| 4 — key screens and performance | Planned | Home/editor/navigation UX, accessibility, reproducible physical-device performance budgets |
+| 5 — retire legacy and maintained releases | Planned | Feature migrations remove old implementations; no temp dependencies; validated upgrades and repeatable release |
+
+An in-progress checkpoint is not a release candidate. A worker declaring success does not close a stage. Record commands, exit codes, test counts, failures and artifact identity after integration.
+
+## Execution order
+
+1. P0-CI: finish fail-closed report validation, debt ratchet, shared quality and explicit artifact promotion workflows; pin local/CI build commands.
+2. P1-RESTORE: integrate pure merge planner, Room transaction/snapshot boundaries, durable preferences recovery, manual FX, isolated/limited ZIP extraction and regression tests.
+3. P1-ACCOUNTS: validate currency/history under one transaction, archive instead of deleting referenced accounts, preserve balance participation, filter new-operation selectors, retain history and allow unarchive.
+4. P1-PAYMENTS: fix bulk skip/settle, recurring generation identity, atomic rule/loan/transaction commands, cancellation and double-tap behavior.
+5. P1-LIFECYCLE: verify intermediate per-entry stores and startup recovery; then move routes to AndroidX, saved arguments and drafts.
+6. P2-MONEY: BigDecimal DecimalAmount, canonical decimal storage, exact aggregates outside SQLite REAL/SUM; HALF_EVEN and DECIMAL128 division. Backfill from BigDecimal.valueOf(Double), retain old values until reconciliation.
+7. P3-SLICES: editor→Home first, then accounts/categories, history/search/reports, planned/loans/budgets, settings/import/onboarding/widgets. Immutable StateFlow state, Room source of truth, no new legacy/direct DAO feature consumers.
+8. P4-UX/PERF: Home/operations/accounts/more navigation, focused editor, shared components, accessibility and release-like Macrobenchmark/Perfetto. Measure on fixed 2K/20K fixtures; physical-device gates remain open until observed.
+9. P5-DELIVERY: remove upstream services/unused permissions/body logging, compatible dependency upgrades, external signing, verify update/backup recovery, publish the tested artifact explicitly.
+
+## Data contracts
+
+- Backup merge: UUID identity, identical rows skipped, conflicts stop before writes; names and notes are never globally rewritten. Full replacement is a separate operation with a prior backup.
+- DB and external preferences: committed Room journal, durable preference commit, replay before app initialization; no partial success hidden as zero imported.
+- Missing FX is an explicit incomplete valuation. Historic recorded amounts remain fixed; manual overrides take priority and survive backups.
+- Referenced accounts retain history. Changing their currency is rejected; create another account and transfer explicit amounts instead.
+- Recurrence instance identity includes rule and scheduled date; executed/skipped history survives regeneration.
+- Populated migration fixtures start at schema 106. Older unknown databases require a separate recovery fixture; no destructive fallback.
+
+## Acceptance evidence
+
+Financial fixtures cover income/expense, both transfer ends/currencies, excluded/archived accounts, loans, tiny crypto/large values and absent rates. Restore checks exact IDs, references, amounts, settings, repeated import, corrupted archive, conflicts and interruption. Android checks process recreation, IME/Back/lock, notifications/widgets and release R8. Performance targets (cold start <=2s, p95 frameOverrun <=0 at 60Hz) are targets until verified on a named physical device.
+
+See `IMPLEMENTATION_STATUS.md` for the current execution checkpoint and outstanding checks.

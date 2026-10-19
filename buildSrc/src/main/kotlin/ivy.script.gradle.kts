@@ -8,7 +8,7 @@ kotlin {
         kotlin.srcDir("build/generated/ksp/$name/kotlin")
     }
 
-    jvmToolchain(catalog.version("jvm-target").toInt())
+    jvmToolchain(21)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {

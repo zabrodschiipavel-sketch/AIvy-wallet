@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "baseline_commit": "710733dbe4729a437d573cdfb8429c50e617ded1",
+  "description": "Immutable upstream starting point. Existing exceptions may be removed; new exceptions or feature legacy/DAO dependencies require an explicit reviewed policy change.",
+  "pre_roadmap_edges": [
+    "feature/onboarding/src/main/java/com/ivy/onboarding/steps/archived/OnboardingSetName.kt: com.ivy.legacy.utils.keyboardVisibleState"
+  ],
+  "pre_roadmap_reason": "The already verified keyboard-listener leak fix replaced the old legacy listener with its lifecycle-safe state helper before this ratchet was introduced."
+}

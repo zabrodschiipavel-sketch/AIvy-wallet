@@ -1,6 +1,9 @@
 package com.ivy.data.db
 
 import android.content.Context
+import com.ivy.data.backup.RestorePreferencesEntity
+import com.ivy.data.backup.RestorePreferencesDao
+import com.ivy.data.db.migration.Migration130to131_ForkSafety
 import androidx.room.*
 import androidx.room.migration.AutoMigrationSpec
 import com.ivy.data.db.dao.read.AccountDao
@@ -69,7 +72,8 @@ import com.ivy.domain.db.migration.Migration125to126_Tags
         AccountEntity::class, TransactionEntity::class, CategoryEntity::class,
         SettingsEntity::class, PlannedPaymentRuleEntity::class,
         UserEntity::class, ExchangeRateEntity::class, BudgetEntity::class,
-        LoanEntity::class, LoanRecordEntity::class, TagEntity::class, TagAssociationEntity::class
+        LoanEntity::class, LoanRecordEntity::class, TagEntity::class, TagAssociationEntity::class,
+        RestorePreferencesEntity::class
     ],
     autoMigrations = [
         AutoMigration(
@@ -78,11 +82,12 @@ import com.ivy.domain.db.migration.Migration125to126_Tags
             spec = IvyRoomDatabase.DeleteSEMigration::class
         )
     ],
-    version = 130,
+    version = 131,
     exportSchema = true
 )
 @TypeConverters(RoomTypeConverters::class)
 abstract class IvyRoomDatabase : RoomDatabase() {
+    abstract val restorePreferencesDao: RestorePreferencesDao
     abstract val accountDao: AccountDao
     abstract val transactionDao: TransactionDao
     abstract val categoryDao: CategoryDao
@@ -135,7 +140,8 @@ abstract class IvyRoomDatabase : RoomDatabase() {
             Migration126to127_LoanRecordType(),
             Migration127to128_PaidForDateRecord(),
             Migration128to129_DeleteIsDeleted(),
-            Migration129to130_LoanIncludeNote()
+            Migration129to130_LoanIncludeNote(),
+            Migration130to131_ForkSafety()
         )
 
         @Suppress("SpreadOperator")

@@ -66,6 +66,18 @@ class AccountRepository @Inject constructor(
         writeAccountDao.deleteById(id.value)
     }
 
+    suspend fun removeOrArchive(id: AccountId) {
+        withContext(dispatchersProvider.io) {
+            writeAccountDao.removeOrArchive(id.value)
+            // Re-read the preserved account rather than evicting it as if it were deleted.
+            writeAccountDao.accountForWrite(id.value)?.let { entity ->
+                with(mapper) { entity.toDomain() }.getOrNull()?.let { account ->
+                    memo.save(account) { }
+                }
+            } ?: memo.deleteById(id) { }
+        }
+    }
+
     suspend fun deleteAll(): Unit = memo.deleteAll(
         deleteAllOperation = writeAccountDao::deleteAll
     )

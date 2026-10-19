@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewModelScope
 import arrow.core.toOption
 import com.ivy.base.legacy.SharedPrefs
+import com.ivy.base.Toaster
+import com.ivy.data.db.dao.write.AccountHistoryException
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.legacy.stringRes
@@ -96,7 +98,8 @@ class TransactionsViewModel @Inject constructor(
     private val tagRepository: TagRepository,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val toaster: Toaster,
 ) : ComposeViewModel<TransactionsState, TransactionsEvent>() {
 
     private val period = mutableStateOf(ivyContext.selectedPeriod)
@@ -735,12 +738,11 @@ class TransactionsViewModel @Inject constructor(
     }
 
     private suspend fun deleteAccount(accountId: UUID) {
-        ioThread {
-            transactionRepository.deleteAllByAccountId(accountId = AccountId(accountId))
-            plannedPaymentRuleWriter.deletedByAccountId(accountId = accountId)
-            accountRepository.deleteById(AccountId(accountId))
-
+        try {
+            accountRepository.removeOrArchive(AccountId(accountId))
             nav.back()
+        } catch (error: AccountHistoryException) {
+            toaster.show(error.message ?: "Account could not be archived")
         }
     }
 
