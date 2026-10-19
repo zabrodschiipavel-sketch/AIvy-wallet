@@ -93,7 +93,11 @@ class BackupDataUseCase @Inject constructor(
         accounts = accountDao.findAll() + if (forRestore) accountDao.findAll(deleted = true) else emptyList(),
         budgets = if (forRestore) budgetDao.findAllForRestore() else budgetDao.findAll().filterNot { it.isDeleted },
         categories = categoryDao.findAll() + if (forRestore) categoryDao.findAll(deleted = true) else emptyList(),
-        loanRecords = if (forRestore) loanRecordDao.findAllForRestore() else loanRecordDao.findAll().filterNot { it.isDeleted },
+        loanRecords = if (forRestore) {
+            loanRecordDao.findAllForRestore()
+        } else {
+            loanRecordDao.findAll().filterNot { it.isDeleted }
+        },
         loans = if (forRestore) loanDao.findAllForRestore() else loanDao.findAll().filterNot { it.isDeleted },
         plannedPaymentRules = if (forRestore) {
             plannedPaymentRuleDao.findAllForRestore()
@@ -101,7 +105,11 @@ class BackupDataUseCase @Inject constructor(
             plannedPaymentRuleDao.findAll().filterNot { it.isDeleted }
         },
         settings = settingsDao.findAll().filter { forRestore || !it.isDeleted },
-        transactions = if (forRestore) transactionDao.findAllForRestore() else transactionDao.findAll().filterNot { it.isDeleted },
+        transactions = if (forRestore) {
+            transactionDao.findAllForRestore()
+        } else {
+            transactionDao.findAll().filterNot { it.isDeleted }
+        },
         sharedPrefs = getSharedPrefsData(),
         tags = tagsReader.findAll().filter { forRestore || !it.isDeleted },
         tagAssociations = tagAssociationReader.findAll().filter { forRestore || !it.isDeleted },

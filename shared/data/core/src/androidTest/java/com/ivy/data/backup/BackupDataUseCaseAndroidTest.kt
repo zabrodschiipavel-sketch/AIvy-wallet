@@ -19,8 +19,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -111,6 +110,7 @@ class BackupDataUseCaseAndroidTest {
         )
         memo.findAll({ emptyList() }, { toList() })
         org.junit.Assert.assertTrue(memo.findAllMemoized)
+        lateinit var importJob: Job
         val runner = object : BackupTransactionRunner(db) {
             private var cancelOnce = true
             override suspend fun <T> inTransaction(block: suspend () -> T): T {
@@ -118,7 +118,7 @@ class BackupDataUseCaseAndroidTest {
                 if (cancelOnce) {
                     cancelOnce = false
                     val cancellation = CancellationException("Injected after Room commit")
-                    currentCoroutineContext().cancel(cancellation)
+                    importJob.cancel(cancellation)
                     throw cancellation
                 }
                 return result
@@ -152,7 +152,7 @@ class BackupDataUseCaseAndroidTest {
         }
         try {
             var cancelled = false
-            val child = launch {
+            val child = launch(start = CoroutineStart.LAZY) {
                 try {
                     importer.importJson(KotlinxSerializationModule.provideJson().encodeToString(payload))
                     error("Expected cancellation")
@@ -160,6 +160,8 @@ class BackupDataUseCaseAndroidTest {
                     cancelled = true
                 }
             }
+            importJob = child
+            child.start()
             child.join()
             observed.await()
             org.junit.Assert.assertTrue(cancelled)

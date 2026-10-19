@@ -141,9 +141,8 @@ class MigrationHistoryTo131Test(private val sourceVersion: Int) {
                 assertTrue(cursor.moveToNext())
                 assertEquals(id, cursor.getString(0))
                 assertEquals(name, cursor.getString(1))
-                // Currency was nullable and absent before schema 113; settings supplies USD then.
-                val currency = if (sourceVersion >= CurrencyVersion) "USD" else null
-                assertEquals(currency, cursor.getString(2))
+                // Migration 130 to 131 freezes formerly inherited currencies from settings.
+                assertEquals("USD", cursor.getString(2))
                 assertEquals(0, cursor.getInt(3))
             }
             assertFalse(cursor.moveToNext())
@@ -189,7 +188,6 @@ class MigrationHistoryTo131Test(private val sourceVersion: Int) {
         private const val FirstVersion = 106
         private const val LastSourceVersion = 130
         private const val TargetVersion = 131
-        private const val CurrencyVersion = 113
         private const val TransferAmountVersion = 114
         private const val HappenedAt = 1700000000000L
         private const val ExpenseAmount = 12.5

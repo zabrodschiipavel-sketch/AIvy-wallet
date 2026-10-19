@@ -107,7 +107,6 @@ hilt-gradle-plugin = { module = "com.google.dagger:hilt-android-gradle-plugin", 
 google-services-plugin = { module = "com.google.gms:google-services", version = "4.4.2" }
 google-play-update = { module = "com.google.android.play:app-update", version = "2.1.0" }
 google-play-services = { module = "com.google.android.gms:play-services-tasks", version = "18.2.0" }
-google-play-review = { module = "com.google.android.play:review-ktx", version = "2.0.1" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics", version = "19.0.3" }
 firebase-crashlytics-gradle-plugin = { module = "com.google.firebase:firebase-crashlytics-gradle", version = "3.0.2" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore", version = "25.1.4" }
@@ -212,8 +211,7 @@ glance = [
 ]
 google = [
     "google-play-update",
-    "google-play-services",
-    "google-play-review"
+    "google-play-services"
 ]
 firebase = [
     "firebase-crashlytics"
