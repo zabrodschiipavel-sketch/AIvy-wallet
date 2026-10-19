@@ -1,13 +1,13 @@
 package com.ivy.data.backup
 
-import com.ivy.base.legacy.DEFAULT_MAX_UNZIP_ENTRY_BYTES
+import com.ivy.base.legacy.DefaultMaxUnzipEntryBytes
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 /** Applies the same byte ceiling to standalone legacy JSON and extracted JSON. */
 internal fun readBackupText(
     input: InputStream,
-    maxBytes: Long = DEFAULT_MAX_UNZIP_ENTRY_BYTES,
+    maxBytes: Long = DefaultMaxUnzipEntryBytes,
 ): String {
     require(maxBytes > 0) { "Backup size limit must be positive" }
     val output = ByteArrayOutputStream()
