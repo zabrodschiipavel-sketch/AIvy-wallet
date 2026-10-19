@@ -174,4 +174,75 @@ class RepositoryMemoTest {
         memo.findAll({ listOf(b, a) }, { sortedBy { it.name } })
         memo.findAll({ error("must use cache") }, { sortedBy { it.name } }) shouldBe listOf(a, b)
     }
+
+    @Test
+    fun `write completing after invalidation cannot cache pre restore value`() = runTest {
+        val memo = memo()
+        val old = Item(name = "old")
+        val fresh = old.copy(name = "restored")
+        var database = old
+        val committed = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val write = async {
+            memo.save(old) {
+                database = it
+                committed.complete(Unit)
+                release.await()
+            }
+        }
+        committed.await()
+        factory.invalidateAll()
+        database = fresh
+        release.complete(Unit)
+        write.await()
+
+        memo.items shouldBe emptyMap()
+        memo.findAllMemoized shouldBe false
+        var reads = 0
+        memo.findById(old.id) {
+            reads++
+            database
+        } shouldBe fresh
+        reads shouldBe 1
+    }
+
+    @Test
+    fun `concurrent mutations serialize database writes and cache publication`() = runTest {
+        val memo = memo()
+        val first = Item(name = "first")
+        val second = first.copy(name = "second")
+        var database = first
+        val committed = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val secondAttempted = CompletableDeferred<Unit>()
+        var secondEntered = false
+        val firstWrite = async {
+            memo.save(first) {
+                database = it
+                committed.complete(Unit)
+                release.await()
+            }
+        }
+        committed.await()
+        val secondWrite = async {
+            secondAttempted.complete(Unit)
+            memo.save(second) {
+                secondEntered = true
+                database = it
+            }
+        }
+        secondAttempted.await()
+        // Run the second coroutine until it suspends on the mutation mutex.
+        kotlinx.coroutines.yield()
+        secondEntered shouldBe false
+        database shouldBe first
+        release.complete(Unit)
+        firstWrite.await()
+        secondWrite.await()
+
+        secondEntered shouldBe true
+        database shouldBe second
+        memo.items shouldBe mapOf(second.id to second)
+        memo.findById(second.id) { error("must use cache") } shouldBe second
+    }
 }

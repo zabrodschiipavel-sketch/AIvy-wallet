@@ -6,6 +6,8 @@ import com.ivy.data.DataWriteEvent
 import com.ivy.data.DeleteOperation
 import com.ivy.data.model.sync.Identifiable
 import com.ivy.data.model.sync.UniqueId
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 import javax.inject.Inject
@@ -51,6 +53,7 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
     private val getDataWriteDeleteEvent: (DeleteOperation<TID>) -> DataWriteEvent,
 ) {
     private val lock = Any()
+    private val mutationMutex = Mutex()
     private val memo = mutableMapOf<TID, T>()
     private var generation = 0L
     private var allMemoized = false
@@ -115,55 +118,75 @@ class RepositoryMemo<T : Identifiable<TID>, TID : UniqueId> internal constructor
         findByIdOperation: suspend (TID) -> T?
     ): List<T> = ids.mapNotNull { id -> findById(id, findByIdOperation) }
 
+    // Serialize database mutations and cache publication, without a JVM monitor over I/O.
+    private suspend fun mutate(
+        operation: suspend () -> Unit,
+        updateCache: () -> Unit,
+        event: () -> DataWriteEvent,
+    ) {
+        withContext(dispatchers.io) {
+            mutationMutex.withLock {
+                val token = synchronized(lock) { generation }
+                operation()
+                synchronized(lock) {
+                    val unchanged = token == generation
+                    generation++
+                    if (unchanged) {
+                        updateCache()
+                    } else {
+                        // Invalidation may have restored data while this write was suspended.
+                        memo.clear()
+                        allMemoized = false
+                    }
+                }
+                dataObserver.post(event())
+            }
+        }
+    }
+
     suspend fun save(
         value: T,
         writeOperation: suspend (T) -> Unit,
     ) {
-        withContext(dispatchers.io) {
-            writeOperation(value)
-            synchronized(lock) {
-                generation++
-                memo[value.id] = value
-            }
-            dataObserver.post(getDataWriteSaveEvent(listOf(value)))
-        }
+        mutate(
+            operation = { writeOperation(value) },
+            updateCache = { memo[value.id] = value },
+            event = { getDataWriteSaveEvent(listOf(value)) },
+        )
     }
 
     suspend fun saveMany(
         values: List<T>,
         writeOperation: suspend (List<T>) -> Unit,
     ) {
-        withContext(dispatchers.io) {
-            writeOperation(values)
-            synchronized(lock) {
-                generation++
-                values.forEach { memo[it.id] = it }
-            }
-            dataObserver.post(getDataWriteSaveEvent(values))
-        }
+        mutate(
+            operation = { writeOperation(values) },
+            updateCache = { values.forEach { memo[it.id] = it } },
+            event = { getDataWriteSaveEvent(values) },
+        )
     }
 
     suspend fun deleteById(
         id: TID,
         deleteByIdOperation: suspend (TID) -> Unit,
     ) {
-        withContext(dispatchers.io) {
-            deleteByIdOperation(id)
-            synchronized(lock) {
-                generation++
-                memo.remove(id)
-            }
-            dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.Just(listOf(id))))
-        }
+        mutate(
+            operation = { deleteByIdOperation(id) },
+            updateCache = { memo.remove(id) },
+            event = { getDataWriteDeleteEvent(DeleteOperation.Just(listOf(id))) },
+        )
     }
 
     suspend fun deleteAll(
         deleteAllOperation: suspend () -> Unit,
     ) {
-        withContext(dispatchers.io) {
-            deleteAllOperation()
-            invalidate()
-            dataObserver.post(getDataWriteDeleteEvent(DeleteOperation.All))
-        }
+        mutate(
+            operation = deleteAllOperation,
+            updateCache = {
+                memo.clear()
+                allMemoized = false
+            },
+            event = { getDataWriteDeleteEvent(DeleteOperation.All) },
+        )
     }
 }
