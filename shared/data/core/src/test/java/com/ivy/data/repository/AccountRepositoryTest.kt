@@ -39,7 +39,8 @@ class AccountRepositoryTest {
                 CurrencyRepository(
                     settingsDao = settingsDao,
                     writeSettingsDao = settingsDao,
-                    dispatchersProvider = TestDispatchersProvider
+                    dispatchersProvider = TestDispatchersProvider,
+                    memoFactory = fakeRepositoryMemoFactory(),
                 )
             ),
             accountDao = accountDao,

@@ -12,6 +12,13 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
+import com.ivy.base.Toaster
+import com.ivy.data.DataObserver
+import com.ivy.data.DataWriteEvent
+import com.ivy.data.repository.CurrencyRepository
+import com.ivy.wallet.domain.action.account.AccountsAct
+import com.ivy.wallet.domain.action.viewmodel.home.UpdateAccCacheAct
+import kotlinx.coroutines.CancellationException
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.refreshWidget
@@ -56,6 +63,11 @@ class SettingsViewModel @Inject constructor(
     private val settingsAct: SettingsAct,
     private val updateSettingsAct: UpdateSettingsAct,
     private val settingsWriter: WriteSettingsDao,
+    private val currencyRepository: CurrencyRepository,
+    private val accountsAct: AccountsAct,
+    private val updateAccCacheAct: UpdateAccCacheAct,
+    private val dataObserver: DataObserver,
+    private val toaster: Toaster,
     private val exportCsvUseCase: ExportCsvUseCase,
     @ApplicationContext private val context: Context
 ) : ComposeViewModel<SettingsState, SettingsEvent>() {
@@ -237,18 +249,21 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun setCurrency(newCurrency: String) {
-        currencyCode.value = newCurrency
-
         viewModelScope.launch {
-            ioThread {
-                settingsWriter.save(
-                    settingsDao.findFirst().copy(
-                        currency = newCurrency
-                    )
-                )
-                AssetCode.from(newCurrency).onRight {
-                    syncExchangeRatesUseCase.sync(it)
-                }
+            try {
+                val currency = AssetCode.from(newCurrency).getOrNull()
+                    ?: throw IllegalArgumentException("Invalid currency: $newCurrency")
+                currencyRepository.setBaseBaseCurrency(currency)
+                // Reload SQL-frozen NULL currencies before rendering the new base or
+                // notifying other screens. Clearing the legacy cache is not sufficient.
+                updateAccCacheAct(accountsAct(Unit))
+                currencyCode.value = currency.code
+                dataObserver.post(DataWriteEvent.AllDataChange)
+                ioThread { syncExchangeRatesUseCase.sync(currency) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                toaster.show(error.message ?: "Currency could not be updated")
             }
         }
     }

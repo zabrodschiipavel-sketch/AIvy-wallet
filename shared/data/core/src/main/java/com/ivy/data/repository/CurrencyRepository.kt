@@ -20,6 +20,7 @@ class CurrencyRepository @Inject constructor(
     private val settingsDao: SettingsDao,
     private val writeSettingsDao: WriteSettingsDao,
     private val dispatchersProvider: DispatchersProvider,
+    private val memoFactory: RepositoryMemoFactory,
 ) {
     companion object {
         const val FALLBACK_DEFAULT_CURRENCY = "USD"
@@ -27,13 +28,10 @@ class CurrencyRepository @Inject constructor(
 
     private val setterMutex = Mutex()
 
-    @Volatile
-    private var baseCurrencyMemo: AssetCode? = null
-
+    // Settings also have legacy/restore writers. Read the source of truth rather than
+    // keep a separate memo they cannot invalidate. Frozen accounts avoid this lookup
+    // in AccountMapper; the remaining lookup runs on IO.
     suspend fun getBaseCurrency(): AssetCode = withContext(dispatchersProvider.io) {
-        val baseCurrency = baseCurrencyMemo
-        if (baseCurrency != null) return@withContext baseCurrency
-
         val currencyCode = settingsDao.findFirstOrNull()?.currency
             ?: getDefaultFIATCurrency()?.currencyCode
         currencyCode?.let(AssetCode::from)?.getOrNull()
@@ -59,10 +57,12 @@ class CurrencyRepository @Inject constructor(
                             id = UUID.randomUUID()
                         )
                     writeSettingsDao.save(currentEntity.copy(currency = newCurrency.code))
-                    baseCurrencyMemo = newCurrency
+                    // SQL also freezes inherited account currencies; discard mapped accounts.
+                    memoFactory.invalidateAll()
                 }
             } catch (error: Throwable) {
-                baseCurrencyMemo = null
+                // A cancelled Room call may already have committed.
+                memoFactory.invalidateAll()
                 throw error
             }
         }
