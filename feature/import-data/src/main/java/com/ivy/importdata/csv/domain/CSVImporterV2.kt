@@ -31,6 +31,7 @@ import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.pure.util.nextOrderNum
 import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.IvyDark
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
 import javax.inject.Inject
@@ -123,7 +124,11 @@ class CSVImporterV2 @Inject constructor(
             transactionsImported = transactions.size,
             accountsImported = accounts.size - initialAccountsCount,
             categoriesImported = categories.size - initialCategoriesCount,
-            failedRows = failedRows.toImmutableList()
+            failedRows = failedRows.toImmutableList(),
+            transactionsSkipped = 0,
+            error = null,
+            warnings = persistentListOf(),
+            preferencesPending = false,
         )
     }
 
@@ -282,7 +287,8 @@ class CSVImporterV2 @Inject constructor(
             ),
             color = colorArgb,
             icon = icon,
-            orderNum = orderNum ?: accountDao.findMaxOrderNum().nextOrderNum()
+            orderNum = orderNum ?: accountDao.findMaxOrderNum().nextOrderNum(),
+            archived = false,
         )
         val domainAccount = newAccount.toDomainAccount(currencyRepository).getOrNull()
             ?: return null

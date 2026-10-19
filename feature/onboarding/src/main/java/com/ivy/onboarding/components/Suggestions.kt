@@ -146,9 +146,9 @@ private fun Preview() {
     IvyWalletComponentPreview {
         Suggestions(
             suggestions = listOf(
-                Account("Cash", Green.toArgb()),
-                Account("Bank", Red.toArgb()),
-                Account("Revolut", Purple.toArgb())
+                Account("Cash", Green.toArgb(), archived = false),
+                Account("Bank", Red.toArgb(), archived = false),
+                Account("Revolut", Purple.toArgb(), archived = false)
             ),
             onAddSuggestion = { }
         ) {

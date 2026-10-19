@@ -672,7 +672,7 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             dateTime = testDateTime,
             description = null,
             category = null,
-            account = Account(name = "phyre", Orange.toArgb()),
+            account = Account(name = "phyre", Orange.toArgb(), archived = false),
             toAccount = null,
             amount = 0.0,
             dueDate = null,

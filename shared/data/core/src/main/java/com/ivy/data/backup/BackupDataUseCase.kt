@@ -172,7 +172,7 @@ class BackupDataUseCase @Inject constructor(
                 settingsWriter.saveMany(data.settings)
                 database.writeExchangeRatesDao.saveMany(data.manualExchangeRates)
                 database.restorePreferencesDao.save(
-                    RestorePreferencesEntity(json = json.encodeToString(plan.preferences))
+                    RestorePreferencesEntity(id = 1, json = json.encodeToString(plan.preferences))
                 )
                 plan
             }

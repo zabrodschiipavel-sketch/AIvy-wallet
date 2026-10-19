@@ -40,6 +40,7 @@ class AccountCreator @Inject constructor(
                     icon = data.icon?.let(IconAsset::from)?.getOrNull(),
                     includeInBalance = data.includeBalance,
                     orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
+                    archived = false,
                 )
             }.getOrNull() ?: return@ioThread
             accountRepository.save(account)
@@ -52,7 +53,8 @@ class AccountCreator @Inject constructor(
                 includeInBalance = data.includeBalance,
                 orderNum = accountDao.findMaxOrderNum().nextOrderNum(),
                 isSynced = false,
-                id = account.id.value
+                id = account.id.value,
+                archived = false,
             )
             accountLogic.adjustBalance(
                 account = legacyAccount,

@@ -23,7 +23,7 @@ data class Account(
     val icon: String? = null,
     val orderNum: Double = 0.0,
     val includeInBalance: Boolean = true,
-    val archived: Boolean = false,
+    val archived: Boolean,
 
     val isSynced: Boolean = false,
     val isDeleted: Boolean = false,

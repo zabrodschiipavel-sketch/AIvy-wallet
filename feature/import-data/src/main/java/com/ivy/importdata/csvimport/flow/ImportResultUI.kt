@@ -289,7 +289,11 @@ private fun Preview() {
                 transactionsImported = 320,
                 accountsImported = 4,
                 categoriesImported = 13,
-                failedRows = persistentListOf()
+                failedRows = persistentListOf(),
+                transactionsSkipped = 0,
+                error = null,
+                warnings = persistentListOf(),
+                preferencesPending = false,
             ),
             launchedFromOnboarding = false,
         ) {

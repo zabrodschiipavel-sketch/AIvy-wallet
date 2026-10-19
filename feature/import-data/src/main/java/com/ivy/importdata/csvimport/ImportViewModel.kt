@@ -106,6 +106,9 @@ class ImportViewModel @Inject constructor(
                         categoriesImported = 0,
                         failedRows = persistentListOf(),
                         error = failure.message ?: "Could not restore backup",
+                        transactionsSkipped = 0,
+                        warnings = persistentListOf(),
+                        preferencesPending = false,
                     )
                     _importStep.value = ImportStep.RESULT
                 } finally {
@@ -131,7 +134,11 @@ class ImportViewModel @Inject constructor(
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    transactionsSkipped = 0,
+                    error = null,
+                    warnings = persistentListOf(),
+                    preferencesPending = false,
                 )
             }
 
@@ -169,7 +176,11 @@ class ImportViewModel @Inject constructor(
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    transactionsSkipped = 0,
+                    error = null,
+                    warnings = persistentListOf(),
+                    preferencesPending = false,
                 )
             }
         }

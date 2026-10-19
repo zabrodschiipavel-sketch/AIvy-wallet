@@ -19,5 +19,5 @@ data class Account(
     val icon: IconAsset?,
     val includeInBalance: Boolean,
     override val orderNum: Double,
-    val archived: Boolean = false,
+    val archived: Boolean,
 ) : Identifiable<AccountId>, Reorderable

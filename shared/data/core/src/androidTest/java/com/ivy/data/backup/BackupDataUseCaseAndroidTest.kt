@@ -97,7 +97,7 @@ class BackupDataUseCaseAndroidTest {
         try {
             BackupTransactionRunner(db).inTransaction {
                 db.writeAccountDao.save(account)
-                db.restorePreferencesDao.save(RestorePreferencesEntity(json = "{}"))
+                db.restorePreferencesDao.save(RestorePreferencesEntity(id = 1, json = "{}"))
                 error("Injected failure after restore writes")
             }
         } catch (e: IllegalStateException) {

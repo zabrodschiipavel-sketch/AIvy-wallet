@@ -44,6 +44,7 @@ class CalcWalletBalanceAct @Inject constructor(
                         icon = account.icon?.let { IconAsset.from(it).getOrNull() },
                         includeInBalance = account.includeInBalance,
                         orderNum = account.orderNum,
+                        archived = account.archived,
                     ),
                     range = range
                 )
