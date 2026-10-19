@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
     val unstableComposables = readComposeReports(findComposeReportFolders().toList())
         .filter {
             it.isNotViewModelFunction() &&
-                    (shouldGenerateBaseline || it.fullyQualifiedName !in baselineComposables)
+                (shouldGenerateBaseline || it.fullyQualifiedName !in baselineComposables)
         }
     val ivyReportTxt = buildIvyReport(unstableComposables)
     createReportFile(ivyReportTxt)

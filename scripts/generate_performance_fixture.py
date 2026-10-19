@@ -39,10 +39,11 @@ def main():
     parser.add_argument("--count", type=int, choices=(2000, 20000), required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
-    payload = (json.dumps(build(args.count), ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-16")
+    data = build(args.count)
+    payload = b"\xff\xfe" + (json.dumps(data, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-16-le")
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(payload)
-    metadata = {"schema": "IvyWalletCompleteData", "formatVersion": 2, "generatorVersion": GENERATOR_VERSION, "count": args.count, "sha256": hashlib.sha256(payload).hexdigest(), "bytes": len(payload), "datasetDates": {"start": "2026-01-01T00:00:00Z", "end": "2026-12-31T00:00:00Z"}, "accountCount": 2, "categoryCount": 5}
+    metadata = {"schema": "IvyWalletCompleteData", "formatVersion": 2, "generatorVersion": GENERATOR_VERSION, "count": args.count, "sha256": hashlib.sha256(payload).hexdigest(), "bytes": len(payload), "datasetDates": {"start": min(t["dateTime"] for t in data["transactions"]), "end": max(t["dateTime"] for t in data["transactions"])}, "accountCount": 2, "categoryCount": 5}
     args.out.with_suffix(".metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(metadata, sort_keys=True))
 

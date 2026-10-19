@@ -400,8 +400,8 @@ private fun getTransactionDescription(transaction: Transaction): String? {
     return when {
         transaction.description.isNotNullOrBlank() -> transaction.description!!
         transaction.recurringRuleId != null &&
-                transaction.dueDate == null &&
-                paidFor != null -> {
+            transaction.dueDate == null &&
+            paidFor != null -> {
             stringResource(
                 R.string.bill_paid,
                 paidFor.month.name.lowercase().capitalizeLocal(),

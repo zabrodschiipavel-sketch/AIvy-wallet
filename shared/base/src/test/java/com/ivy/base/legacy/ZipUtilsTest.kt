@@ -144,8 +144,11 @@ class ZipUtilsTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun directoryPayloadCannotBypassByteLimit() {
-        unzip(ByteArrayInputStream(archive("directory/" to ByteArray(16))), freshDir("directoryData"),
-            UnzipLimits(maxEntryBytes = 4))
+        unzip(
+            ByteArrayInputStream(archive("directory/" to ByteArray(16))),
+            freshDir("directoryData"),
+            UnzipLimits(maxEntryBytes = 4)
+        )
     }
 
     @Test

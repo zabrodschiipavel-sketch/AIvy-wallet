@@ -22,7 +22,6 @@ object KtorClientModule {
             install(ContentNegotiation) {
                 json(json)
             }
-
         }
     }
 }

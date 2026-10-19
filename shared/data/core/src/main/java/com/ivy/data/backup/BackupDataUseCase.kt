@@ -2,7 +2,6 @@ package com.ivy.data.backup
 
 import android.content.Context
 import android.net.Uri
-import androidx.core.net.toUri
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.unzip
 import com.ivy.base.legacy.zip
@@ -28,7 +27,6 @@ import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.db.dao.write.WriteTagAssociationDao
 import com.ivy.data.db.dao.write.WriteTagDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
-import com.ivy.data.file.FileSystem
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -39,6 +37,9 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
+
+private const val ZipSignatureFirstByte = 0x50
+private const val ZipSignatureSecondByte = 0x4b
 
 class BackupDataUseCase @Inject constructor(
     private val accountDao: AccountDao,
@@ -61,7 +62,6 @@ class BackupDataUseCase @Inject constructor(
     private val context: Context,
     private val json: Json,
     private val dispatchersProvider: DispatchersProvider,
-    private val fileSystem: FileSystem,
     private val dataObserver: DataObserver,
     private val tagsReader: TagDao,
     private val tagAssociationReader: TagAssociationDao,
@@ -123,22 +123,25 @@ class BackupDataUseCase @Inject constructor(
     ): ImportResult = withContext(dispatchersProvider.io) {
         val dir = ownedTempDirectory()
         try {
-            val text = try {
-                unzip(context, backupFileUri, dir)
-                onProgress(0.1)
-                val files = dir.listFiles().orEmpty().filter {
-                    it.isFile && it.extension.equals("json", ignoreCase = true)
+            val source = context.contentResolver.openInputStream(backupFileUri)
+                ?: error("Could not open backup")
+            val text = source.buffered().use { input ->
+                input.mark(2)
+                val archive = input.read() == ZipSignatureFirstByte && input.read() == ZipSignatureSecondByte
+                input.reset()
+                if (archive) {
+                    // Failed archive validation must never fall through to an unbounded JSON read.
+                    unzip(input, dir)
+                    val files = dir.listFiles().orEmpty().filter {
+                        it.isFile && it.extension.equals("json", ignoreCase = true)
+                    }
+                    check(files.size == 1) { "Expected exactly one JSON backup file" }
+                    files.single().inputStream().use { readBackupText(it) }
+                } else {
+                    readBackupText(input)
                 }
-                check(files.size == 1) { "Expected exactly one JSON backup file" }
-                fileSystem.read(files.single().toUri(), Charsets.UTF_16).getOrNull()
-                    ?: error("Could not read extracted backup")
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Legacy fixtures and standalone JSON backups are UTF-16.
-                fileSystem.read(backupFileUri, Charsets.UTF_16).getOrNull()
-                    ?: error("Could not read backup as archive or UTF-16 JSON: ${e.message}")
             }
+            onProgress(0.1)
             importJson(text, onProgress)
         } finally {
             dir.deleteRecursively()

@@ -12,7 +12,6 @@ import com.ivy.base.di.KotlinxSerializationModule
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.data.DataObserver
 import com.ivy.data.db.IvyRoomDatabase
-import com.ivy.data.file.FileSystem
 import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
@@ -55,7 +54,6 @@ class BackupDataUseCaseAndroidTest {
             context = appContext,
             json = KotlinxSerializationModule.provideJson(),
             dispatchersProvider = TestDispatchersProvider,
-            fileSystem = FileSystem(appContext),
             dataObserver = DataObserver(),
             tagsReader = db.tagDao,
             tagAssociationReader = db.tagAssociationDao,
@@ -74,7 +72,9 @@ class BackupDataUseCaseAndroidTest {
     @Test
     fun restoreTransactionRollsBackOnFailure() = runBlocking {
         val account = com.ivy.data.db.entity.AccountEntity(
-            name = "Rollback probe", currency = "USD", color = 0
+            name = "Rollback probe",
+            currency = "USD",
+            color = 0
         )
         val previousJournal = db.restorePreferencesDao.getPending()
         try {
@@ -96,11 +96,15 @@ class BackupDataUseCaseAndroidTest {
         val prefs = SharedPrefs(InstrumentationRegistry.getInstrumentation().context)
         val originalPrefs = RestorePreferenceKeys.associateWith { prefs.getBoolean(it, false) }
         val sentinel = com.ivy.data.db.entity.AccountEntity(
-            name = "Sentinel account", currency = "USD", color = 42
+            name = "Sentinel account",
+            currency = "USD",
+            color = 42
         )
         val history = com.ivy.data.db.entity.TransactionEntity(
-            accountId = sentinel.id, type = com.ivy.base.model.TransactionType.EXPENSE,
-            amount = 7.0, dateTime = java.time.Instant.parse("2020-01-01T00:00:00Z"),
+            accountId = sentinel.id,
+            type = com.ivy.base.model.TransactionType.EXPENSE,
+            amount = 7.0,
+            dateTime = java.time.Instant.parse("2020-01-01T00:00:00Z"),
             title = "Sentinel history"
         )
         db.writeAccountDao.save(sentinel)
@@ -180,6 +184,7 @@ class BackupDataUseCaseAndroidTest {
             org.junit.Assert.assertTrue(prefs.commitBooleans(originalPrefs))
         }
     }
+
     @After
     fun closeDb() {
         db.close()

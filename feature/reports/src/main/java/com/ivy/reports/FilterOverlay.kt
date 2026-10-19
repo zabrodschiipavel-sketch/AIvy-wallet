@@ -913,7 +913,7 @@ private fun KeywordsFilter(
     FilterTitleText(
         text = stringResource(R.string.keywords_optional),
         active = filter != null &&
-                (filter.includeKeywords.isNotEmpty() || filter.excludeKeywords.isNotEmpty())
+            (filter.includeKeywords.isNotEmpty() || filter.excludeKeywords.isNotEmpty())
     )
 
     Spacer(Modifier.height(12.dp))

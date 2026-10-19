@@ -36,16 +36,21 @@ class NavigationTest {
         assertFalse(navigation.back())
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun `back handlers belong to entries even when route values are equal`() {
         val navigation = Navigation()
         var firstCalls = 0
         var secondCalls = 0
         navigation.navigateTo(SettingsScreen)
-        navigation.onBackPressed[SettingsScreen] = { firstCalls++; true }
+        navigation.onBackPressed[SettingsScreen] = {
+            firstCalls++
+            true
+        }
         navigation.navigateTo(SettingsScreen)
-        navigation.onBackPressed[SettingsScreen] = { secondCalls++; true }
+        navigation.onBackPressed[SettingsScreen] = {
+            secondCalls++
+            true
+        }
 
         assertTrue(navigation.onBackPressed())
         assertEquals(1, secondCalls)

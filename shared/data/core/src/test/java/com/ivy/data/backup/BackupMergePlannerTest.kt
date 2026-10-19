@@ -46,7 +46,8 @@ class BackupMergePlannerTest {
     fun `same name accounts with different currencies remain distinct`() {
         val other = AccountEntity(name = account.name, currency = "EUR", color = 0)
         val plan = BackupMergePlanner.plan(
-            data.copy(accounts = listOf(other), transactions = emptyList()), data
+            data.copy(accounts = listOf(other), transactions = emptyList()),
+            data
         )
         assertEquals(listOf(other), plan.additions.accounts)
     }

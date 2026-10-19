@@ -44,8 +44,11 @@ internal class NavigationEntryStores : ViewModel() {
  *
  * This does not serialize the legacy Screen payloads for process-death restore.
  */
-internal class NavigationEntryOwner : ViewModelStoreOwner, LifecycleOwner,
-    SavedStateRegistryOwner, HasDefaultViewModelProviderFactory {
+internal class NavigationEntryOwner :
+    ViewModelStoreOwner,
+    LifecycleOwner,
+    SavedStateRegistryOwner,
+    HasDefaultViewModelProviderFactory {
     override val viewModelStore = ViewModelStore()
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateController = SavedStateRegistryController.create(this)

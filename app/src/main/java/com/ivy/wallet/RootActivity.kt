@@ -124,39 +124,41 @@ class RootActivity : AppCompatActivity(), RootScreen {
                         },
                     )
                 }
-            } else when (appLocked) {
-                null -> { // display nothing
-                }
-                true -> {
-                    IvyUI(
-                        design = appDesign(ivyContext),
-                        timeConverter = timeConverter,
-                        timeProvider = timeProvider,
-                        timeFormatter = timeFormatter,
-                    ) {
-                        AppLockedScreen(
-                            onShowOSBiometricsModal = {
-                                authenticateWithOSBiometricsModal(
-                                    biometricPromptCallback = viewModel.handleBiometricAuthResult()
-                                )
-                            },
-                            onContinueWithoutAuthentication = {
-                                viewModel.unlockApp()
-                            }
-                        )
+            } else {
+                when (appLocked) {
+                    null -> { // display nothing
                     }
-                }
-
-                false -> {
-                    NavigationRoot(navigation = navigation) { screen ->
+                    true -> {
                         IvyUI(
                             design = appDesign(ivyContext),
-                            includeSurface = screen?.isLegacy ?: true,
                             timeConverter = timeConverter,
                             timeProvider = timeProvider,
                             timeFormatter = timeFormatter,
                         ) {
-                            IvyNavGraph(screen)
+                            AppLockedScreen(
+                                onShowOSBiometricsModal = {
+                                    authenticateWithOSBiometricsModal(
+                                        biometricPromptCallback = viewModel.handleBiometricAuthResult()
+                                    )
+                                },
+                                onContinueWithoutAuthentication = {
+                                    viewModel.unlockApp()
+                                }
+                            )
+                        }
+                    }
+
+                    false -> {
+                        NavigationRoot(navigation = navigation) { screen ->
+                            IvyUI(
+                                design = appDesign(ivyContext),
+                                includeSurface = screen?.isLegacy ?: true,
+                                timeConverter = timeConverter,
+                                timeProvider = timeProvider,
+                                timeFormatter = timeFormatter,
+                            ) {
+                                IvyNavGraph(screen)
+                            }
                         }
                     }
                 }
@@ -190,9 +192,9 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     private fun setupDatePicker() {
         ivyContext.onShowDatePicker = { minDate,
-                                        maxDate,
-                                        initialDate,
-                                        onDatePicked ->
+                maxDate,
+                initialDate,
+                onDatePicked ->
             val datePicker =
                 MaterialDatePicker.Builder.datePicker()
                     .setSelection(
@@ -230,7 +232,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     private fun setupTimePicker() {
         ivyContext.onShowTimePicker = { initialTime,
-                                        onTimePicked ->
+                onTimePicked ->
             val nowLocal = initialTime ?: timeProvider.localTimeNow()
             val is24Hour = android.text.format.DateFormat.is24HourFormat(this)
             val timeFormat = if (is24Hour) TimeFormat.CLOCK_24H else TimeFormat.CLOCK_12H
@@ -359,7 +361,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
             )
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
             )
             .setConfirmationRequired(false)
             .build()

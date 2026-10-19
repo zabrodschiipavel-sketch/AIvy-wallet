@@ -181,12 +181,16 @@ class NavigationRootTest {
             LocalSavedStateRegistryOwner provides host,
         ) {
             NavigationRoot(navigation) { screen ->
-                val result = if (screen == null) null else RenderedScreen(
-                    screenScopedViewModel<ScreenViewModel>(ScreenFactory),
-                    checkNotNull(LocalViewModelStoreOwner.current),
-                    LocalSavedStateRegistryOwner.current,
-                    LocalLifecycleOwner.current,
-                )
+                val result = if (screen == null) {
+                    null
+                } else {
+                    RenderedScreen(
+                        screenScopedViewModel<ScreenViewModel>(ScreenFactory),
+                        checkNotNull(LocalViewModelStoreOwner.current),
+                        LocalSavedStateRegistryOwner.current,
+                        LocalLifecycleOwner.current,
+                    )
+                }
                 // A nested restart group can recompose without re-running Molecule's
                 // outer producer. Observe committed renders here, not a local return.
                 SideEffect { check(renders.trySend(result).isSuccess) }
@@ -212,14 +216,15 @@ class NavigationRootTest {
     }
 
     private object ScreenFactory : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
             assertSame(extras[SAVED_STATE_REGISTRY_OWNER_KEY], extras[VIEW_MODEL_STORE_OWNER_KEY])
-            return ScreenViewModel(extras.createSavedStateHandle()) as T
+            return modelClass.cast(ScreenViewModel(extras.createSavedStateHandle()))
         }
     }
 
-    private class TestHost : ViewModelStoreOwner, SavedStateRegistryOwner,
+    private class TestHost :
+        ViewModelStoreOwner,
+        SavedStateRegistryOwner,
         HasDefaultViewModelProviderFactory {
         override val viewModelStore = ViewModelStore()
         private val lifecycleRegistry = LifecycleRegistry(this)

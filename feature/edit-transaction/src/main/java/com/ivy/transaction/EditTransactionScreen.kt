@@ -234,7 +234,7 @@ private fun BoxWithConstraintsScope.UI(
     backgroundProcessing: Boolean = false,
     hasChanges: Boolean = false,
 
-    ) {
+) {
     var chooseCategoryModalVisible by remember { mutableStateOf(false) }
     var tagModelVisible by remember { mutableStateOf(false) }
     var categoryModalData: CategoryModalData? by remember { mutableStateOf(null) }

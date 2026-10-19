@@ -2,7 +2,9 @@ package com.ivy.data.backup
 
 import com.ivy.base.TestDispatchersProvider
 import com.ivy.base.di.KotlinxSerializationModule
+import com.ivy.base.legacy.SharedPrefs
 import com.ivy.data.DataObserver
+import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.dao.fake.FakeAccountDao
 import com.ivy.data.db.dao.fake.FakeBudgetDao
 import com.ivy.data.db.dao.fake.FakeCategoryDao
@@ -19,8 +21,6 @@ import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
-import com.ivy.data.db.IvyRoomDatabase
-import com.ivy.base.legacy.SharedPrefs
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -54,7 +54,7 @@ class BackupDataUseCaseTest {
         }
         if (pendingAfterWrite) {
             coEvery { database.restorePreferencesDao.getPending() } returnsMany listOf(
-                null, RestorePreferencesEntity(json = "{}")
+                null, RestorePreferencesEntity(id = 1, json = "{}")
             )
         }
         return BackupDataUseCase(
@@ -78,7 +78,6 @@ class BackupDataUseCaseTest {
             sharedPrefs = prefs,
             json = KotlinxSerializationModule.provideJson(),
             dispatchersProvider = TestDispatchersProvider,
-            fileSystem = mockk(relaxed = true),
             dataObserver = DataObserver(),
             tagsReader = tagDao,
             tagsWriter = tagDao,
@@ -87,9 +86,12 @@ class BackupDataUseCaseTest {
             database = database,
             transactionRunner = runner,
             recovery = RestorePreferencesRecovery(
-                database, prefs, KotlinxSerializationModule.provideJson(), TestDispatchersProvider
+                database,
+                prefs,
+                KotlinxSerializationModule.provideJson(),
+                TestDispatchersProvider
             ),
-            memoFactory = fakeRepositoryMemoFactory(),
+            memoFactory = memoFactory,
         )
     }
 

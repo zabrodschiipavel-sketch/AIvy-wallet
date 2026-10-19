@@ -41,8 +41,12 @@ class AccountHistorySafetyTest {
         val destination = AccountEntity(name = "Destination", currency = "EUR", color = 2)
         db.writeAccountDao.saveMany(listOf(source, destination))
         val transfer = TransactionEntity(
-            accountId = source.id, toAccountId = destination.id, type = TransactionType.TRANSFER,
-            amount = 10.0, toAmount = 9.0, dateTime = Instant.EPOCH,
+            accountId = source.id,
+            toAccountId = destination.id,
+            type = TransactionType.TRANSFER,
+            amount = 10.0,
+            toAmount = 9.0,
+            dateTime = Instant.EPOCH,
         )
         db.writeTransactionDao.save(transfer)
 
@@ -71,10 +75,17 @@ class AccountHistorySafetyTest {
     fun activeRulePreventsArchiving() = runBlocking {
         val account = AccountEntity(name = "Scheduled", currency = "USD", color = 1)
         db.writeAccountDao.save(account)
-        db.writePlannedPaymentRuleDao.save(PlannedPaymentRuleEntity(
-            startDate = Instant.EPOCH, intervalN = null, intervalType = null, oneTime = true,
-            type = TransactionType.EXPENSE, accountId = account.id, amount = 10.0,
-        ))
+        db.writePlannedPaymentRuleDao.save(
+            PlannedPaymentRuleEntity(
+                startDate = Instant.EPOCH,
+                intervalN = null,
+                intervalType = null,
+                oneTime = true,
+                type = TransactionType.EXPENSE,
+                accountId = account.id,
+                amount = 10.0,
+            )
+        )
 
         expectHistoryError { db.writeAccountDao.removeOrArchive(account.id) }
         assertEquals(account, db.accountDao.findById(account.id))
@@ -85,9 +96,14 @@ class AccountHistorySafetyTest {
         val first = AccountEntity(name = "First", currency = "USD", color = 1)
         val second = AccountEntity(name = "Second", currency = "EUR", color = 2)
         db.writeAccountDao.saveMany(listOf(first, second))
-        db.writeTransactionDao.save(TransactionEntity(
-            accountId = second.id, type = TransactionType.INCOME, amount = 1.0, dateTime = Instant.EPOCH,
-        ))
+        db.writeTransactionDao.save(
+            TransactionEntity(
+                accountId = second.id,
+                type = TransactionType.INCOME,
+                amount = 1.0,
+                dateTime = Instant.EPOCH,
+            )
+        )
 
         expectHistoryError {
             db.writeAccountDao.saveMany(listOf(first.copy(name = "Changed"), second.copy(currency = "USD")))

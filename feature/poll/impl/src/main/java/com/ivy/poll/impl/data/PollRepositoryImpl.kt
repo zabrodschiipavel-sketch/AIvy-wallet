@@ -14,27 +14,27 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class PollRepositoryImpl @Inject constructor(
-  private val dataStore: IvyDataStore
+    private val dataStore: IvyDataStore
 ) : PollRepository {
-  override suspend fun hasVoted(poll: PollId): Boolean {
-    return dataStore.data.map { it[votedKey(poll)] ?: false }.first()
-  }
-
-  override suspend fun setVoted(poll: PollId, voted: Boolean) {
-    dataStore.edit {
-      it[votedKey(poll)] = voted
+    override suspend fun hasVoted(poll: PollId): Boolean {
+        return dataStore.data.map { it[votedKey(poll)] ?: false }.first()
     }
-  }
 
-  override suspend fun vote(
-    deviceId: DeviceId,
-    poll: PollId,
-    option: PollOptionId
-  ): Either<String, Unit> {
-    return Either.Left("Polls are unavailable in this fork")
-  }
+    override suspend fun setVoted(poll: PollId, voted: Boolean) {
+        dataStore.edit {
+            it[votedKey(poll)] = voted
+        }
+    }
 
-  private fun votedKey(poll: PollId): Preferences.Key<Boolean> {
-    return booleanPreferencesKey("poll.${poll.id}_voted")
-  }
+    override suspend fun vote(
+        deviceId: DeviceId,
+        poll: PollId,
+        option: PollOptionId
+    ): Either<String, Unit> {
+        return Either.Left("Polls are unavailable in this fork")
+    }
+
+    private fun votedKey(poll: PollId): Preferences.Key<Boolean> {
+        return booleanPreferencesKey("poll.${poll.id}_voted")
+    }
 }

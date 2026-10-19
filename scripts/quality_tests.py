@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from quality import baseline_entries, feature_edges, inspect_badging, lint_errors
+from quality import baseline_entries, feature_edges, inspect_badging, lint_errors, source_suppressions
 
 
 class CandidateGateTest(unittest.TestCase):
@@ -43,6 +43,19 @@ class LintGateTest(unittest.TestCase):
 
 
 class DebtRatchetTest(unittest.TestCase):
+    def test_source_suppressions_cannot_be_added_or_replaced(self):
+        original = {"shared/A.kt": '@Suppress("Old") class A'}
+        for code in ('@Suppress("New") class A', '@Suppress("Old", "Old") class A',
+                     '@file:Suppress("Old", "New")', '@SuppressLint("New") class A',
+                     '@get:kotlin.Suppress("New") val x = 0'):
+            self.assertTrue(source_suppressions({"shared/A.kt": code}) - source_suppressions(original))
+
+    def test_suppression_comments_and_line_changes_do_not_count(self):
+        self.assertFalse(source_suppressions({"shared/A.kt": '// @Suppress("Old")\n/* @SuppressLint("X") */'}))
+        original = {"shared/A.kt": '@Suppress("Old") class A'}
+        self.assertEqual(source_suppressions(original),
+                         source_suppressions({"shared/A.kt": '\n\n@Suppress("Old") class A'}))
+
     def test_same_size_baseline_replacement_is_rejected(self):
         for kind, old, new in (
             ("compose", "old.Screen", "new.Screen"),

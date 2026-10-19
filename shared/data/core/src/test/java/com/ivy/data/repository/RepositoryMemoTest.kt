@@ -15,8 +15,10 @@ import org.junit.Test
 import java.util.UUID
 
 class RepositoryMemoTest {
-    private data class Id(override val value: UUID = UUID.randomUUID()) : UniqueId
-    private data class Item(override val id: Id = Id(), val name: String) : Identifiable<Id>
+    private data class Id(override val value: UUID) : UniqueId
+    private data class Item(override val id: Id, val name: String) : Identifiable<Id>
+
+    private fun item(name: String): Item = Item(Id(UUID.randomUUID()), name)
 
     private val observer = mockk<DataObserver>(relaxed = true)
     private val factory = RepositoryMemoFactory(observer, TestDispatchersProvider)
@@ -28,7 +30,7 @@ class RepositoryMemoTest {
     @Test
     fun `failed deletes preserve cache and do not notify`() = runTest {
         val memo = memo()
-        val item = Item(name = "cached")
+        val item = item(name = "cached")
         memo.findAll({ listOf(item) }, { toList() })
 
         suspend fun expectFailure(operation: suspend () -> Unit) {
@@ -51,14 +53,17 @@ class RepositoryMemoTest {
     @Test
     fun `failed writes preserve cache and do not notify`() = runTest {
         val memo = memo()
-        val item = Item(name = "cached")
+        val item = item(name = "cached")
         memo.findAll({ listOf(item) }, { toList() })
         val updated = item.copy(name = "updated")
         for (many in listOf(false, true)) {
             var failed = false
             try {
-                if (many) memo.saveMany(listOf(updated)) { error("write failed") }
-                else memo.save(updated) { error("write failed") }
+                if (many) {
+                    memo.saveMany(listOf(updated)) { error("write failed") }
+                } else {
+                    memo.save(updated) { error("write failed") }
+                }
             } catch (_: IllegalStateException) {
                 failed = true
             }
@@ -73,7 +78,7 @@ class RepositoryMemoTest {
     fun `invalidate all clears every memo and forces reload without changing snapshots`() = runTest {
         val first = memo()
         val second = memo()
-        val old = Item(name = "old")
+        val old = item(name = "old")
         val fresh = old.copy(name = "fresh")
         first.findAll({ listOf(old) }, { toList() })
         second.findById(old.id) { old }
@@ -92,7 +97,7 @@ class RepositoryMemoTest {
     @Test
     fun `in flight find all retries after invalidate`() = runTest {
         val memo = memo()
-        val old = Item(name = "old")
+        val old = item(name = "old")
         val fresh = old.copy(name = "fresh")
         val started = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
@@ -104,7 +109,9 @@ class RepositoryMemoTest {
                     started.complete(Unit)
                     release.await()
                     listOf(old)
-                } else listOf(fresh)
+                } else {
+                    listOf(fresh)
+                }
             }, { toList() })
         }
         started.await()
@@ -119,7 +126,7 @@ class RepositoryMemoTest {
     @Test
     fun `in flight find by id retries after invalidate`() = runTest {
         val memo = memo()
-        val old = Item(name = "old")
+        val old = item(name = "old")
         val fresh = old.copy(name = "fresh")
         val started = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
@@ -131,7 +138,9 @@ class RepositoryMemoTest {
                     started.complete(Unit)
                     release.await()
                     old
-                } else fresh
+                } else {
+                    fresh
+                }
             }
         }
         started.await()
@@ -146,7 +155,7 @@ class RepositoryMemoTest {
     @Test
     fun `successful save supersedes an older in flight read`() = runTest {
         val memo = memo()
-        val old = Item(name = "old")
+        val old = item(name = "old")
         val fresh = old.copy(name = "fresh")
         val started = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
@@ -169,8 +178,8 @@ class RepositoryMemoTest {
     @Test
     fun `cached find all applies sorting`() = runTest {
         val memo = memo()
-        val a = Item(name = "a")
-        val b = Item(name = "b")
+        val a = item(name = "a")
+        val b = item(name = "b")
         memo.findAll({ listOf(b, a) }, { sortedBy { it.name } })
         memo.findAll({ error("must use cache") }, { sortedBy { it.name } }) shouldBe listOf(a, b)
     }
@@ -178,7 +187,7 @@ class RepositoryMemoTest {
     @Test
     fun `write completing after invalidation cannot cache pre restore value`() = runTest {
         val memo = memo()
-        val old = Item(name = "old")
+        val old = item(name = "old")
         val fresh = old.copy(name = "restored")
         var database = old
         val committed = CompletableDeferred<Unit>()
@@ -209,7 +218,7 @@ class RepositoryMemoTest {
     @Test
     fun `cancellation during write invalidates possibly committed cache`() = runTest {
         val memo = memo()
-        val original = Item(name = "before")
+        val original = item(name = "before")
         memo.findAll({ listOf(original) }, { toList() })
         try {
             memo.save(original.copy(name = "after")) {
@@ -226,7 +235,7 @@ class RepositoryMemoTest {
     @Test
     fun `concurrent mutations serialize database writes and cache publication`() = runTest {
         val memo = memo()
-        val first = Item(name = "first")
+        val first = item(name = "first")
         val second = first.copy(name = "second")
         var database = first
         val committed = CompletableDeferred<Unit>()

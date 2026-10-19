@@ -87,6 +87,17 @@ def git(root: Path, *args: str) -> bytes:
     return subprocess.check_output(["git", "-C", str(root), *args], stderr=subprocess.PIPE)
 
 
+def source_suppressions(files: dict[str, str]) -> Counter:
+    entries = Counter()
+    pattern = r"@(?:\w+:)?(?:[\w.]+\.)?(?:Suppress|SuppressLint|SuppressWarnings)\s*\(([^)]*)\)"
+    for path, code in files.items():
+        code = re.sub(r"/\*.*?\*/|//[^\n]*", "", code, flags=re.S)
+        for annotation in re.finditer(pattern, code, flags=re.S):
+            for rule in re.findall(r'"([^"]+)"', annotation.group(1)):
+                entries[f"{path}: {rule}"] += 1
+    return entries
+
+
 def ratchet(root: Path) -> dict:
     policy = json.loads((root / "config/quality/ratchet.json").read_text(encoding="utf-8"))
     commit = policy["baseline_commit"]
@@ -100,19 +111,25 @@ def ratchet(root: Path) -> dict:
         additions = current - allowed
         counts[kind] = {"initial": sum(allowed.values()), "current": sum(current.values())}
         failures.extend(f"New {kind} baseline entry: {entry}" for entry in additions)
-    with tarfile.open(fileobj=io.BytesIO(git(root, "archive", commit, "feature"))) as archive:
+    with tarfile.open(fileobj=io.BytesIO(git(root, "archive", commit))) as archive:
         original_files = {
             entry.name: archive.extractfile(entry).read().decode("utf-8")
             for entry in archive.getmembers()
             if entry.isfile() and entry.name.endswith((".kt", "build.gradle.kts"))
         }
-    paths = git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "feature").decode().split("\0")
+    paths = git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.kt", "*.kts").decode().split("\0")
     current_files = {path: (root / path).read_text(encoding="utf-8") for path in paths
                      if path.endswith((".kt", "build.gradle.kts")) and (root / path).is_file()}
     allowed_edges, current_edges = feature_edges(original_files), feature_edges(current_files)
     allowed_edges.update(policy.get("pre_roadmap_edges", []))
     counts["feature_legacy_or_dao_edges"] = {"initial": len(allowed_edges), "current": len(current_edges)}
     failures.extend(f"New feature dependency: {edge}" for edge in current_edges - allowed_edges)
+    original_suppressions = source_suppressions(original_files)
+    current_suppressions = source_suppressions(current_files)
+    counts["source_suppressions"] = {
+        "initial": sum(original_suppressions.values()), "current": sum(current_suppressions.values())}
+    failures.extend(f"New source suppression: {entry}"
+                    for entry in current_suppressions - original_suppressions)
     if failures:
         raise ValueError("\n".join(failures[:25]) + f"\n{len(failures)} new exceptions/dependencies")
     return {"baseline_commit": commit, "counts": counts}
