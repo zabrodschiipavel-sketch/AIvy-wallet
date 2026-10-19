@@ -39,7 +39,11 @@ class BackupDataUseCaseTest {
         loanDao: FakeLoanDao = FakeLoanDao(),
         loanRecordDao: FakeLoanRecordDao = FakeLoanRecordDao(),
         tagDao: FakeTagDao = FakeTagDao(),
-        tagAssociationDao: FakeTagAssociationDao = FakeTagAssociationDao()
+        tagAssociationDao: FakeTagAssociationDao = FakeTagAssociationDao(),
+        afterTransaction: suspend () -> Unit = {},
+        prefs: SharedPrefs = mockk(relaxed = true),
+        memoFactory: com.ivy.data.repository.RepositoryMemoFactory = fakeRepositoryMemoFactory(),
+        pendingAfterWrite: Boolean = false,
     ): BackupDataUseCase {
         val accountMapper = AccountMapper(
             CurrencyRepository(
@@ -54,9 +58,15 @@ class BackupDataUseCaseTest {
         coEvery { database.restorePreferencesDao.getPending() } returns null
         val runner = mockk<BackupTransactionRunner>()
         coEvery { runner.inTransaction<Any?>(any()) } coAnswers {
-            firstArg<suspend () -> Any?>().invoke()
+            val result = firstArg<suspend () -> Any?>().invoke()
+            afterTransaction()
+            result
         }
-        val prefs = mockk<SharedPrefs>(relaxed = true)
+        if (pendingAfterWrite) {
+            coEvery { database.restorePreferencesDao.getPending() } returnsMany listOf(
+                null, RestorePreferencesEntity(json = "{}")
+            )
+        }
         return BackupDataUseCase(
             accountDao = accountDao,
             accountMapper = accountMapper,
@@ -99,6 +109,42 @@ class BackupDataUseCaseTest {
             ),
             memoFactory = fakeRepositoryMemoFactory(),
         )
+    }
+
+    @Test
+    fun cancellationAtTransactionReturnStillInvalidatesCaches() = runTest {
+        val memo = mockk<com.ivy.data.repository.RepositoryMemoFactory>(relaxed = true)
+        val useCase = newBackupDataUseCase(
+            memoFactory = memo,
+            afterTransaction = { throw kotlinx.coroutines.CancellationException("after commit") },
+        )
+        val progress = mutableListOf<Double>()
+        try {
+            useCase.importJson("{}", onProgress = { progress += it })
+            error("Expected cancellation")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            e.message shouldBe "after commit"
+        }
+        io.mockk.verify(exactly = 1) { memo.invalidateAll() }
+        (1.0 in progress) shouldBe false
+    }
+
+    @Test
+    fun preferenceRecoveryFailureReturnsCommittedCountsAndFinalProgress() = runTest {
+        val prefs = mockk<SharedPrefs>(relaxed = true)
+        every { prefs.commitBooleans(any()) } returns false
+        val useCase = newBackupDataUseCase(prefs = prefs, pendingAfterWrite = true)
+        val progress = mutableListOf<Double>()
+        val result = useCase.importJson(
+            testResource("backups/450-150.json").readText(Charsets.UTF_16),
+            onProgress = { progress += it },
+        )
+        result.accountsImported shouldBeGreaterThan 0
+        result.transactionsImported shouldBeGreaterThan 0
+        result.preferencesPending shouldBe true
+        (result.error != null) shouldBe true
+        progress.last() shouldBe 1.0
+        io.mockk.verify(exactly = 1) { prefs.commitBooleans(any()) }
     }
 
     private suspend fun backupTestCase(backupVersion: String) {

@@ -34,6 +34,7 @@ import com.ivy.data.repository.mapper.AccountMapper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -157,48 +158,54 @@ class BackupDataUseCase @Inject constructor(
         recovery.withRestoreLock {
             // Never overwrite a previously committed but unrecovered journal.
             recovery.recoverPendingLocked()
-            val plan = transactionRunner.inTransaction {
-                val plan = BackupMergePlanner.plan(incoming, snapshot())
-                val data = plan.additions
-                database.writeAccountDao.saveMany(data.accounts)
-                categoryWriter.saveMany(data.categories)
-                plannedPaymentRuleWriter.saveMany(data.plannedPaymentRules)
-                loanWriter.saveMany(data.loans)
-                loanRecordWriter.saveMany(data.loanRecords)
-                budgetWriter.saveMany(data.budgets)
-                transactionWriter.saveMany(data.transactions)
-                tagsWriter.save(data.tags)
-                tagAssociationWriter.save(data.tagAssociations)
-                settingsWriter.saveMany(data.settings)
-                database.writeExchangeRatesDao.saveMany(data.manualExchangeRates)
-                database.restorePreferencesDao.save(
-                    RestorePreferencesEntity(id = 1, json = json.encodeToString(plan.preferences))
-                )
-                plan
-            }
-            // Everything below happens after Room has committed.
-            memoFactory.invalidateAll()
-            var preferenceError: String? = null
-            try {
-                recovery.recoverPendingLocked()
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                preferenceError = e.message ?: "Preference recovery failed"
+            val plan = try {
+                transactionRunner.inTransaction {
+                    val plan = BackupMergePlanner.plan(incoming, snapshot())
+                    val data = plan.additions
+                    database.writeAccountDao.saveMany(data.accounts)
+                    categoryWriter.saveMany(data.categories)
+                    plannedPaymentRuleWriter.saveMany(data.plannedPaymentRules)
+                    loanWriter.saveMany(data.loans)
+                    loanRecordWriter.saveMany(data.loanRecords)
+                    budgetWriter.saveMany(data.budgets)
+                    transactionWriter.saveMany(data.transactions)
+                    tagsWriter.save(data.tags)
+                    tagAssociationWriter.save(data.tagAssociations)
+                    settingsWriter.saveMany(data.settings)
+                    database.writeExchangeRatesDao.saveMany(data.manualExchangeRates)
+                    database.restorePreferencesDao.save(
+                        RestorePreferencesEntity(id = 1, json = json.encodeToString(plan.preferences))
+                    )
+                    plan
+                }
             } finally {
-                dataObserver.post(DataWriteEvent.AllDataChange)
+                // Room can commit before cancellation is delivered to its caller.
+                // Clearing after a rollback is harmless; retaining stale values is not.
+                memoFactory.invalidateAll()
             }
-            ImportResult(
-                rowsFound = incoming.transactions.size,
-                transactionsImported = plan.additions.transactions.size,
-                accountsImported = plan.additions.accounts.size,
-                categoriesImported = plan.additions.categories.size,
-                failedRows = persistentListOf(),
-                transactionsSkipped = plan.skippedTransactions,
-                warnings = plan.warnings.toPersistentList(),
-                error = preferenceError,
-                preferencesPending = preferenceError != null,
-            )
+            // Only post-commit work is noncancellable, never the DB transaction.
+            withContext(NonCancellable) {
+                var preferenceError: String? = null
+                try {
+                    recovery.recoverPendingLocked()
+                } catch (e: Exception) {
+                    preferenceError = e.message ?: "Preference recovery failed"
+                } finally {
+                    dataObserver.post(DataWriteEvent.AllDataChange)
+                }
+                onProgress(1.0)
+                ImportResult(
+                    rowsFound = incoming.transactions.size,
+                    transactionsImported = plan.additions.transactions.size,
+                    accountsImported = plan.additions.accounts.size,
+                    categoriesImported = plan.additions.categories.size,
+                    failedRows = persistentListOf(),
+                    transactionsSkipped = plan.skippedTransactions,
+                    warnings = plan.warnings.toPersistentList(),
+                    error = preferenceError,
+                    preferencesPending = preferenceError != null,
+                )
+            }
         }
     }
 }

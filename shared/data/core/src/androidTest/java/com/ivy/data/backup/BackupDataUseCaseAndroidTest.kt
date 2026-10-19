@@ -20,6 +20,7 @@ import com.ivy.data.repository.mapper.AccountMapper
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -107,6 +108,96 @@ class BackupDataUseCaseAndroidTest {
         org.junit.Assert.assertEquals(previousJournal, db.restorePreferencesDao.getPending())
     }
 
+    @Test
+    fun productionImportRollsBackAtEveryGroupedWriter() = runBlocking {
+        val json = KotlinxSerializationModule.provideJson()
+        val prefs = SharedPrefs(InstrumentationRegistry.getInstrumentation().context)
+        val originalPrefs = RestorePreferenceKeys.associateWith { prefs.getBoolean(it, false) }
+        val sentinel = com.ivy.data.db.entity.AccountEntity(
+            name = "Sentinel account", currency = "USD", color = 42
+        )
+        val history = com.ivy.data.db.entity.TransactionEntity(
+            accountId = sentinel.id, type = com.ivy.base.model.TransactionType.EXPENSE,
+            amount = 7.0, dateTime = java.time.Instant.parse("2020-01-01T00:00:00Z"),
+            title = "Sentinel history"
+        )
+        db.writeAccountDao.save(sentinel)
+        db.writeTransactionDao.saveMany(listOf(history))
+        try {
+            org.junit.Assert.assertTrue(prefs.commitBooleans(RestorePreferenceKeys.associateWith { false }))
+            val before = useCase.generateJsonBackup()
+            val payload = json.encodeToString(completeRestorePayload())
+            val tables = listOf(
+                "accounts", "categories", "planned_payment_rules", "loans", "loan_records",
+                "budgets", "transactions", "tags", "tags_association", "settings",
+                "exchange_rates", "restore_preferences_journal"
+            )
+            for (table in tables) {
+                val sql = db.openHelper.writableDatabase
+                sql.execSQL(
+                    "CREATE TRIGGER fail_restore BEFORE INSERT ON $table " +
+                        "BEGIN SELECT RAISE(ABORT,'injected'); END;"
+                )
+                val progress = mutableListOf<Double>()
+                try {
+                    var failure: Exception? = null
+                    try {
+                        useCase.importJson(payload, onProgress = { progress += it })
+                    } catch (e: Exception) {
+                        failure = e
+                    }
+                    org.junit.Assert.assertNotNull("Trigger was not reached: $table", failure)
+                    org.junit.Assert.assertTrue(
+                        "Unexpected failure at $table: $failure",
+                        generateSequence<Throwable>(failure) { it.cause }
+                            .any { it.message.orEmpty().contains("injected") }
+                    )
+                } finally {
+                    sql.execSQL("DROP TRIGGER IF EXISTS fail_restore")
+                }
+                org.junit.Assert.assertFalse("Success progress on rollback: $table", 1.0 in progress)
+                // Check before export: exporting would otherwise replay a leaked journal.
+                org.junit.Assert.assertNull(db.restorePreferencesDao.getPending())
+                RestorePreferenceKeys.forEach {
+                    org.junit.Assert.assertFalse("Preference changed at $table: $it", prefs.getBoolean(it, true))
+                }
+                org.junit.Assert.assertEquals("Snapshot changed at $table", before, useCase.generateJsonBackup())
+                org.junit.Assert.assertEquals(listOf(sentinel), db.accountDao.findAll())
+                org.junit.Assert.assertEquals(listOf(history), db.transactionDao.findAll())
+            }
+        } finally {
+            org.junit.Assert.assertTrue(prefs.commitBooleans(originalPrefs))
+        }
+    }
+
+    @Test
+    fun repeatedProductionImportPreservesExactRowsAndIdentities() = runBlocking {
+        val json = KotlinxSerializationModule.provideJson()
+        val prefs = SharedPrefs(InstrumentationRegistry.getInstrumentation().context)
+        val originalPrefs = RestorePreferenceKeys.associateWith { prefs.getBoolean(it, false) }
+        try {
+            val incoming = completeRestorePayload()
+            val progress = mutableListOf<Double>()
+            val first = useCase.importJson(json.encodeToString(incoming), onProgress = { progress += it })
+            first.shouldBeSuccessful()
+            first.transactionsImported shouldBeGreaterThan 0
+            first.accountsImported shouldBeGreaterThan 0
+            first.categoriesImported shouldBeGreaterThan 0
+            org.junit.Assert.assertEquals(1.0, progress.last(), 0.0)
+            val snapshot = useCase.generateJsonBackup()
+            val repeat = useCase.importJson(json.encodeToString(incoming))
+            repeat.shouldBeSuccessful()
+            org.junit.Assert.assertEquals(0, repeat.transactionsImported)
+            org.junit.Assert.assertEquals(0, repeat.accountsImported)
+            org.junit.Assert.assertEquals(0, repeat.categoriesImported)
+            org.junit.Assert.assertEquals(incoming.transactions.size, repeat.transactionsSkipped)
+            org.junit.Assert.assertEquals(snapshot, useCase.generateJsonBackup())
+            org.junit.Assert.assertEquals(incoming.accounts, db.accountDao.findAll())
+            org.junit.Assert.assertEquals(incoming.transactions, db.transactionDao.findAll())
+        } finally {
+            org.junit.Assert.assertTrue(prefs.commitBooleans(originalPrefs))
+        }
+    }
     @After
     fun closeDb() {
         db.close()
