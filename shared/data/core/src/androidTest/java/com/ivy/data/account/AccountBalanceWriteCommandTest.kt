@@ -57,7 +57,7 @@ class AccountBalanceWriteCommandTest {
         observer = DataObserver()
         val memos = RepositoryMemoFactory(observer, TestDispatchersProvider)
         accountMapper = AccountMapper(
-            CurrencyRepository(db.settingsDao, db.writeSettingsDao, TestDispatchersProvider)
+            CurrencyRepository(db.settingsDao, db.writeSettingsDao, TestDispatchersProvider, memos)
         )
         accounts = AccountRepository(
             accountMapper, db.accountDao, db.writeAccountDao, TestDispatchersProvider, memos,
