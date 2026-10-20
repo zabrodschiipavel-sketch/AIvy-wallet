@@ -57,10 +57,6 @@ class LTLoanMapper @Inject constructor(
         }
     }
 
-    suspend fun deleteAssociatedLoanTransactions(loanId: UUID) {
-        ltCore.deleteAssociatedTransactions(loanId = loanId)
-    }
-
     suspend fun recalculateLoanRecords(
         oldLoanAccountId: UUID?,
         newLoanAccountId: UUID?,

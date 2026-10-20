@@ -57,10 +57,6 @@ class LTLoanRecordMapper @Inject constructor(
         }
     }
 
-    suspend fun deleteAssociatedLoanRecordTransaction(loanRecordId: UUID) {
-        ltCore.deleteAssociatedTransactions(loanRecordId = loanRecordId)
-    }
-
     suspend fun updateAssociatedLoanRecord(
         transaction: Transaction?,
         onBackgroundProcessingStart: suspend () -> Unit = {},

@@ -31,6 +31,7 @@ import com.ivy.loans.loandetails.events.LoanModalEvent
 import com.ivy.loans.loandetails.events.LoanRecordModalEvent
 import com.ivy.navigation.LoanDetailsScreen
 import com.ivy.navigation.Navigation
+import com.ivy.ui.R
 import com.ivy.ui.ComposeViewModel
 import com.ivy.ui.time.impl.DateTimePicker
 import com.ivy.wallet.domain.action.account.AccountsAct
@@ -83,6 +84,7 @@ class LoanDetailsViewModel @Inject constructor(
     private val accounts = mutableStateOf<ImmutableList<Account>>(persistentListOf())
     private val loanInterestAmountPaid = mutableDoubleStateOf(0.0)
     private val selectedLoanAccount = mutableStateOf<Account?>(null)
+    private var deletionInProgress = false
     private var associatedTransaction: Transaction? = null
     private val createLoanTransaction = mutableStateOf(false)
     private var defaultCurrencyCode = ""
@@ -385,6 +387,9 @@ class LoanDetailsViewModel @Inject constructor(
     private fun deleteLoan() {
         val loan = loan.value ?: return
 
+        if (deletionInProgress) return
+        deletionInProgress = true
+
         viewModelScope.launch {
             TestIdlingResource.increment()
 
@@ -395,8 +400,9 @@ class LoanDetailsViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                toaster.show(error.message ?: "Loan could not be deleted")
+                toaster.show(R.string.error)
             } finally {
+                deletionInProgress = false
                 TestIdlingResource.decrement()
             }
         }
@@ -470,6 +476,9 @@ class LoanDetailsViewModel @Inject constructor(
     private fun deleteLoanRecord(loanRecord: LoanRecord) {
         val loanId = loan.value?.id ?: return
 
+        if (deletionInProgress) return
+        deletionInProgress = true
+
         viewModelScope.launch {
             TestIdlingResource.increment()
 
@@ -480,8 +489,9 @@ class LoanDetailsViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                toaster.show(error.message ?: "Loan record could not be deleted")
+                toaster.show(R.string.error)
             } finally {
+                deletionInProgress = false
                 TestIdlingResource.decrement()
             }
         }

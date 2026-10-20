@@ -17,13 +17,13 @@ class LoanDeletionCommand @Inject constructor(
     private val observer: DataObserver,
     private val dispatchers: DispatchersProvider,
 ) {
-    suspend fun deleteLoan(id: UUID) = delete {
+    suspend fun deleteLoan(id: UUID): Unit = delete {
         database.writeTransactionDao.deleteAllForLoan(id)
         database.writeLoanRecordDao.deleteAllForLoan(id)
         database.writeLoanDao.deleteById(id)
     }
 
-    suspend fun deleteLoanRecord(id: UUID) = delete {
+    suspend fun deleteLoanRecord(id: UUID): Unit = delete {
         database.writeTransactionDao.deleteAllForLoanRecord(id)
         database.writeLoanRecordDao.deleteById(id)
     }

@@ -67,29 +67,6 @@ class LoanTransactionsCore @Inject constructor(
         }
     }
 
-    suspend fun deleteAssociatedTransactions(
-        loanId: UUID? = null,
-        loanRecordId: UUID? = null
-    ) {
-        if (loanId == null && loanRecordId == null) {
-            return
-        }
-
-        ioThread {
-            val transactions: List<Transaction?> =
-                if (loanId != null) {
-                    transactionDao.findAllByLoanId(loanId = loanId)
-                        .map { it.toLegacyDomain() }
-                } else {
-                    listOf(transactionDao.findLoanRecordTransaction(loanRecordId!!)).map { it?.toLegacyDomain() }
-                }
-
-            transactions.forEach { trans ->
-                deleteTransaction(trans)
-            }
-        }
-    }
-
     fun findAccount(
         accounts: List<Account>,
         accountId: UUID?,
