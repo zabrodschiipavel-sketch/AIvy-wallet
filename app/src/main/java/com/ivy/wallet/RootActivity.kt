@@ -110,7 +110,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
             val appLocked by viewModel.appLocked.collectAsState()
             val startupError by viewModel.startupError.collectAsState()
             if (startupError) {
-                startupRecoveryErrorDialog(dark = isSystemInDarkTheme) {
+                StartupRecoveryErrorDialog(dark = isSystemInDarkTheme) {
                     viewModel.start(isSystemInDarkTheme, intent)
                 }
             } else {
@@ -160,7 +160,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
     }
 
     @Composable
-    private fun startupRecoveryErrorDialog(
+    private fun StartupRecoveryErrorDialog(
         dark: Boolean,
         modifier: Modifier = Modifier,
         onRetry: () -> Unit,

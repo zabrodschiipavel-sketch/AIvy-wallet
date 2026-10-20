@@ -169,7 +169,7 @@ class PlannedPaymentsLogic @Inject constructor(
         syncTransaction: Boolean = true,
         skipTransaction: Boolean = false,
         onUpdateUI: suspend (paidTransaction: Transaction) -> Unit
-    ) = payOrGetLegacy(listOf(transaction), syncTransaction, skipTransaction) {
+    ): Unit = payOrGetLegacy(listOf(transaction), syncTransaction, skipTransaction) {
         onUpdateUI(it.single())
     }
 
@@ -178,7 +178,7 @@ class PlannedPaymentsLogic @Inject constructor(
         syncTransaction: Boolean = true,
         skipTransaction: Boolean = false,
         onUpdateUI: suspend (paidTransaction: com.ivy.data.model.Transaction) -> Unit
-    ) = payOrGet(listOf(transaction), syncTransaction, skipTransaction) {
+    ): Unit = payOrGet(listOf(transaction), syncTransaction, skipTransaction) {
         onUpdateUI(it.single())
     }
 
