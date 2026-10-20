@@ -9,6 +9,12 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
+detekt {
+    config.setFrom(rootProject.file("config/detekt/config.yml"))
+    baseline = rootProject.file("config/detekt/baseline.yml")
+    buildUponDefaultConfig = true
+}
+
 android {
     namespace = "com.ivy.wallet"
     compileSdk = libs.versions.compile.sdk.get().toInt()
