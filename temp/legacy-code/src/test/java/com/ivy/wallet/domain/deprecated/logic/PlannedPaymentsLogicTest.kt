@@ -7,14 +7,28 @@ import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
 import com.ivy.data.db.entity.TransactionEntity
-import com.ivy.data.model.*
+import com.ivy.data.model.AccountId
+import com.ivy.data.model.Income
+import com.ivy.data.model.Transaction
+import com.ivy.data.model.TransactionId
+import com.ivy.data.model.TransactionMetadata
 import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.legacy.datamodel.temp.toLegacyDomain
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.time.Instant
@@ -143,6 +157,24 @@ class PlannedPaymentsLogicTest {
         )
         logic.payOrGet(listOf(selected), skipTransaction = true) { fail("No changed rows") }
         coVerify(exactly = 0) { repository.deleteById(any()) }
+    }
+
+    @Test
+    fun unreadableStoredPendingRowFailsInsteadOfReportingPartialSuccess() = runBlocking {
+        val selected = pending()
+        coEvery { dao.findById(selected.id.value) } returns TransactionEntity(
+            id = selected.id.value, accountId = selected.account.value,
+            type = TransactionType.INCOME, amount = 10.0, dueDate = due,
+        )
+        coEvery { repository.findById(selected.id) } returns null
+        try {
+            logic.payOrGet(listOf(selected)) { fail("Must not report success") }
+            fail("Expected read failure")
+        } catch (expected: IllegalStateException) {
+            assertTrue(expected.message.orEmpty().contains("Cannot read planned transaction"))
+        }
+        coVerify(exactly = 0) { repository.save(any()) }
+        assertFalse(completed)
     }
 
     @Test

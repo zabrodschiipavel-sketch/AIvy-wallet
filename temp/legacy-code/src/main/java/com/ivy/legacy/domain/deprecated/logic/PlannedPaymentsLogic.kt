@@ -195,7 +195,9 @@ class PlannedPaymentsLogic @Inject constructor(
                     val stored = transactionDao.findById(selected.id.value)
                     val pending = if (stored == null) selected else {
                         if (stored.dateTime != null || stored.isDeleted) return@mapNotNull null
-                        transactionRepository.findById(selected.id) ?: return@mapNotNull null
+                        checkNotNull(transactionRepository.findById(selected.id)) {
+                            "Cannot read planned transaction ${selected.id.value}"
+                        }
                     }
                     if (pending.settled) return@mapNotNull null
                     val metadata = pending.metadata.copy(paidForDateTime = pending.time)
