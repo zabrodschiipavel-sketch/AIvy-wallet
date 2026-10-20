@@ -14,7 +14,7 @@ const val BaselineFileName = "ivy-compose-stability-baseline.txt"
 fun main(args: Array<String>) {
     val shouldGenerateBaseline = BaselineArg in args
     val baselineComposables = readBaseline()
-    val unstableComposables = readComposeReports(findComposeReportFolders().toList())
+    val unstableComposables = readComposeReports(findComposeReportFolders(File("../../")).toList())
         .filter {
             it.isNotViewModelFunction() &&
                 (shouldGenerateBaseline || it.fullyQualifiedName !in baselineComposables)
@@ -36,15 +36,25 @@ fun main(args: Array<String>) {
     }
 }
 
-private fun findComposeReportFolders(): Sequence<File> {
-    val rootDirRelativePath = "../../"
-    // The quality workflow builds assembleRelease for all modules. Derive the
-    // expected reports from the convention plugin instead of accepting whichever
-    // report folders happen to exist (a skipped module must not silently pass).
-    return File(rootDirRelativePath).walkTopDown()
-        .onEnter { it.name !in setOf("build", ".git", ".gradle", ".idea") }
+private val ComposePluginDeclarations = setOf(
+    "id(\"ivy.feature\")",
+    "id(\"ivy.compose\")",
+    "id(\"org.jetbrains.kotlin.plugin.compose\")",
+    "org.jetbrains.kotlin.plugin.compose",
+)
+private val IgnoredDirectories = setOf("build", ".git", ".gradle", ".idea")
+
+internal fun findComposeReportFolders(root: File): Sequence<File> {
+    // The quality workflow builds assembleDemo. Derive expected reports from
+    // plugin declarations, not existing reports: skipped modules must not pass.
+    return root.walkTopDown()
+        .onEnter { it.name !in IgnoredDirectories }
         .filter { it.isFile && it.name == "build.gradle.kts" }
-        .filter { "id(\"ivy.feature\")" in it.readText() || "id(\"ivy.compose\")" in it.readText() }
+        .filter { buildFile ->
+            val declarations = buildFile.readLines().map { it.trim() }
+            declarations.any { it in ComposePluginDeclarations }
+        }
+        .sortedBy { it.relativeTo(root).invariantSeparatorsPath }
         .map { File(it.parentFile, "build/$ComposeReportFolderName") }
 }
 

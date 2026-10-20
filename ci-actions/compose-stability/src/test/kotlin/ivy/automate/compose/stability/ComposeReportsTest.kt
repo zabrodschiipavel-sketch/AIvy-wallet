@@ -51,6 +51,41 @@ class ComposeReportsTest {
         readComposeReports(listOf(folder)).single().name shouldBe "Other"
     }
 
+    @Test
+    fun `discovery includes explicit and convention Compose modules only`() {
+        val root = temporary.newFolder()
+        module(root, "app", "org.jetbrains.kotlin.plugin.compose")
+        module(root, "feature", "id(\"ivy.feature\")")
+        module(root, "ui", "id(\"ivy.compose\")")
+        module(root, "explicit", "id(\"org.jetbrains.kotlin.plugin.compose\")")
+        module(root, "plain", "id(\"org.jetbrains.kotlin.jvm\")")
+        module(root, "build/generated", "id(\"ivy.feature\")")
+        module(root, ".git/fixture", "org.jetbrains.kotlin.plugin.compose")
+
+        findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
+            listOf("app", "explicit", "feature", "ui").map { "$it/build/compose_compiler" }
+    }
+
+    @Test
+    fun `missing app reports fail even when a feature has valid reports`() {
+        val root = temporary.newFolder()
+        module(root, "app", "org.jetbrains.kotlin.plugin.compose")
+        val feature = module(root, "feature", "id(\"ivy.feature\")")
+        val folder = File(feature, "build/compose_compiler").apply { mkdirs() }
+        File(folder, "sample-composables.csv").writeText("$Header\nexample,Screen,1,1,1,\n")
+        File(folder, "sample-composables.txt").writeText("restartable skippable fun Screen()")
+        readComposeReports(listOf(folder)).shouldBeEmpty()
+
+        val error = shouldThrow<IllegalStateException> {
+            readComposeReports(findComposeReportFolders(root).toList())
+        }
+        error.message shouldBe "No composables CSV reports in ${File(root, "app/build/compose_compiler").path}"
+    }
+
+    private fun module(root: File, name: String, plugin: String): File = File(root, name).apply {
+        mkdirs()
+        File(this, "build.gradle.kts").writeText("plugins {\n    $plugin\n}\n")
+    }
     private fun report(row: String): File = temporary.newFolder().apply {
         File(this, "sample-composables.csv").writeText("$Header\n$row\n")
         File(this, "sample-composables.txt").writeText("restartable skippable fun Screen()")

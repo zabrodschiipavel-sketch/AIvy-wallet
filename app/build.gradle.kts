@@ -9,6 +9,11 @@ plugins {
     id("ivy.detekt")
 }
 
+composeCompiler {
+    reportsDestination = layout.buildDirectory.dir("compose_compiler")
+    metricsDestination = layout.buildDirectory.dir("compose_compiler")
+}
+
 android {
     namespace = "com.ivy.wallet"
     compileSdk = libs.versions.compile.sdk.get().toInt()
