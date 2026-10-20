@@ -6,13 +6,7 @@ plugins {
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
-    id("io.gitlab.arturbosch.detekt")
-}
-
-detekt {
-    config.setFrom(rootProject.file("config/detekt/config.yml"))
-    baseline = rootProject.file("config/detekt/baseline.yml")
-    buildUponDefaultConfig = true
+    id("ivy.detekt")
 }
 
 android {
