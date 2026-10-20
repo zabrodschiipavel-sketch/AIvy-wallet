@@ -10,6 +10,7 @@ import com.ivy.base.model.TransactionType
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
 import com.ivy.data.db.IvyRoomDatabase
+import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.LoanEntity
 import com.ivy.data.db.entity.LoanRecordEntity
 import com.ivy.data.db.entity.TransactionEntity
@@ -51,6 +52,7 @@ class LoanDeletionCommandTest {
         override val id: RowId get() = RowId(row.id)
     }
     private data class Graph(
+        val accounts: List<AccountEntity>,
         val loans: List<LoanEntity>,
         val records: List<LoanRecordEntity>,
         val transactions: List<TransactionEntity>,
@@ -227,24 +229,28 @@ class LoanDeletionCommandTest {
     }
 
     private suspend fun graph() = Graph(
+        db.accountDao.findAllForRestore().sortedBy { it.id },
         db.loanDao.findAllForRestore().sortedBy { it.id },
         db.loanRecordDao.findAllForRestore().sortedBy { it.id },
         db.transactionDao.findAllForRestore().sortedBy { it.id },
     )
 
     private fun afterLoan(before: Graph) = Graph(
+        before.accounts,
         before.loans.filter { it.id != id(1) },
         before.records.filter { it.id == id(14) },
         before.transactions.filter { it.id in listOf(id(26), id(27)) },
     )
 
     private fun afterRecord(before: Graph) = Graph(
+        before.accounts,
         before.loans,
         before.records.filter { it.id != id(11) },
         before.transactions.filter { it.id in listOf(id(21), id(24), id(25), id(26), id(27)) },
     )
 
     private suspend fun seed(): Graph {
+        val account = AccountEntity(name = "Shared account", currency = "USD", color = 0, id = id(90))
         val loans = listOf(
             LoanEntity("Target", 100.0, LoanType.BORROW, accountId = id(90), id = id(1)),
             LoanEntity("Unrelated", 200.0, LoanType.LEND, accountId = id(90), id = id(2)),
@@ -264,11 +270,12 @@ class LoanDeletionCommandTest {
             transaction(26, loan = 2, record = 14),
             transaction(27), // same account, unrelated to any loan
         )
+        db.writeAccountDao.save(account)
         db.writeLoanDao.saveMany(loans)
         db.writeLoanRecordDao.saveMany(records)
         db.writeTransactionDao.saveMany(transactions)
         val before = graph()
-        assertEquals(Graph(loans, records, transactions), before)
+        assertEquals(Graph(listOf(account), loans, records, transactions), before)
         assertEquals(before.transactions, cachedTransactions())
         assertEquals(before.transactions, cachedTransactions())
         assertEquals(1, loads)
