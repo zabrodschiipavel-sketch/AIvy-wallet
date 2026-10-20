@@ -76,7 +76,9 @@ class BackupDataUseCase @Inject constructor(
         val dir = ownedTempDirectory()
         try {
             val file = File(dir, "data.json")
-            file.writeText(generateJsonBackup(), Charsets.UTF_16)
+            file.outputStream().bufferedWriter(Charsets.UTF_16).use { writer ->
+                writer.write(generateJsonBackup())
+            }
             zip(context = context, zipFileUri, listOf(file))
         } finally {
             dir.deleteRecursively()

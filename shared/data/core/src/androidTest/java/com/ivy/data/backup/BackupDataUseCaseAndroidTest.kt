@@ -355,6 +355,59 @@ class BackupDataUseCaseAndroidTest {
         backupTestCase("450-150")
     }
 
+    @Test
+    fun utf16UnicodeExportRoundTrip() = runBlocking {
+        val json = KotlinxSerializationModule.provideJson()
+        val unicode = "Кошелёк \uD834\uDD1E \uD83D\uDE80"
+        val account = com.ivy.data.db.entity.AccountEntity(
+            id = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            name = unicode,
+            currency = "EUR",
+            color = 0,
+        )
+        val transaction = com.ivy.data.db.entity.TransactionEntity(
+            id = java.util.UUID.fromString("22222222-2222-2222-2222-222222222222"),
+            accountId = account.id,
+            type = com.ivy.base.model.TransactionType.values().first(),
+            amount = 123456.75,
+            title = "Покупка $unicode",
+            description = "Точная сумма $unicode",
+            dateTime = java.time.Instant.parse("2025-01-02T03:04:05Z"),
+        )
+        val payload = IvyWalletCompleteData(
+            formatVersion = 2,
+            accounts = listOf(account),
+            transactions = listOf(transaction),
+        )
+        useCase.importJson(json.encodeToString(payload)).shouldBeSuccessful()
+        val before = json.decodeFromString<IvyWalletCompleteData>(useCase.generateJsonBackup())
+        org.junit.Assert.assertEquals(payload.accounts, before.accounts)
+        org.junit.Assert.assertEquals(payload.transactions, before.transactions)
+        val exported = tempAndroidFile("unicode-backup", ".zip")
+        try {
+            useCase.exportToFile(exported.toUri())
+            java.util.zip.ZipFile(exported).use { zip ->
+                zip.getInputStream(zip.getEntry("data.json")).use { input ->
+                    org.junit.Assert.assertEquals(0xFE, input.read())
+                    org.junit.Assert.assertEquals(0xFF, input.read())
+                }
+                val decoded = zip.getInputStream(zip.getEntry("data.json"))
+                    .bufferedReader(Charsets.UTF_16).use { it.readText() }
+                org.junit.Assert.assertEquals(before, json.decodeFromString<IvyWalletCompleteData>(decoded))
+            }
+            // Restore into an empty database, not a merge with the original rows.
+            closeDb()
+            createDb()
+            useCase.importBackupFile(exported.toUri(), onProgress = {}).shouldBeSuccessful()
+            val after = json.decodeFromString<IvyWalletCompleteData>(useCase.generateJsonBackup())
+            org.junit.Assert.assertEquals(before.accounts, after.accounts)
+            org.junit.Assert.assertEquals(before.transactions, after.transactions)
+            org.junit.Assert.assertEquals(123456.75, after.transactions.sumOf { it.amount }, 0.0)
+        } finally {
+            exported.delete()
+        }
+    }
+
     private suspend fun backupTestCase(version: String) {
         importBackupZipTestCase(version)
         importBackupJsonTestCase(version)
