@@ -5,8 +5,13 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
+val detektSource = fileTree(projectDir) {
+    include("**/*.kt", "**/*.kts")
+    exclude("**/resources/**", "**/build/**", "**/.gradle/**", "**/.git/**")
+}
+
 configure<DetektExtension> {
-    source.setFrom(projectDir)
+    source.setFrom(detektSource)
     config.setFrom("$rootDir/config/detekt/config.yml")
     baseline = file("$rootDir/config/detekt/baseline.yml")
 }
@@ -22,7 +27,7 @@ tasks.withType<Detekt> {
     val filesToCheck: List<String>? = System.getProperty("detekt.filesToCheck")
         ?.split(",")
         ?.filter { it.isNotBlank() }
-    setSource(filesToCheck ?: projectDir)
+    setSource(filesToCheck ?: detektSource)
 
     reports {
         html.required.set(true)
