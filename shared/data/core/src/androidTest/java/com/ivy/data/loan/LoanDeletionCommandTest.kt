@@ -371,5 +371,6 @@ class LoanDeletionCommandTest {
         isDeleted = transaction.isDeleted,
     )
 
-    private fun id(number: Int): UUID = UUID.fromString("00000000-0000-0000-0000-${number.toString().padStart(12, '0')}")
+    private fun id(number: Int): UUID =
+        UUID.fromString("00000000-0000-0000-0000-${number.toString().padStart(12, '0')}")
 }
