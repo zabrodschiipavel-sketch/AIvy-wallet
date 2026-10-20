@@ -17,6 +17,9 @@ interface WriteLoanRecordDao {
     @Query("DELETE FROM loan_records WHERE id = :id")
     suspend fun deleteById(id: UUID)
 
+    @Query("DELETE FROM loan_records WHERE loanId = :loanId")
+    suspend fun deleteAllForLoan(loanId: UUID)
+
     @Query("DELETE FROM loan_records")
     suspend fun deleteAll()
 }

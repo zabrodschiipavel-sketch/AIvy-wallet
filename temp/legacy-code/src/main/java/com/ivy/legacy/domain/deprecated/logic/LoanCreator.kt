@@ -3,6 +3,7 @@ package com.ivy.wallet.domain.deprecated.logic
 import androidx.compose.ui.graphics.toArgb
 import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.write.WriteLoanDao
+import com.ivy.data.loan.LoanDeletionCommand
 import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
@@ -13,6 +14,7 @@ import javax.inject.Inject
 class LoanCreator @Inject constructor(
     private val dao: LoanDao,
     private val loanWriter: WriteLoanDao,
+    private val loanDeletionCommand: LoanDeletionCommand,
 ) {
     suspend fun create(
         data: CreateLoanData,
@@ -77,14 +79,7 @@ class LoanCreator @Inject constructor(
         item: Loan,
         onRefreshUI: suspend () -> Unit
     ) {
-        try {
-            ioThread {
-                loanWriter.deleteById(item.id)
-            }
-
-            onRefreshUI()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        loanDeletionCommand.deleteLoan(item.id)
+        onRefreshUI()
     }
 }

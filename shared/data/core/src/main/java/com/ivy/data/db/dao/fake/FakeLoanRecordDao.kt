@@ -43,6 +43,10 @@ class FakeLoanRecordDao : LoanRecordDao, WriteLoanRecordDao {
         items.removeIf { it.id == id }
     }
 
+    override suspend fun deleteAllForLoan(loanId: UUID) {
+        items.removeIf { it.loanId == loanId }
+    }
+
     override suspend fun deleteAll() {
         items.clear()
     }

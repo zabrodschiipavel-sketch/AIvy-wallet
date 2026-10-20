@@ -6,6 +6,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
+import com.ivy.base.Toaster
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.model.LoanRecordType
 import com.ivy.base.time.TimeConverter
@@ -46,6 +47,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDateTime
@@ -69,6 +71,7 @@ class LoanDetailsViewModel @Inject constructor(
     private val timeConverter: TimeConverter,
     private val timeProvider: TimeProvider,
     private val dateTimePicker: DateTimePicker,
+    private val toaster: Toaster,
 ) : ComposeViewModel<LoanDetailsScreenState, LoanDetailsScreenEvent>() {
 
     private val baseCurrency = mutableStateOf("")
@@ -385,14 +388,17 @@ class LoanDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             TestIdlingResource.increment()
 
-            loanTransactionsLogic.Loan.deleteAssociatedLoanTransactions(loan.id)
-
-            loanCreator.delete(loan) {
-                // close screen
-                nav.back()
+            try {
+                loanCreator.delete(loan) {
+                    nav.back()
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                toaster.show(error.message ?: "Loan could not be deleted")
+            } finally {
+                TestIdlingResource.decrement()
             }
-
-            TestIdlingResource.decrement()
         }
     }
 
@@ -467,13 +473,17 @@ class LoanDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             TestIdlingResource.increment()
 
-            loanRecordCreator.delete(loanRecord) {
-                load(loanId = loanId)
+            try {
+                loanRecordCreator.delete(loanRecord) {
+                    load(loanId = loanId)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                toaster.show(error.message ?: "Loan record could not be deleted")
+            } finally {
+                TestIdlingResource.decrement()
             }
-
-            loanTransactionsLogic.LoanRecord.deleteAssociatedLoanRecordTransaction(loanRecordId = loanRecord.id)
-
-            TestIdlingResource.decrement()
         }
     }
 

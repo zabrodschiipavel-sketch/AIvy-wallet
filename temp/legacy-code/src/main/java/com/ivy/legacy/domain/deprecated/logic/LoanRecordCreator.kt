@@ -1,6 +1,7 @@
 package com.ivy.wallet.domain.deprecated.logic
 
 import com.ivy.data.db.dao.write.WriteLoanRecordDao
+import com.ivy.data.loan.LoanDeletionCommand
 import com.ivy.legacy.datamodel.LoanRecord
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanRecordData
@@ -9,6 +10,7 @@ import javax.inject.Inject
 
 class LoanRecordCreator @Inject constructor(
     private val loanRecordWriter: WriteLoanRecordDao,
+    private val loanDeletionCommand: LoanDeletionCommand,
 ) {
     suspend fun create(
         loanId: UUID,
@@ -70,14 +72,7 @@ class LoanRecordCreator @Inject constructor(
         item: LoanRecord,
         onRefreshUI: suspend () -> Unit
     ) {
-        try {
-            ioThread {
-                loanRecordWriter.deleteById(item.id)
-            }
-
-            onRefreshUI()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        loanDeletionCommand.deleteLoanRecord(item.id)
+        onRefreshUI()
     }
 }

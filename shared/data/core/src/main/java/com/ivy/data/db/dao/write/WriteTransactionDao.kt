@@ -23,6 +23,15 @@ interface WriteTransactionDao {
     @Query("DELETE FROM transactions WHERE accountId = :accountId")
     suspend fun deleteAllByAccountId(accountId: UUID)
 
+    @Query(
+        "DELETE FROM transactions WHERE loanId = :loanId OR loanRecordId IN " +
+            "(SELECT id FROM loan_records WHERE loanId = :loanId)"
+    )
+    suspend fun deleteAllForLoan(loanId: UUID)
+
+    @Query("DELETE FROM transactions WHERE loanRecordId = :loanRecordId")
+    suspend fun deleteAllForLoanRecord(loanRecordId: UUID)
+
     @Query("DELETE FROM transactions")
     suspend fun deleteAll()
 }

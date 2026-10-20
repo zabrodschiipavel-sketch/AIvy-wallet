@@ -1,6 +1,7 @@
 package com.ivy.data.db.dao.fake
 
 import com.ivy.base.model.TransactionType
+import com.ivy.data.db.dao.read.LoanRecordDao
 import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
 import com.ivy.data.db.entity.TransactionEntity
@@ -9,7 +10,9 @@ import java.time.Instant
 import java.util.UUID
 
 @VisibleForTesting
-class FakeTransactionDao : TransactionDao, WriteTransactionDao {
+class FakeTransactionDao(
+    private val loanRecords: LoanRecordDao = FakeLoanRecordDao(),
+) : TransactionDao, WriteTransactionDao {
     private val items = mutableListOf<TransactionEntity>()
 
     override suspend fun findAllForRestore(): List<TransactionEntity> = items.toList()
@@ -321,6 +324,18 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
 
     override suspend fun deleteAllByAccountId(accountId: UUID) {
         items.removeIf { it.accountId == accountId }
+    }
+
+    override suspend fun deleteAllForLoan(loanId: UUID) {
+        val recordIds = loanRecords.findAllForRestore()
+            .filter { it.loanId == loanId }
+            .map { it.id }
+            .toSet()
+        items.removeIf { it.loanId == loanId || it.loanRecordId in recordIds }
+    }
+
+    override suspend fun deleteAllForLoanRecord(loanRecordId: UUID) {
+        items.removeIf { it.loanRecordId == loanRecordId }
     }
 
     override suspend fun deleteAll() {
