@@ -1,6 +1,7 @@
 plugins {
     id("ivy.feature")
     id("ivy.room")
+    id("ivy.integration.testing")
 }
 
 android {
@@ -8,6 +9,7 @@ android {
 }
 
 dependencies {
+    androidTestImplementation(libs.mockk.android)
     implementation(projects.shared.base)
     implementation(projects.shared.data.core)
     implementation(projects.shared.domain)
