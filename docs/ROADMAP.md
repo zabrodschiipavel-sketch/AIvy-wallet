@@ -27,6 +27,15 @@ An in-progress checkpoint is not a release candidate. A worker declaring success
 8. P4-UX/PERF: Home/operations/accounts/more navigation, focused editor, shared components, accessibility and release-like Macrobenchmark/Perfetto. Measure on fixed 2K/20K fixtures; physical-device gates remain open until observed.
 9. P5-DELIVERY: remove upstream services/unused permissions/body logging, compatible dependency upgrades, external signing, verify update/backup recovery, publish the tested artifact explicitly.
 
+## Next data safety tasks
+
+Next bounded data-safety tasks (still open):
+
+| Task | Risk and reproducer | Acceptance and code to retire |
+|---|---|---|
+| Transaction tag cleanup | Physical deletion paths in `TransactionRepository` leave associations to absent transactions; a tagged operation followed by deletion and backup merge can fail reference validation | One transaction removes the selected financial rows and associations, including rule/bulk paths; real Room failure injection restores the full graph and unrelated tags survive. Replace the current standalone DAO delete calls |
+| Confirmed account-modal save | `AccountModal` dismisses after a callback that launches work without awaiting its result; a failed save can look successful and repeated taps can create duplicates | All callers await confirmed persistence; failure retains the draft and presents an error; duplicate taps and stale completions cannot close another modal. Remove the fire-and-forget callback path and superseded modal implementation |
+
 ## Data contracts
 
 - Backup merge: UUID identity, identical rows skipped, conflicts stop before writes; names and notes are never globally rewritten. Full replacement is a separate operation with a prior backup.
