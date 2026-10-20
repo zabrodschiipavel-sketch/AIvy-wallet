@@ -33,7 +33,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -174,8 +177,12 @@ class AccountBalanceWriteCommandTest {
     private fun account() = Account(
         id = AccountId(UUID.randomUUID()),
         name = NotBlankTrimmedString.unsafe("Account"),
-        asset = AssetCode.unsafe("USD"), color = ColorInt(1), icon = null,
-        includeInBalance = true, orderNum = 1.0, archived = false,
+        asset = AssetCode.unsafe("USD"),
+        color = ColorInt(1),
+        icon = null,
+        includeInBalance = true,
+        orderNum = 1.0,
+        archived = false,
     )
 
     private fun income(account: Account) = Income(

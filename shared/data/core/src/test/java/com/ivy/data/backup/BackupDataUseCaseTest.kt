@@ -147,7 +147,9 @@ class BackupDataUseCaseTest {
         every { prefs.commitBooleans(any()) } returns false
         val observer = mockk<DataObserver>(relaxed = true)
         val useCase = newBackupDataUseCase(
-            prefs = prefs, pendingAfterWrite = true, observer = observer,
+            prefs = prefs,
+            pendingAfterWrite = true,
+            observer = observer,
         )
         val progress = mutableListOf<Double>()
         val result = useCase.importJson(

@@ -97,7 +97,8 @@ class WalletAccountLogic @Inject constructor(
         if (delta == 0.0) return null
         val value = com.ivy.data.model.PositiveValue(
             com.ivy.data.model.primitive.PositiveDouble.from(abs(delta))
-                .getOrElse { throw IllegalArgumentException(it) }, account.asset,
+                .getOrElse { throw IllegalArgumentException(it) },
+            account.asset,
         )
         val id = com.ivy.data.model.TransactionId(java.util.UUID.randomUUID())
         val title = com.ivy.data.model.primitive.NotBlankTrimmedString.from("Adjust balance")

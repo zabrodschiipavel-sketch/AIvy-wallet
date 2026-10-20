@@ -70,9 +70,9 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             it.type == TransactionType.TRANSFER &&
-                    it.toAccountId == toAccountId &&
-                    isBetween(dateTime, startDate, endDate) &&
-                    !it.isDeleted
+                it.toAccountId == toAccountId &&
+                isBetween(dateTime, startDate, endDate) &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -127,9 +127,9 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             isBetween(dateTime, startDate, endDate) &&
-                    it.type == type &&
-                    it.categoryId == categoryId &&
-                    !it.isDeleted
+                it.type == type &&
+                it.categoryId == categoryId &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -152,8 +152,8 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             isBetween(dateTime, startDate, endDate) &&
-                    it.toAccountId == toAccountId &&
-                    !it.isDeleted
+                it.toAccountId == toAccountId &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -223,8 +223,8 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             isBetween(dateTime, startDate, endDate) &&
-                    it.recurringRuleId == recurringRuleId &&
-                    !it.isDeleted
+                it.recurringRuleId == recurringRuleId &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 

@@ -7,9 +7,9 @@ import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.db.entity.SettingsEntity
 import com.ivy.data.model.primitive.AssetCode
 import io.kotest.matchers.shouldBe
-import io.mockk.verify
 import io.mockk.coEvery
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Test

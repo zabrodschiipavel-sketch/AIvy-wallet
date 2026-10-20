@@ -49,17 +49,25 @@ class MigrationHistoryTo131Test(private val sourceVersion: Int) {
 
     private fun seedSettings(db: SupportSQLiteDatabase) {
         insertKnownColumns(
-            db, "settings", mapOf(
-                "id" to SettingsId, "theme" to "LIGHT", "currency" to "USD",
-                "bufferAmount" to 0.0, "name" to "Migration history",
-                "isSynced" to 0L, "isDeleted" to 0L
+            db,
+            "settings",
+            mapOf(
+                "id" to SettingsId,
+                "theme" to "LIGHT",
+                "currency" to "USD",
+                "bufferAmount" to 0.0,
+                "name" to "Migration history",
+                "isSynced" to 0L,
+                "isDeleted" to 0L
             )
         )
     }
 
     private fun seedAccount(db: SupportSQLiteDatabase, id: String, name: String, order: Double) {
         insertKnownColumns(
-            db, "accounts", mapOf(
+            db,
+            "accounts",
+            mapOf(
                 "id" to id, "name" to name, "currency" to "USD",
                 "color" to 0L, "icon" to null, "orderNum" to order,
                 "includeInBalance" to 1L, "isSynced" to 0L, "isDeleted" to 0L,
@@ -76,7 +84,9 @@ class MigrationHistoryTo131Test(private val sourceVersion: Int) {
         destination: String?
     ) {
         insertKnownColumns(
-            db, "transactions", mapOf(
+            db,
+            "transactions",
+            mapOf(
                 "id" to id, "accountId" to FirstAccount, "type" to type,
                 "amount" to amount, "toAccountId" to destination,
                 "toAmount" to if (destination != null) amount else null,

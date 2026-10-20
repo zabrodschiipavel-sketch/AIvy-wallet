@@ -15,13 +15,13 @@ import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.repository.fake.fakeRepositoryMemoFactory
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThan
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
 import org.junit.After
@@ -83,8 +83,10 @@ class BackupDataUseCaseAndroidTest {
     }
 
     private fun newRecovery() = RestorePreferencesRecovery(
-        db, SharedPrefs(InstrumentationRegistry.getInstrumentation().context),
-        KotlinxSerializationModule.provideJson(), TestDispatchersProvider
+        db,
+        SharedPrefs(InstrumentationRegistry.getInstrumentation().context),
+        KotlinxSerializationModule.provideJson(),
+        TestDispatchersProvider
     )
 
     @Test
@@ -126,7 +128,9 @@ class BackupDataUseCaseAndroidTest {
         }
         val importer = newUseCase(runner, observer, factory, recovery)
         val account = com.ivy.data.db.entity.AccountEntity(
-            name = "Committed despite cancellation", currency = "USD", color = 0
+            name = "Committed despite cancellation",
+            currency = "USD",
+            color = 0
         )
         val payload = IvyWalletCompleteData(
             formatVersion = 2,

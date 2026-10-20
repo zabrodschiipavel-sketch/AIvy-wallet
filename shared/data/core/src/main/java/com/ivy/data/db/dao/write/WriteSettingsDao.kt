@@ -2,8 +2,8 @@ package com.ivy.data.db.dao.write
 
 import androidx.room.Dao
 import androidx.room.Query
-import androidx.room.Upsert
 import androidx.room.Transaction
+import androidx.room.Upsert
 import com.ivy.data.db.entity.SettingsEntity
 import java.util.UUID
 

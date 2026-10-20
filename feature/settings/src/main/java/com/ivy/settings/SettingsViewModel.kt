@@ -13,17 +13,16 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.Toaster
-import com.ivy.data.DataObserver
-import com.ivy.data.DataWriteEvent
-import com.ivy.data.repository.CurrencyRepository
-import kotlinx.coroutines.CancellationException
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.refreshWidget
+import com.ivy.data.DataObserver
+import com.ivy.data.DataWriteEvent
 import com.ivy.data.backup.BackupDataUseCase
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.model.primitive.AssetCode
+import com.ivy.data.repository.CurrencyRepository
 import com.ivy.domain.RootScreen
 import com.ivy.domain.usecase.csv.ExportCsvUseCase
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
@@ -42,10 +41,11 @@ import com.ivy.wallet.domain.action.settings.SettingsAct
 import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @Stable

@@ -6,9 +6,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ivy.base.legacy.Theme
 import com.ivy.base.model.TransactionType
-import com.ivy.data.db.entity.SettingsEntity
 import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.PlannedPaymentRuleEntity
+import com.ivy.data.db.entity.SettingsEntity
 import com.ivy.data.db.entity.TransactionEntity
 import com.ivy.data.model.AccountHistoryException
 import kotlinx.coroutines.runBlocking

@@ -61,48 +61,76 @@ class BackupMergePlannerTest {
 
     @Test
     fun `deleted account identity cannot be resurrected`() {
-        expectConflict("Conflicting account ID", data, data.copy(
-            accounts = listOf(account.copy(isDeleted = true))
-        ))
+        expectConflict(
+            "Conflicting account ID",
+            data,
+            data.copy(
+                accounts = listOf(account.copy(isDeleted = true))
+            )
+        )
     }
 
     @Test
     fun `deleted category identity cannot be resurrected`() {
         val category = com.ivy.data.db.entity.CategoryEntity(name = "Food", color = 0)
-        expectConflict("Conflicting category ID", data.copy(categories = listOf(category)),
-            data.copy(categories = listOf(category.copy(isDeleted = true))))
+        expectConflict(
+            "Conflicting category ID",
+            data.copy(categories = listOf(category)),
+            data.copy(categories = listOf(category.copy(isDeleted = true)))
+        )
     }
 
     @Test
     fun `deleted transaction identity cannot be resurrected`() {
-        expectConflict("Conflicting transaction ID", data, data.copy(
-            transactions = listOf(transaction.copy(isDeleted = true))
-        ))
+        expectConflict(
+            "Conflicting transaction ID",
+            data,
+            data.copy(
+                transactions = listOf(transaction.copy(isDeleted = true))
+            )
+        )
     }
 
     private val rule = com.ivy.data.db.entity.PlannedPaymentRuleEntity(
-        startDate = Instant.EPOCH, intervalN = null, intervalType = null,
-        oneTime = true, type = TransactionType.EXPENSE, accountId = account.id, amount = 5.0,
+        startDate = Instant.EPOCH,
+        intervalN = null,
+        intervalType = null,
+        oneTime = true,
+        type = TransactionType.EXPENSE,
+        accountId = account.id,
+        amount = 5.0,
     )
 
     @Test
     fun `incoming archived account with incoming live rule fails`() {
-        expectConflict("archived account", data.copy(
-            accounts = listOf(account.copy(archived = true)), plannedPaymentRules = listOf(rule)
-        ), IvyWalletCompleteData(formatVersion = 2))
+        expectConflict(
+            "archived account",
+            data.copy(
+                accounts = listOf(account.copy(archived = true)),
+                plannedPaymentRules = listOf(rule)
+            ),
+            IvyWalletCompleteData(formatVersion = 2)
+        )
     }
 
     @Test
     fun `incoming live rule against existing archived account fails`() {
-        expectConflict("archived account", IvyWalletCompleteData(
-            formatVersion = 2, plannedPaymentRules = listOf(rule)
-        ), data.copy(accounts = listOf(account.copy(archived = true))))
+        expectConflict(
+            "archived account",
+            IvyWalletCompleteData(
+                formatVersion = 2,
+                plannedPaymentRules = listOf(rule)
+            ),
+            data.copy(accounts = listOf(account.copy(archived = true)))
+        )
     }
 
     @Test
     fun `archived account without live rules is accepted`() {
-        val archived = data.copy(accounts = listOf(account.copy(archived = true)),
-            plannedPaymentRules = listOf(rule.copy(isDeleted = true)))
+        val archived = data.copy(
+            accounts = listOf(account.copy(archived = true)),
+            plannedPaymentRules = listOf(rule.copy(isDeleted = true))
+        )
         val plan = BackupMergePlanner.plan(archived, IvyWalletCompleteData(formatVersion = 2))
         assertTrue(plan.additions.accounts.single().archived)
         assertTrue(plan.additions.plannedPaymentRules.isEmpty())
