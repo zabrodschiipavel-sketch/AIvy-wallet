@@ -229,7 +229,7 @@ class LoanDeletionCommandTest {
     }
 
     private suspend fun graph() = Graph(
-        db.accountDao.findAllForRestore().sortedBy { it.id },
+        (db.accountDao.findAll() + db.accountDao.findAll(deleted = true)).sortedBy { it.id },
         db.loanDao.findAllForRestore().sortedBy { it.id },
         db.loanRecordDao.findAllForRestore().sortedBy { it.id },
         db.transactionDao.findAllForRestore().sortedBy { it.id },
