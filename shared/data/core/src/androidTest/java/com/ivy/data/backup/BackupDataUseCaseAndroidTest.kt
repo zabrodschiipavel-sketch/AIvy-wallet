@@ -368,7 +368,7 @@ class BackupDataUseCaseAndroidTest {
         val transaction = com.ivy.data.db.entity.TransactionEntity(
             id = java.util.UUID.fromString("22222222-2222-2222-2222-222222222222"),
             accountId = account.id,
-            type = com.ivy.base.model.TransactionType.values().first(),
+            type = com.ivy.base.model.TransactionType.EXPENSE,
             amount = 123456.75,
             title = "Покупка $unicode",
             description = "Точная сумма $unicode",
