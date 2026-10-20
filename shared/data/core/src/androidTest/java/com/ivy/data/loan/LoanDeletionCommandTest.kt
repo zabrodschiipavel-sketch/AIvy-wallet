@@ -14,6 +14,8 @@ import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.LoanEntity
 import com.ivy.data.db.entity.LoanRecordEntity
 import com.ivy.data.db.entity.TransactionEntity
+import com.ivy.data.db.entity.TagAssociationEntity
+import com.ivy.data.db.entity.TagEntity
 import com.ivy.data.model.LoanType
 import com.ivy.data.model.sync.Identifiable
 import com.ivy.data.model.sync.UniqueId
@@ -56,6 +58,8 @@ class LoanDeletionCommandTest {
         val loans: List<LoanEntity>,
         val records: List<LoanRecordEntity>,
         val transactions: List<TransactionEntity>,
+        val tags: List<TagEntity>,
+        val associations: List<TagAssociationEntity>,
     )
 
     @Before
@@ -134,7 +138,8 @@ class LoanDeletionCommandTest {
     fun loanRecordDeleteAbortRestoresFinancialRowsAlreadyDeletedByLoanCommand() = runBlocking {
         val before = seed()
         abortAfterWrites(
-            table = "loan_records", target = 11,
+            table = "loan_records",
+            target = 11,
             earlierWrites = "NOT EXISTS (SELECT 1 FROM transactions WHERE id IN " +
                 "('${id(21)}', '${id(22)}', '${id(23)}', '${id(24)}', '${id(25)}'))",
         )
@@ -145,7 +150,8 @@ class LoanDeletionCommandTest {
     fun loanDeleteAbortRestoresRecordsAndFinancialRowsAlreadyRemoved() = runBlocking {
         val before = seed()
         abortAfterWrites(
-            table = "loans", target = 1,
+            table = "loans",
+            target = 1,
             earlierWrites = "NOT EXISTS (SELECT 1 FROM loan_records WHERE loanId = '${id(1)}') " +
                 "AND NOT EXISTS (SELECT 1 FROM transactions WHERE id IN " +
                 "('${id(21)}', '${id(22)}', '${id(23)}', '${id(24)}', '${id(25)}'))",
@@ -157,10 +163,46 @@ class LoanDeletionCommandTest {
     fun recordDeleteAbortRestoresAllItsFinancialRowsAndOriginalMemoSnapshot() = runBlocking {
         val before = seed()
         abortAfterWrites(
-            table = "loan_records", target = 11,
+            table = "loan_records",
+            target = 11,
             earlierWrites = "NOT EXISTS (SELECT 1 FROM transactions WHERE loanRecordId = '${id(11)}')",
         )
         assertRollback(before) { command.deleteLoanRecord(id(11)) }
+    }
+
+    @Test
+    fun loanFinancialDeleteFailureRestoresAlreadyRemovedTagAssociations() = runBlocking {
+        val before = seed()
+        abortAfterWrites(
+            table = "transactions",
+            target = 21,
+            earlierWrites = "NOT EXISTS (SELECT 1 FROM tags_association WHERE associatedId IN " +
+                "('${id(21)}', '${id(22)}', '${id(23)}', '${id(24)}', '${id(25)}'))",
+        )
+        assertRollback(before) { command.deleteLoan(id(1)) }
+    }
+
+    @Test
+    fun recordFinancialDeleteFailureRestoresAlreadyRemovedTagAssociations() = runBlocking {
+        val before = seed()
+        abortAfterWrites(
+            table = "transactions",
+            target = 22,
+            earlierWrites = "NOT EXISTS (SELECT 1 FROM tags_association WHERE associatedId IN " +
+                "('${id(22)}', '${id(23)}'))",
+        )
+        assertRollback(before) { command.deleteLoanRecord(id(11)) }
+    }
+
+    @Test
+    fun deletingMoreThanSqliteBindingLimitPreservesUnrelatedTagsAndTransactions() = runBlocking {
+        seed()
+        val extra = (1_000..2_000).map { transaction(it, loan = 1) }
+        db.writeTransactionDao.saveMany(extra)
+        db.writeTagAssociationDao.save(extra.map { tagLink(it) })
+        val expected = afterLoan(graph())
+        command.deleteLoan(id(1))
+        assertEquals(expected, graph())
     }
 
     private suspend fun assertRollback(before: Graph, operation: suspend () -> Unit) {
@@ -233,6 +275,8 @@ class LoanDeletionCommandTest {
         db.loanDao.findAllForRestore().sortedBy { it.id },
         db.loanRecordDao.findAllForRestore().sortedBy { it.id },
         db.transactionDao.findAllForRestore().sortedBy { it.id },
+        db.tagDao.findAll().sortedBy { it.id },
+        db.tagAssociationDao.findAll().sortedWith(compareBy({ it.tagId }, { it.associatedId })),
     )
 
     private fun afterLoan(before: Graph) = Graph(
@@ -240,6 +284,8 @@ class LoanDeletionCommandTest {
         before.loans.filter { it.id != id(1) },
         before.records.filter { it.id == id(14) },
         before.transactions.filter { it.id in listOf(id(26), id(27)) },
+        before.tags,
+        before.associations.filter { it.associatedId in listOf(id(26), id(27)) },
     )
 
     private fun afterRecord(before: Graph) = Graph(
@@ -247,6 +293,8 @@ class LoanDeletionCommandTest {
         before.loans,
         before.records.filter { it.id != id(11) },
         before.transactions.filter { it.id in listOf(id(21), id(24), id(25), id(26), id(27)) },
+        before.tags,
+        before.associations.filter { it.associatedId !in listOf(id(22), id(23)) },
     )
 
     private suspend fun seed(): Graph {
@@ -270,12 +318,33 @@ class LoanDeletionCommandTest {
             transaction(26, loan = 2, record = 14),
             transaction(27), // same account, unrelated to any loan
         )
+        val tag = TagEntity(
+            id = id(80),
+            name = "Shared tag",
+            description = null,
+            color = 0,
+            icon = null,
+            orderNum = 0.0,
+            dateTime = Instant.EPOCH,
+            isDeleted = false,
+            lastSyncedTime = Instant.EPOCH,
+        )
+        val tags = listOf(tag, tag.copy(id = id(81), name = "Second tag"))
+        val associations = transactions.map { tagLink(it) } + listOf(
+            tagLink(transactions[1]).copy(tagId = id(81)),
+            tagLink(transactions.last()).copy(tagId = id(81)),
+        )
         db.writeAccountDao.save(account)
         db.writeLoanDao.saveMany(loans)
         db.writeLoanRecordDao.saveMany(records)
         db.writeTransactionDao.saveMany(transactions)
+        db.writeTagDao.save(tags)
+        db.writeTagAssociationDao.save(associations)
         val before = graph()
-        assertEquals(Graph(listOf(account), loans, records, transactions), before)
+        assertEquals(
+            Graph(listOf(account), loans, records, transactions, tags, associations),
+            before,
+        )
         assertEquals(before.transactions, cachedTransactions())
         assertEquals(before.transactions, cachedTransactions())
         assertEquals(1, loads)
@@ -284,11 +353,23 @@ class LoanDeletionCommandTest {
 
     private fun transaction(number: Int, loan: Int? = null, record: Int? = null, deleted: Boolean = false) =
         TransactionEntity(
-            accountId = id(90), type = TransactionType.EXPENSE, amount = number.toDouble(),
-            title = "Financial row $number", dateTime = Instant.EPOCH,
-            loanId = loan?.let { id(it) }, loanRecordId = record?.let { id(it) },
-            isDeleted = deleted, id = id(number),
+            accountId = id(90),
+            type = TransactionType.EXPENSE,
+            amount = number.toDouble(),
+            title = "Financial row $number",
+            dateTime = Instant.EPOCH,
+            loanId = loan?.let { id(it) },
+            loanRecordId = record?.let { id(it) },
+            isDeleted = deleted,
+            id = id(number),
         )
+
+    private fun tagLink(transaction: TransactionEntity) = TagAssociationEntity(
+        tagId = id(80),
+        associatedId = transaction.id,
+        lastSyncedTime = Instant.EPOCH,
+        isDeleted = transaction.isDeleted,
+    )
 
     private fun id(number: Int): UUID = UUID.fromString("00000000-0000-0000-0000-${number.toString().padStart(12, '0')}")
 }
