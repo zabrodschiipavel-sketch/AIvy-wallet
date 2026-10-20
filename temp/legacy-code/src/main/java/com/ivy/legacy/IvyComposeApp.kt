@@ -21,8 +21,7 @@ import com.ivy.design.api.systems.IvyWalletDesign
 import com.ivy.design.l0_system.UI
 import com.ivy.design.utils.IvyPreview
 import com.ivy.domain.RootScreen
-import com.ivy.navigation.Navigation
-import com.ivy.navigation.NavigationRoot
+import com.ivy.navigation.PreviewNavigationRoot
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
@@ -70,7 +69,7 @@ fun IvyWalletPreview(
         theme = theme,
         design = appDesign(IvyWalletCtx()),
     ) {
-        NavigationRoot(navigation = Navigation()) {
+        PreviewNavigationRoot {
             content()
         }
     }
