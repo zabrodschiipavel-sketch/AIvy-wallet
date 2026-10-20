@@ -52,4 +52,9 @@ class FakeTagAssociationDao : TagAssociationDao, WriteTagAssociationDao {
     override suspend fun deleteAssociationsByAssociateId(associatedId: UUID) {
         items.removeIf { it.associatedId == associatedId }
     }
+
+    override suspend fun deleteAssociationsByAssociateIds(associatedIds: List<UUID>) {
+        val ids = associatedIds.toSet()
+        items.removeIf { it.associatedId in ids }
+    }
 }

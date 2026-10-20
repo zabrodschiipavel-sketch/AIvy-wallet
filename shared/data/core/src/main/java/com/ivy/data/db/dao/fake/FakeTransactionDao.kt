@@ -15,6 +15,17 @@ class FakeTransactionDao(
 ) : TransactionDao, WriteTransactionDao {
     private val items = mutableListOf<TransactionEntity>()
 
+    override suspend fun findIdsForLoanDeletion(loanId: UUID): List<UUID> {
+        val recordIds = loanRecords.findAllForRestore()
+            .filter { it.loanId == loanId }
+            .map { it.id }
+            .toSet()
+        return items.filter { it.loanId == loanId || it.loanRecordId in recordIds }.map { it.id }
+    }
+
+    override suspend fun findIdsForLoanRecordDeletion(loanRecordId: UUID): List<UUID> =
+        items.filter { it.loanRecordId == loanRecordId }.map { it.id }
+
     override suspend fun findAllForRestore(): List<TransactionEntity> = items.toList()
 
     override suspend fun findAll(): List<TransactionEntity> {
@@ -327,11 +338,8 @@ class FakeTransactionDao(
     }
 
     override suspend fun deleteAllForLoan(loanId: UUID) {
-        val recordIds = loanRecords.findAllForRestore()
-            .filter { it.loanId == loanId }
-            .map { it.id }
-            .toSet()
-        items.removeIf { it.loanId == loanId || it.loanRecordId in recordIds }
+        val ids = findIdsForLoanDeletion(loanId).toSet()
+        items.removeIf { it.id in ids }
     }
 
     override suspend fun deleteAllForLoanRecord(loanRecordId: UUID) {

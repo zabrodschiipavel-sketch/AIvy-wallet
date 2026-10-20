@@ -18,14 +18,23 @@ class LoanDeletionCommand @Inject constructor(
     private val dispatchers: DispatchersProvider,
 ) {
     suspend fun deleteLoan(id: UUID): Unit = delete {
+        deleteTagAssociations(database.transactionDao.findIdsForLoanDeletion(id))
         database.writeTransactionDao.deleteAllForLoan(id)
         database.writeLoanRecordDao.deleteAllForLoan(id)
         database.writeLoanDao.deleteById(id)
     }
 
     suspend fun deleteLoanRecord(id: UUID): Unit = delete {
+        deleteTagAssociations(database.transactionDao.findIdsForLoanRecordDeletion(id))
         database.writeTransactionDao.deleteAllForLoanRecord(id)
         database.writeLoanRecordDao.deleteById(id)
+    }
+
+    private suspend fun deleteTagAssociations(transactionIds: List<UUID>) {
+        // Stay below the SQLite binding limit on the oldest supported Android.
+        transactionIds.chunked(TAG_DELETION_BATCH_SIZE).forEach { ids ->
+            database.writeTagAssociationDao.deleteAssociationsByAssociateIds(ids)
+        }
     }
 
     private suspend fun delete(rows: suspend () -> Unit) {
@@ -45,5 +54,9 @@ class LoanDeletionCommand @Inject constructor(
                 if (committed) observer.post(DataWriteEvent.AllDataChange)
             }
         }
+    }
+
+    private companion object {
+        const val TAG_DELETION_BATCH_SIZE = 500
     }
 }
