@@ -1,4 +1,4 @@
-# Implementation status — 2026-10-20
+# Implementation status — 2026-10-21
 
 Base upstream commit: `710733dbe4729a437d573cdfb8429c50e617ded1`.
 
@@ -33,14 +33,19 @@ Observed verification checkpoints:
 | `73d7cdddc` | tagged-loan regression on API 28 | One selected test reproduced orphan tag associations after deletion; expected failure preserved before the fix |
 | `8184bb97f` | API 28 Room / core JVM | 64 / 167 tests passed, zero failures or errors; combined invocation still failed on UUID test-helper formatting |
 | `ae6b5243a` | API 35 Room + root/app Detekt | 64 tests passed, zero failures/errors/skips; both analyzers passed, combined exit 0 |
+| `fcc11f83c` | full screenshot / R8 / release lint invocation | Exit 0; 2,436 tasks, 747 executed / 1,689 up-to-date; 432 tests in 64 fresh XML reports passed, including 38 screenshot tests in 13 classes; zero failures/errors/skips |
+| `fcc11f83c` | fresh lint XML / debt ratchet | Report validated with no Error/Fatal; no new baseline entries, suppressions or feature legacy/DAO edges |
+| `fcc11f83c` | Compose gate after release compilation | Passed, zero new unstable composables; all declared UI modules and generated variants checked |
 
 The combined Gradle command at `23371b88c` still exited with failure because app Detekt reported an overlong startup method; passing component tests do not make that command green. Subsequent extraction and formatting fixed the app findings. The first Android run uncovered a second pre-existing schema/export mismatch: schema 119 already contains `transactions.loanId`. The migration guard and streaming UTF-16 writer now pass the Android run. Detekt uses individual Kotlin-file inputs to avoid false task dependencies on Paparazzi output directories. App and root now apply the same existing analyzer convention and frozen baseline; the combined invocation passed.
 
 Core source files were unchanged while the `150ad8d7f` instrumentation/JVM checks ran. Independently integrated legacy-payment and CSV changes were outside that component's dependency graph. Preserve the first failure report under `build/mcp-roadmap/checkpoint-150ad8d7f/`; it is not a green acceptance result.
 
-Logs and generated reports are local ignored artifacts under `build/mcp-roadmap/` and each module's `build/test-results/`. The first release/lint/screenshot sweep exposed a shared preview crash and was stopped after preserving the failed report. `IvyPreview` and `IvyWalletPreview` now provide a disposable, private preview ViewModel owner; the production navigation guard remains strict. The accounts snapshots passed after this fix; the full screenshot sweep remains required. A fresh clean checkout build and physical-device tests remain unverified.
+Logs and generated reports are local ignored artifacts under `build/mcp-roadmap/` and each module's `build/test-results/`. The first release/lint/screenshot sweep exposed a shared preview crash and was stopped after preserving the failed report. `IvyPreview` and `IvyWalletPreview` now provide a disposable, private preview ViewModel owner; the production navigation guard remains strict. The full screenshot sweep subsequently passed at `fcc11f83c`, using the existing images. The combined command and report index are preserved in `checkpoint-fcc11f83c/qa.json`; full log: `current-release-screenshots.log`. A fresh clean checkout build and physical-device tests remain unverified.
 
 The R8 APK and its mapping are preserved in `build/mcp-roadmap/checkpoint-dafc4be86/`. The unsigned APK is 11,921,604 bytes, package `com.ivy.wallet.optimized`, non-debuggable, SHA-256 `2a8331d3e3700d872a0f16295ab99844986970031b9cad8766481dcd00ea54d7`. A separate copy signed with the repository's public development key installed and opened offline on the isolated API 28 AVD without a crash. The agreement screen rendered; onboarding and financial UI scenarios were not exercised. This binary predates the loan/preview changes. It is neither a current-branch release nor a performance benchmark. Existing AVD and application data were preserved.
+
+The newer R8 artifact at `fcc11f83c` is preserved separately in `build/mcp-roadmap/checkpoint-fcc11f83c/`: unsigned APK 11,938,128 bytes, SHA-256 `387cd4b2a56d1018fa03f75cf742320e5aa5671b496ee111e72960f2cc29ab2a`, package/debuggable validation passed. `candidate.json` records the exact source commit; `smoke-artifact.json` records the mapping and development-signed copy hashes. Signature verification and installation over the older test build on the isolated API 28 AVD succeeded. Offline launch rendered the agreement screen, with a live foreground activity and an empty crash buffer. First-install time and the initial agreement state survived this update; populated financial UI, production signing and upgrade from a real release are not covered by this smoke check. The AVD was stopped with its data retained. This is not a physical-device performance measurement.
 
 Integrated data-safety changes:
 
