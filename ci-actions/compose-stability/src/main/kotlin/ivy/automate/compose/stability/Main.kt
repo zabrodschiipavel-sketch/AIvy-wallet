@@ -51,8 +51,8 @@ internal fun findComposeReportFolders(root: File): Sequence<File> {
         .onEnter { it.name !in IgnoredDirectories }
         .filter { it.isFile && it.name == "build.gradle.kts" }
         .filter { buildFile ->
-            val declarations = buildFile.readLines().map { it.trim() }
-            declarations.any { it in ComposePluginDeclarations }
+            val declarations = buildFile.readLines().map { it.substringBefore("//") }
+            declarations.any { line -> ComposePluginDeclarations.any { it in line } }
         }
         .sortedBy { it.relativeTo(root).invariantSeparatorsPath }
         .map { File(it.parentFile, "build/$ComposeReportFolderName") }

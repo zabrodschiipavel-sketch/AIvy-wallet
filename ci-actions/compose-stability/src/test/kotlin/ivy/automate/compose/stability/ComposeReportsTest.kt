@@ -82,6 +82,20 @@ class ComposeReportsTest {
         error.message shouldBe "No composables CSV reports in ${File(root, "app/build/compose_compiler").path}"
     }
 
+    @Test
+    fun `inline and trailing comment declarations count but standalone comments do not`() {
+        val root = temporary.newFolder()
+        val inline = module(root, "inline", "")
+        File(inline, "build.gradle.kts").writeText("plugins { id(\"ivy.feature\") }")
+        module(root, "trailing", "id(\"ivy.compose\") // UI convention")
+        module(root, "accessor", "org.jetbrains.kotlin.plugin.compose // app plugin")
+        module(root, "comment", "// id(\"ivy.feature\")")
+        module(root, "accessorComment", "// org.jetbrains.kotlin.plugin.compose")
+        module(root, "noncompose", "id(\"org.jetbrains.kotlin.jvm\") // id(\"ivy.compose\")")
+
+        findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
+            listOf("accessor", "inline", "trailing").map { "$it/build/compose_compiler" }
+    }
     private fun module(root: File, name: String, plugin: String): File = File(root, name).apply {
         mkdirs()
         File(this, "build.gradle.kts").writeText("plugins {\n    $plugin\n}\n")
