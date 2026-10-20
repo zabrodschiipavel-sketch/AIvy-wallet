@@ -54,7 +54,8 @@ class PlannedPaymentsLogicTest {
         coEvery { db.withTransaction<Any?>(any()) } coAnswers {
             insideTransaction = true
             try {
-                val result = lastArg<suspend () -> Any?>().invoke()
+                // Static extension args: database receiver, transaction block, continuation.
+                val result = arg<suspend () -> Any?>(1).invoke()
                 completed = true
                 result
             } finally { insideTransaction = false }
