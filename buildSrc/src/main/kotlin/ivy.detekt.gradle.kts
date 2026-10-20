@@ -5,10 +5,10 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
-val detektSource = fileTree(projectDir) {
+val detektSource: Set<File> = fileTree(projectDir) {
     include("**/*.kt", "**/*.kts")
     exclude("**/resources/**", "**/build/**", "**/.gradle/**", "**/.git/**")
-}
+}.files
 
 configure<DetektExtension> {
     source.setFrom(detektSource)
