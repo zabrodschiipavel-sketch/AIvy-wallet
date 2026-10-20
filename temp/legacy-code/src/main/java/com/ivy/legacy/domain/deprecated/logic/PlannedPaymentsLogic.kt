@@ -1,5 +1,10 @@
 package com.ivy.wallet.domain.deprecated.logic
 
+import androidx.room.withTransaction
+import com.ivy.data.db.IvyRoomDatabase
+import com.ivy.data.model.Income
+import com.ivy.data.model.Expense
+import com.ivy.data.model.Transfer
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeProvider
@@ -33,6 +38,7 @@ class PlannedPaymentsLogic @Inject constructor(
     private val plannedPaymentRuleWriter: WritePlannedPaymentRuleDao,
     private val transactionRepository: TransactionRepository,
     private val timeProvider: TimeProvider,
+    private val database: IvyRoomDatabase,
 ) {
     companion object {
         private const val AVG_DAYS_IN_MONTH = 30.436875
@@ -163,38 +169,8 @@ class PlannedPaymentsLogic @Inject constructor(
         syncTransaction: Boolean = true,
         skipTransaction: Boolean = false,
         onUpdateUI: suspend (paidTransaction: Transaction) -> Unit
-    ) {
-        if (transaction.dueDate == null || transaction.dateTime != null) return
-
-        val paidTransaction = transaction.copy(
-            paidFor = transaction.dueDate,
-            dueDate = null,
-            dateTime = timeProvider.utcNow(),
-            isSynced = false,
-        )
-
-        val plannedPaymentRule = ioThread {
-            paidTransaction.recurringRuleId?.let {
-                plannedPaymentRuleDao.findById(it)
-            }
-        }
-
-        ioThread {
-            if (skipTransaction) {
-                transactionRepository.deleteById(TransactionId(paidTransaction.id))
-            } else {
-                paidTransaction.toDomain(transactionMapper)?.let {
-                    transactionRepository.save(it)
-                }
-            }
-
-            if (plannedPaymentRule != null && plannedPaymentRule.oneTime) {
-                // delete paid oneTime planned payment rules
-                plannedPaymentRuleWriter.deleteById(plannedPaymentRule.id)
-            }
-        }
-
-        onUpdateUI(paidTransaction)
+    ) = payOrGetLegacy(listOf(transaction), syncTransaction, skipTransaction) {
+        onUpdateUI(it.single())
     }
 
     suspend fun payOrGet(
@@ -202,31 +178,8 @@ class PlannedPaymentsLogic @Inject constructor(
         syncTransaction: Boolean = true,
         skipTransaction: Boolean = false,
         onUpdateUI: suspend (paidTransaction: com.ivy.data.model.Transaction) -> Unit
-    ) {
-        if (transaction.settled) return
-
-        val paidTransaction = transaction.settleNow()
-
-        val plannedPaymentRule = ioThread {
-            paidTransaction.metadata.recurringRuleId?.let {
-                plannedPaymentRuleDao.findById(it)
-            }
-        }
-
-        ioThread {
-            if (skipTransaction) {
-                transactionRepository.deleteById(paidTransaction.id)
-            } else {
-                transactionRepository.save(paidTransaction)
-            }
-
-            if (plannedPaymentRule != null && plannedPaymentRule.oneTime) {
-                // delete paid oneTime planned payment rules
-                plannedPaymentRuleWriter.deleteById(plannedPaymentRule.id)
-            }
-        }
-
-        onUpdateUI(paidTransaction)
+    ) = payOrGet(listOf(transaction), syncTransaction, skipTransaction) {
+        onUpdateUI(it.single())
     }
 
     suspend fun payOrGet(
@@ -235,43 +188,30 @@ class PlannedPaymentsLogic @Inject constructor(
         skipTransaction: Boolean = false,
         onUpdateUI: suspend (paidTransactions: List<com.ivy.data.model.Transaction>) -> Unit
     ) {
-        val paidTransactions: List<com.ivy.data.model.Transaction> =
-            transactions.filter { it.settled }
-
-        if (paidTransactions.isEmpty()) return
-
-        paidTransactions.map {
-            it.settleNow()
-        }
-
-        val plannedPaymentRules = ioThread {
-            paidTransactions.map { transaction ->
-                transaction.metadata.recurringRuleId?.let {
-                    plannedPaymentRuleDao.findById(it)
+        val paidTransactions = ioThread {
+            database.withTransaction {
+                transactions.filterNot { it.settled }.distinctBy { it.id }.mapNotNull { selected ->
+                    // Missing rows can be generated pending occurrences, not yet persisted.
+                    val stored = transactionDao.findById(selected.id.value)
+                    val pending = if (stored == null) selected else {
+                        if (stored.dateTime != null || stored.isDeleted) return@mapNotNull null
+                        transactionRepository.findById(selected.id) ?: return@mapNotNull null
+                    }
+                    if (pending.settled) return@mapNotNull null
+                    val metadata = pending.metadata.copy(paidForDateTime = pending.time)
+                    val paid = when (val settled = pending.settleNow()) {
+                        is Income -> settled.copy(metadata = metadata)
+                        is Expense -> settled.copy(metadata = metadata)
+                        is Transfer -> settled.copy(metadata = metadata)
+                    }
+                    if (skipTransaction) transactionRepository.deleteById(paid.id)
+                    else transactionRepository.save(paid)
+                    deleteOneTimeRule(paid.metadata.recurringRuleId)
+                    paid
                 }
             }
         }
-
-        ioThread {
-            if (skipTransaction) {
-                paidTransactions.forEach { paidTransaction ->
-                    transactionRepository.deleteById(paidTransaction.id)
-                }
-            } else {
-                paidTransactions.forEach { paidTransaction ->
-                    transactionRepository.save(paidTransaction)
-                }
-            }
-
-            plannedPaymentRules.forEach { plannedPaymentRule ->
-                if (plannedPaymentRule != null && plannedPaymentRule.oneTime) {
-                    // delete paid oneTime planned payment rules
-                    plannedPaymentRuleWriter.deleteById(plannedPaymentRule.id)
-                }
-            }
-        }
-
-        onUpdateUI(paidTransactions)
+        if (paidTransactions.isNotEmpty()) onUpdateUI(paidTransactions)
     }
 
     @Deprecated("Uses legacy Transaction")
@@ -281,48 +221,39 @@ class PlannedPaymentsLogic @Inject constructor(
         skipTransaction: Boolean = false,
         onUpdateUI: suspend (paidTransactions: List<Transaction>) -> Unit
     ) {
-        val paidTransactions =
-            transactions.filter { (it.dueDate == null || it.dateTime != null).not() }
-
-        if (paidTransactions.count() == 0) return
-
-        paidTransactions.map {
-            it.copy(
-                dueDate = null,
-                dateTime = timeProvider.utcNow(),
-                isSynced = false
-            )
-        }
-
-        val plannedPaymentRules = ioThread {
-            paidTransactions.map { transaction ->
-                transaction.recurringRuleId?.let {
-                    plannedPaymentRuleDao.findById(it)
-                }
-            }
-        }
-
-        ioThread {
-            if (skipTransaction) {
-                paidTransactions.forEach { paidTransaction ->
-                    transactionRepository.deleteById(TransactionId(paidTransaction.id))
-                }
-            } else {
-                paidTransactions.forEach { paidTransaction ->
-                    paidTransaction.toDomain(transactionMapper)?.let {
-                        transactionRepository.save(it)
+        val paidTransactions = ioThread {
+            database.withTransaction {
+                transactions.filter { it.dueDate != null && it.dateTime == null }
+                    .distinctBy { it.id }.mapNotNull { selected ->
+                        val stored = transactionDao.findById(selected.id)
+                        if (stored != null && (stored.dateTime != null || stored.isDeleted)) {
+                            return@mapNotNull null
+                        }
+                        val pending = stored?.toLegacyDomain() ?: selected
+                        if (pending.dueDate == null || pending.dateTime != null) return@mapNotNull null
+                        val paid = pending.copy(
+                            paidFor = pending.dueDate,
+                            dueDate = null,
+                            dateTime = timeProvider.utcNow(),
+                            isSynced = false,
+                        )
+                        if (skipTransaction) transactionRepository.deleteById(TransactionId(paid.id))
+                        else {
+                            val domain = checkNotNull(paid.toDomain(transactionMapper)) {
+                                "Cannot settle planned transaction ${paid.id}"
+                            }
+                            transactionRepository.save(domain)
+                        }
+                        deleteOneTimeRule(paid.recurringRuleId)
+                        paid
                     }
-                }
-            }
-
-            plannedPaymentRules.forEach { plannedPaymentRule ->
-                if (plannedPaymentRule != null && plannedPaymentRule.oneTime) {
-                    // delete paid oneTime planned payment rules
-                    plannedPaymentRuleWriter.deleteById(plannedPaymentRule.id)
-                }
             }
         }
+        if (paidTransactions.isNotEmpty()) onUpdateUI(paidTransactions)
+    }
 
-        onUpdateUI(paidTransactions)
+    private suspend fun deleteOneTimeRule(id: java.util.UUID?) {
+        val rule = id?.let { plannedPaymentRuleDao.findById(it) }
+        if (rule?.oneTime == true) plannedPaymentRuleWriter.deleteById(rule.id)
     }
 }
