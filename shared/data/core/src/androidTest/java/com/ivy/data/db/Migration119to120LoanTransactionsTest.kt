@@ -60,7 +60,10 @@ class Migration119to120LoanTransactionsTest {
             }
         }
         helper.runMigrationsAndValidate(
-            databaseName, 120, true, Migration119to120_LoanTransactions()
+            databaseName,
+            120,
+            true,
+            Migration119to120_LoanTransactions()
         ).use { db ->
             db.query("SELECT loanId, loanRecordId, amount FROM transactions").use { cursor ->
                 assertTrue(cursor.moveToFirst())

@@ -1,20 +1,20 @@
 package com.ivy.wallet.domain.deprecated.logic
 
 import androidx.room.withTransaction
-import com.ivy.data.db.IvyRoomDatabase
-import com.ivy.data.model.Income
-import com.ivy.data.model.Expense
-import com.ivy.data.model.Transfer
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeProvider
+import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.PlannedPaymentRuleDao
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
+import com.ivy.data.model.Expense
+import com.ivy.data.model.Income
 import com.ivy.data.model.IntervalType
 import com.ivy.data.model.TransactionId
+import com.ivy.data.model.Transfer
 import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.data.temp.migration.settleNow
@@ -193,7 +193,9 @@ class PlannedPaymentsLogic @Inject constructor(
                 transactions.filterNot { it.settled }.distinctBy { it.id }.mapNotNull { selected ->
                     // Missing rows can be generated pending occurrences, not yet persisted.
                     val stored = transactionDao.findById(selected.id.value)
-                    val pending = if (stored == null) selected else {
+                    val pending = if (stored == null) {
+                        selected
+                    } else {
                         if (stored.dateTime != null || stored.isDeleted) return@mapNotNull null
                         checkNotNull(transactionRepository.findById(selected.id)) {
                             "Cannot read planned transaction ${selected.id.value}"
@@ -206,8 +208,11 @@ class PlannedPaymentsLogic @Inject constructor(
                         is Expense -> settled.copy(metadata = metadata)
                         is Transfer -> settled.copy(metadata = metadata)
                     }
-                    if (skipTransaction) transactionRepository.deleteById(paid.id)
-                    else transactionRepository.save(paid)
+                    if (skipTransaction) {
+                        transactionRepository.deleteById(paid.id)
+                    } else {
+                        transactionRepository.save(paid)
+                    }
                     deleteOneTimeRule(paid.metadata.recurringRuleId)
                     paid
                 }
@@ -239,8 +244,9 @@ class PlannedPaymentsLogic @Inject constructor(
                             dateTime = timeProvider.utcNow(),
                             isSynced = false,
                         )
-                        if (skipTransaction) transactionRepository.deleteById(TransactionId(paid.id))
-                        else {
+                        if (skipTransaction) {
+                            transactionRepository.deleteById(TransactionId(paid.id))
+                        } else {
                             val domain = checkNotNull(paid.toDomain(transactionMapper)) {
                                 "Cannot settle planned transaction ${paid.id}"
                             }

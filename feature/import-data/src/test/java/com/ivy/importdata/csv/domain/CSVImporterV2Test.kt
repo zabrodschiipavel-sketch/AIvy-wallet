@@ -47,8 +47,14 @@ class CSVImporterV2Test {
     private val cash = AccountEntity(name = "Cash", currency = "USD", color = 0)
     private val progress = mutableListOf<Double>()
     private val importer = CSVImporterV2(
-        settingsDao, writer, TransactionMapper(accounts), accountDao, categories,
-        mockk<CurrencyRepository>(), accounts, TestTimeConverter(),
+        settingsDao,
+        writer,
+        TransactionMapper(accounts),
+        accountDao,
+        categories,
+        mockk<CurrencyRepository>(),
+        accounts,
+        TestTimeConverter(),
     )
 
     init {
@@ -72,10 +78,20 @@ class CSVImporterV2Test {
         field(3, Unit), status, field(-1, Unit), status,
     )
     private val transfer = TransferFields(
-        field(3, Unit), status, field(-1, Unit), status, field(0, 1), status,
+        field(3, Unit),
+        status,
+        field(-1, Unit),
+        status,
+        field(0, 1),
+        status,
     )
     private val optional = OptionalFields(
-        field(-1, Unit), status, field(-1, Unit), status, field(-1, Unit), status,
+        field(-1, Unit),
+        status,
+        field(-1, Unit),
+        status,
+        field(-1, Unit),
+        status,
     )
     private val header = CSVRow(listOf("amount", "type", "date", "account"))
     private fun row(type: String) = CSVRow(listOf("10", type, "19/10/2026", "Cash"))
@@ -94,6 +110,7 @@ class CSVImporterV2Test {
         assertEquals(1.0, progress.last(), 0.0)
         coVerify(exactly = 1) { writer.save(any()) }
     }
+
     @Test
     fun `domain rejection reports original source line and counts only saved rows`() = runBlocking {
         // A parse failure before the domain-invalid self-transfer exercises retained indices.

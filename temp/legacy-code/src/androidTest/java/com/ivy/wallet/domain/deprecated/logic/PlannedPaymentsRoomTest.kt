@@ -50,22 +50,33 @@ class PlannedPaymentsRoomTest {
     private val accountId = AccountId(id(1))
     private val rules = (1..2).map { index ->
         PlannedPaymentRuleEntity(
-            id = id(10 + index), startDate = due, intervalN = null, intervalType = null,
-            oneTime = true, type = TransactionType.INCOME,
-            accountId = accountId.value, amount = index * 10.0,
+            id = id(10 + index),
+            startDate = due,
+            intervalN = null,
+            intervalType = null,
+            oneTime = true,
+            type = TransactionType.INCOME,
+            accountId = accountId.value,
+            amount = index * 10.0,
         )
     }
     private val pending = rules.mapIndexed { index, rule ->
         TransactionEntity(
-            id = id(20 + index), accountId = accountId.value,
-            type = TransactionType.INCOME, amount = rule.amount,
-            dueDate = due.plusSeconds(index * 3600L), dateTime = null,
+            id = id(20 + index),
+            accountId = accountId.value,
+            type = TransactionType.INCOME,
+            amount = rule.amount,
+            dueDate = due.plusSeconds(index * 3600L),
+            dateTime = null,
             recurringRuleId = rule.id,
         )
     }
     private val settled = TransactionEntity(
-        id = id(30), accountId = accountId.value, type = TransactionType.INCOME,
-        amount = 99.0, dateTime = due.minusSeconds(86400),
+        id = id(30),
+        accountId = accountId.value,
+        type = TransactionType.INCOME,
+        amount = 99.0,
+        dateTime = due.minusSeconds(86400),
     )
 
     @Before
@@ -78,11 +89,18 @@ class PlannedPaymentsRoomTest {
             CurrencyRepository(db.settingsDao, db.writeSettingsDao, TestDispatchersProvider, memos)
         )
         val accounts = AccountRepository(
-            accountMapper, db.accountDao, db.writeAccountDao, TestDispatchersProvider, memos,
+            accountMapper,
+            db.accountDao,
+            db.writeAccountDao,
+            TestDispatchersProvider,
+            memos,
         )
         mapper = TransactionMapper(accounts)
         val repository = TransactionRepository(
-            mapper, db.transactionDao, db.writeTransactionDao, TestDispatchersProvider,
+            mapper,
+            db.transactionDao,
+            db.writeTransactionDao,
+            TestDispatchersProvider,
             mockk(relaxed = true), // These untagged reads/writes do not use TagRepository.
         )
         val clock = mockk<TimeProvider>()
@@ -93,9 +111,14 @@ class PlannedPaymentsRoomTest {
         )
         withTimeout(10_000) {
             val account = Account(
-                id = accountId, name = NotBlankTrimmedString.unsafe("USD account"),
-                asset = AssetCode.unsafe("USD"), color = ColorInt(1), icon = null,
-                includeInBalance = true, orderNum = 1.0, archived = false,
+                id = accountId,
+                name = NotBlankTrimmedString.unsafe("USD account"),
+                asset = AssetCode.unsafe("USD"),
+                color = ColorInt(1),
+                icon = null,
+                includeInBalance = true,
+                orderNum = 1.0,
+                archived = false,
             )
             db.writeAccountDao.save(with(accountMapper) { account.toEntity() })
             rules.forEach { db.writePlannedPaymentRuleDao.save(it) }
@@ -107,12 +130,19 @@ class PlannedPaymentsRoomTest {
     fun tearDown() { db.close() }
 
     @Test fun domainBulkSkipLeavesSettledUntouched() = skip(false)
+
     @Test fun legacyBulkSkipLeavesSettledUntouched() = skip(true)
+
     @Test fun domainBulkSettleKeepsOriginalDueDates() = settle(false)
+
     @Test fun legacyBulkSettleKeepsOriginalDueDates() = settle(true)
+
     @Test fun domainLaterRuleFailureRollsBackSettlement() = rollback(false, false)
+
     @Test fun legacyLaterRuleFailureRollsBackSettlement() = rollback(true, false)
+
     @Test fun domainLaterRuleFailureRollsBackSkip() = rollback(false, true)
+
     @Test fun legacyLaterRuleFailureRollsBackSkip() = rollback(true, true)
 
     private fun skip(legacy: Boolean) = runBlocking {
@@ -136,8 +166,10 @@ class PlannedPaymentsRoomTest {
                 assertEquals(original.dueDate, row.paidForDateTime)
                 assertNull(row.dueDate)
                 original.copy(
-                    dateTime = row.dateTime, dueDate = null,
-                    paidForDateTime = original.dueDate, isSynced = true,
+                    dateTime = row.dateTime,
+                    dueDate = null,
+                    paidForDateTime = original.dueDate,
+                    isSynced = true,
                 )
             }
             assertRows(paid + settled, emptyList())
@@ -191,10 +223,14 @@ class PlannedPaymentsRoomTest {
     }
 
     private suspend fun assertRows(
-        transactions: List<TransactionEntity>, expectedRules: List<PlannedPaymentRuleEntity>,
+        transactions: List<TransactionEntity>,
+        expectedRules: List<PlannedPaymentRuleEntity>,
     ) {
         assertEquals(transactions.associateBy { it.id }, db.transactionDao.findAllForRestore().associateBy { it.id })
-        assertEquals(expectedRules.associateBy { it.id }, db.plannedPaymentRuleDao.findAllForRestore().associateBy { it.id })
+        assertEquals(
+            expectedRules.associateBy { it.id },
+            db.plannedPaymentRuleDao.findAllForRestore().associateBy { it.id }
+        )
     }
 
     private fun id(value: Int): UUID = UUID.fromString("00000000-0000-0000-0000-${value.toString().padStart(12, '0')}")

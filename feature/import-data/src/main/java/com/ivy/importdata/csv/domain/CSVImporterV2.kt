@@ -31,9 +31,9 @@ import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.pure.util.nextOrderNum
 import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.IvyDark
-import kotlinx.coroutines.CancellationException
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.absoluteValue

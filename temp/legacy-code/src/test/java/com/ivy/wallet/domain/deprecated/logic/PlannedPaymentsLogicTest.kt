@@ -81,8 +81,10 @@ class PlannedPaymentsLogicTest {
     )
 
     private fun legacy() = TransactionEntity(
-        accountId = UUID.randomUUID(), type = TransactionType.INCOME,
-        amount = 10.0, dueDate = due,
+        accountId = UUID.randomUUID(),
+        type = TransactionType.INCOME,
+        amount = 10.0,
+        dueDate = due,
     ).toLegacyDomain()
 
     @Test
@@ -133,10 +135,12 @@ class PlannedPaymentsLogicTest {
         coEvery { with(mapper) { any<TransactionEntity>().toDomain() } } coAnswers {
             val entity = firstArg<TransactionEntity>()
             entities.add(entity)
-            arrow.core.Either.Right(pending().copy(
-                settled = entity.dateTime != null,
-                metadata = TransactionMetadata(null, entity.paidForDateTime, loanRecordId = null),
-            ))
+            arrow.core.Either.Right(
+                pending().copy(
+                    settled = entity.dateTime != null,
+                    metadata = TransactionMetadata(null, entity.paidForDateTime, loanRecordId = null),
+                )
+            )
         }
         logic.payOrGetLegacy(listOf(legacy(), legacy())) { assertTrue(completed) }
         assertEquals(2, entities.size)
@@ -196,6 +200,7 @@ class PlannedPaymentsLogicTest {
         assertFalse(completed)
         assertFalse(insideTransaction)
     }
+
     @Test
     fun legacyStaleSettledSelectionIsNotDeleted() = runBlocking {
         val selected = legacy()
