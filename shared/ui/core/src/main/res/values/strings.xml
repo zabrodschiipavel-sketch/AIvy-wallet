@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="saving_loan">Saving…</string>
+    <string name="loan_save_failed">Could not save. Your changes have been kept. Please try again.</string>
+    <string name="loan_saved_refresh_failed">Saved. Could not refresh the screen. Reopen this screen to see your changes.</string>
     <string name="saving_account">Saving account…</string>
     <string name="account_save_failed">Could not save the account. Your changes have been kept. Please try again.</string>
     <string name="account_saved_refresh_failed">Account saved. Could not refresh the screen. Reopen this screen to see your changes.</string>

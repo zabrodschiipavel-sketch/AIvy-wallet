@@ -1,31 +1,27 @@
 package com.ivy.wallet.domain.deprecated.logic
 
-import com.ivy.data.db.dao.write.WriteLoanRecordDao
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.data.loan.LoanDeletionCommand
+import com.ivy.data.loan.LoanWriteCommand
+import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.datamodel.LoanRecord
-import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanRecordData
-import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 class LoanRecordCreator @Inject constructor(
-    private val loanRecordWriter: WriteLoanRecordDao,
+    private val loanWrite: LoanWriteCommand,
     private val loanDeletionCommand: LoanDeletionCommand,
 ) {
     suspend fun create(
-        loanId: UUID,
+        loan: Loan,
         data: CreateLoanRecordData,
+        writeAssociatedData: suspend (LoanRecord) -> Unit,
         onRefreshUI: suspend (LoanRecord) -> Unit
-    ): UUID? {
-        val note = data.note
-        if (data.amount <= 0) return null
-
-        try {
-            var newItem: LoanRecord? = null
-            newItem = ioThread {
-                val item = LoanRecord(
-                    loanId = loanId,
-                    note = note?.trim(),
+    ): LoanSaveResult {
+        val item = LoanRecord(
+                    loanId = loan.id,
+                    note = data.note?.trim(),
                     amount = data.amount,
                     dateTime = data.dateTime,
                     isSynced = false,
@@ -35,37 +31,34 @@ class LoanRecordCreator @Inject constructor(
                     loanRecordType = data.loanRecordType
                 )
 
-                loanRecordWriter.save(item.toEntity())
-                item
-            }
-
-            onRefreshUI(newItem!!)
-            return newItem?.id
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return null
+        return save(item, loan, true, writeAssociatedData, onRefreshUI)
     }
 
     suspend fun edit(
         updatedItem: LoanRecord,
+        loan: Loan,
+        writeAssociatedData: suspend (LoanRecord) -> Unit,
         onRefreshUI: suspend (LoanRecord) -> Unit
-    ) {
-        if (updatedItem.amount <= 0.0) return
+    ): LoanSaveResult = save(updatedItem, loan, false, writeAssociatedData, onRefreshUI)
 
-        try {
-            ioThread {
-                loanRecordWriter.save(
-                    updatedItem.toEntity().copy(
-                        isSynced = false
-                    )
-                )
-            }
-
-            onRefreshUI(updatedItem)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    private suspend fun save(
+        item: LoanRecord,
+        loan: Loan,
+        creating: Boolean,
+        writeAssociatedData: suspend (LoanRecord) -> Unit,
+        onRefreshUI: suspend (LoanRecord) -> Unit,
+    ): LoanSaveResult {
+        val result = loanWrite.saveRecord(item.toEntity(), creating, loan.toEntity()) {
+            writeAssociatedData(item)
         }
+        try {
+            onRefreshUI(item)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return LoanSaveResult.RefreshFailed
+        }
+        return result
     }
 
     suspend fun delete(

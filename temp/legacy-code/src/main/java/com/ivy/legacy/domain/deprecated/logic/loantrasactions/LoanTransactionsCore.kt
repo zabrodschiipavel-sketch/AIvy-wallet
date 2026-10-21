@@ -6,20 +6,18 @@ import com.ivy.base.model.LoanRecordType
 import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.AccountDao
+import com.ivy.data.db.dao.read.CategoryDao
 import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.read.LoanRecordDao
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.db.dao.write.WriteLoanDao
+import com.ivy.data.db.dao.write.WriteCategoryDao
+import com.ivy.data.db.entity.CategoryEntity
 import com.ivy.data.db.dao.write.WriteLoanRecordDao
 import com.ivy.data.model.Category
-import com.ivy.data.model.CategoryId
 import com.ivy.data.model.LoanType
 import com.ivy.data.model.TransactionId
-import com.ivy.data.model.primitive.ColorInt
-import com.ivy.data.model.primitive.IconAsset
-import com.ivy.data.model.primitive.NotBlankTrimmedString
-import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.design.IVY_COLOR_PICKER_COLORS_FREE
@@ -41,7 +39,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 class LoanTransactionsCore @Inject constructor(
-    private val categoryRepository: CategoryRepository,
+    private val categoryDao: CategoryDao,
+    private val categoryWriter: WriteCategoryDao,
     private val transactionDao: TransactionDao,
     private val ivyContext: IvyWalletCtx,
     private val loanRecordDao: LoanRecordDao,
@@ -95,9 +94,7 @@ class LoanTransactionsCore @Inject constructor(
         transaction: Transaction? = null,
         loanRecordType: LoanRecordType
     ) {
-        if (isLoanRecord && loanRecordId == null) {
-            return
-        }
+        require(!isLoanRecord || loanRecordId != null) { "Loan record is required" }
 
         if (createTransaction && transaction != null) {
             createMainTransaction(
@@ -145,9 +142,7 @@ class LoanTransactionsCore @Inject constructor(
         transaction: Transaction? = null,
         loanRecordType: LoanRecordType
     ) {
-        if (selectedAccountId == null) {
-            return
-        }
+        requireNotNull(selectedAccountId) { "A linked transaction needs an account" }
 
         val transType = if (isLoanRecord && loanRecordType != LoanRecordType.INCREASE) {
             if (loanType == LoanType.BORROW) TransactionType.EXPENSE else TransactionType.INCOME
@@ -177,9 +172,9 @@ class LoanTransactionsCore @Inject constructor(
             )
 
         ioThread {
-            modifiedTransaction.toDomain(transactionMapper)?.let {
-                transactionRepo.save(it)
-            }
+            transactionRepo.save(requireNotNull(modifiedTransaction.toDomain(transactionMapper)) {
+                "Cannot convert the linked loan transaction"
+            })
         }
     }
 
@@ -197,21 +192,21 @@ class LoanTransactionsCore @Inject constructor(
         }
 
         val categoryList = ioThread {
-            categoryRepository.findAll()
+            categoryDao.findAll()
         }
 
         var addCategoryToDb = false
 
         val loanCategory = categoryList.find { category ->
-            category.name.value.lowercase(Locale.ENGLISH).contains("loan")
+            category.name.lowercase(Locale.ENGLISH).contains("loan")
         } ?: if (ivyContext.isPremium || categoryList.size < 12) {
             addCategoryToDb = true
 
-            Category(
-                name = NotBlankTrimmedString.unsafe("Loans"),
-                color = ColorInt(IVY_COLOR_PICKER_COLORS_FREE[DEFAULT_COLOR_INDEX].toArgb()),
-                icon = IconAsset.unsafe("loan"),
-                id = CategoryId(UUID.randomUUID()),
+            CategoryEntity(
+                name = "Loans",
+                color = IVY_COLOR_PICKER_COLORS_FREE[DEFAULT_COLOR_INDEX].toArgb(),
+                icon = "loan",
+                id = UUID.randomUUID(),
                 orderNum = 0.0,
             )
         } else {
@@ -221,12 +216,13 @@ class LoanTransactionsCore @Inject constructor(
         if (addCategoryToDb) {
             ioThread {
                 loanCategory?.let {
-                    categoryRepository.save(it)
+                    // The owning LoanWriteCommand publishes after the complete commit.
+                    categoryWriter.save(it)
                 }
             }
         }
 
-        return loanCategory?.id?.value
+        return loanCategory?.id
     }
 
     suspend fun computeConvertedAmount(

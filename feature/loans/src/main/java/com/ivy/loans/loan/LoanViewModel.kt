@@ -1,6 +1,7 @@
 package com.ivy.loans.loan
 
 import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -37,7 +38,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDateTime
@@ -143,10 +143,6 @@ class LoanViewModel @Inject constructor(
 
     override fun onEvent(event: LoanScreenEvent) {
         when (event) {
-            is LoanScreenEvent.OnLoanCreate -> {
-                createLoan(event.createLoanData)
-            }
-
             is LoanScreenEvent.OnAddLoan -> {
                 loanModalData = LoanModalData(
                     loan = null,
@@ -187,9 +183,12 @@ class LoanViewModel @Inject constructor(
     }
 
     private fun start() {
-        viewModelScope.launch(Dispatchers.Default) {
-            TestIdlingResource.increment()
+        viewModelScope.launch { refresh() }
+    }
 
+    private suspend fun refresh() {
+            TestIdlingResource.increment()
+        try {
             dateTime = timeProvider.utcNow()
 
             defaultCurrencyCode = ioThread {
@@ -240,6 +239,7 @@ class LoanViewModel @Inject constructor(
             loadPendingLoans()
             loadCompletedLoans()
 
+        } finally {
             TestIdlingResource.decrement()
         }
     }
@@ -309,18 +309,13 @@ class LoanViewModel @Inject constructor(
         }
     }
 
-    private fun createLoan(data: CreateLoanData) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
-            val uuid = loanCreator.create(data) {
-                start()
-            }
-
-            uuid?.let {
-                loanTransactionsLogic.Loan.createAssociatedLoanTransaction(data = data, loanId = it)
-            }
-
+    suspend fun createLoan(data: CreateLoanData): LoanSaveResult {
+        TestIdlingResource.increment()
+        return try {
+            loanCreator.create(data, writeAssociatedData = { loan ->
+                loanTransactionsLogic.Loan.createAssociatedLoanTransaction(data, loan.id)
+            }, onRefreshUI = { refresh() })
+        } finally {
             TestIdlingResource.decrement()
         }
     }

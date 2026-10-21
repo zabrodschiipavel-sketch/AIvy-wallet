@@ -1,5 +1,7 @@
 package com.ivy.wallet.ui.theme.modal
 
+import com.ivy.base.model.LoanSaveResult
+import com.ivy.ui.SaveController
 import com.ivy.base.model.AccountSaveResult
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
@@ -83,13 +85,14 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     dateTime: Instant,
     onSetDate: () -> Unit,
     onSetTime: () -> Unit,
-    onCreate: (CreateLoanRecordData) -> Unit,
-    onEdit: (EditLoanRecordData) -> Unit,
+    onCreate: suspend (CreateLoanRecordData) -> LoanSaveResult,
+    onEdit: suspend (EditLoanRecordData) -> LoanSaveResult,
     onDelete: (LoanRecord) -> Unit,
     dismiss: () -> Unit,
     accounts: List<Account> = emptyList(),
     onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
 ) {
+    val saveController = rememberLoanSaveController(modal?.id, dismiss)
     val initialRecord = modal?.loanRecord
 
     var noteTextFieldValue by remember(modal) {
@@ -129,12 +132,12 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     IvyModal(
         id = modal?.id,
         visible = modal != null,
-        dismiss = dismiss,
+        dismiss = { saveController.editFields { dismiss() } },
         shiftIfKeyboardShown = true,
         PrimaryAction = {
             ModalAddSave(
                 item = initialRecord,
-                enabled = amount > 0 && selectedAcc != null
+                enabled = !saveController.isSaving && amount > 0 && selectedAcc != null
                 // enabled = amount > 0 && ((createLoanRecordTrans && selectedAcc != null) || !createLoanRecordTrans)
             ) {
                 accountChangeConformationModal =
@@ -155,7 +158,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
 
                         onCreate = onCreate,
                         onEdit = onEdit,
-                        dismiss = dismiss,
+                        controller = saveController,
                     )
                 }
             }
@@ -163,11 +166,12 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     ) {
         onScreenStart {
             if (modal?.loanRecord == null) {
-                amountModalVisible = true
+                saveController.editFields { amountModalVisible = true }
             }
         }
 
         Spacer(Modifier.height(32.dp))
+        LoanSaveStatus(saveController)
 
         Row(
             verticalAlignment = Alignment.CenterVertically
@@ -200,7 +204,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
             autoFocusKeyboard = false,
             textFieldValue = noteTextFieldValue,
             setTextFieldValue = {
-                noteTextFieldValue = it
+                saveController.editFields { noteTextFieldValue = it }
             }
         )
 
@@ -209,8 +213,8 @@ fun BoxWithConstraintsScope.LoanRecordModal(
         val timeConverter = LocalTimeConverter.current
         DateTimeRow(
             dateTime = with(timeConverter) { dateTime.toLocalDateTime() },
-            onEditDate = onSetDate,
-            onEditTime = onSetTime,
+            onEditDate = { saveController.editFields(onSetDate) },
+            onEditTime = { saveController.editFields(onSetTime) },
         )
 
         Spacer(Modifier.height(24.dp))
@@ -230,6 +234,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
             accounts = accounts,
             selectedAccount = selectedAcc,
             onSelectedAccountChanged = {
+                saveController.editFields {
                 currencyCode = it.currency ?: getDefaultFIATCurrency().currencyCode
 
                 reCalculateVisible =
@@ -238,13 +243,16 @@ fun BoxWithConstraintsScope.LoanRecordModal(
                 reCalculate = !reCalculateVisible
 
                 selectedAcc = it
+                }
             },
             onAddNewAccount = {
+                saveController.editFields {
                 accountModalData = AccountModalData(
                     account = null,
                     baseCurrency = selectedAcc?.currency ?: "USD",
                     balance = 0.0
                 )
+                }
             },
             childrenTestTag = "amount_modal_account"
         )
@@ -262,8 +270,10 @@ fun BoxWithConstraintsScope.LoanRecordModal(
         Spacer(Modifier.height(16.dp))
 
         LoanRecordTypeRow(selectedRecordType = loanRecordType, onLoanRecordTypeChanged = {
+            saveController.editFields {
             if (it == LoanRecordType.INCREASE) loanInterest = false
             loanRecordType = it
+            }
         })
 
         Spacer(Modifier.height(16.dp))
@@ -275,7 +285,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
             text = stringResource(R.string.create_main_transaction),
             checked = createLoanRecordTrans
         ) {
-            createLoanRecordTrans = it
+            saveController.editFields { createLoanRecordTrans = it }
         }
 
         AnimatedVisibility(visible = loanRecordType == LoanRecordType.DECREASE) {
@@ -286,7 +296,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
                 text = stringResource(R.string.mark_as_interest),
                 checked = loanInterest
             ) {
-                loanInterest = it
+                saveController.editFields { loanInterest = it }
             }
         }
 
@@ -298,7 +308,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
                 text = stringResource(R.string.recalculate_amount_with_today_exchange_rates),
                 checked = reCalculate
             ) {
-                reCalculate = it
+                saveController.editFields { reCalculate = it }
             }
         }
 
@@ -311,7 +321,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
             amountPaddingTop = 40.dp,
             amountPaddingBottom = 40.dp,
         ) {
-            amountModalVisible = true
+            saveController.editFields { amountModalVisible = true }
         }
     }
 
@@ -325,7 +335,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
         initialAmount = amount,
         dismiss = { amountModalVisible = false }
     ) { newAmount ->
-        amount = newAmount
+        saveController.editFields { amount = newAmount }
     }
 
     DeleteModal(
@@ -375,7 +385,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
 
             onCreate = onCreate,
             onEdit = onEdit,
-            dismiss = dismiss,
+            controller = saveController,
         )
 
         accountChangeConformationModal = false
@@ -393,10 +403,11 @@ private fun save(
     reCalculateAmount: Boolean = false,
     loanRecordType: LoanRecordType,
 
-    onCreate: (CreateLoanRecordData) -> Unit,
-    onEdit: (EditLoanRecordData) -> Unit,
-    dismiss: () -> Unit
+    onCreate: suspend (CreateLoanRecordData) -> LoanSaveResult,
+    onEdit: suspend (EditLoanRecordData) -> LoanSaveResult,
+    controller: SaveController<LoanSaveResult>
 ) {
+    controller.submit {
     if (loanRecord != null) {
         val record = loanRecord.copy(
             note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
@@ -428,7 +439,7 @@ private fun save(
         )
     }
 
-    dismiss()
+    }
 }
 
 @Composable
@@ -670,8 +681,8 @@ private fun Preview() {
                 loanRecord = null,
                 baseCurrency = "BGN"
             ),
-            onCreate = {},
-            onEdit = {},
+            onCreate = { LoanSaveResult.Saved },
+            onEdit = { LoanSaveResult.Saved },
             onDelete = {},
             dismiss = {},
             onSetDate = {},

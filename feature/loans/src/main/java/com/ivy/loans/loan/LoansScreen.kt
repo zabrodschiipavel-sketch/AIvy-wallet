@@ -1,6 +1,8 @@
 package com.ivy.loans.loan
 
 import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
+import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,6 +77,7 @@ fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
     UI(
         state = state,
         onCreateAccount = viewModel::createAccount,
+        onCreateLoan = viewModel::createLoan,
         onEventHandler = viewModel::onEvent
     )
 }
@@ -82,6 +85,7 @@ fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanScreenState,
+    onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult = { LoanSaveResult.Saved },
     onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
         AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanScreenEvent) -> Unit = {}
@@ -197,10 +201,8 @@ private fun BoxWithConstraintsScope.UI(
             accounts = state.accounts,
             onCreateAccount = onCreateAccount,
             modal = state.loanModalData,
-            onCreateLoan = {
-                onEventHandler.invoke(LoanScreenEvent.OnLoanCreate(createLoanData = it))
-            },
-            onEditLoan = { _, _ -> },
+            onCreateLoan = onCreateLoan,
+            onEditLoan = { _, _ -> LoanSaveResult.Saved },
             dismiss = {
                 onEventHandler.invoke(LoanScreenEvent.OnLoanModalDismiss)
             },

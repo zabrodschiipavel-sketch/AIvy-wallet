@@ -1,5 +1,7 @@
 package com.ivy.wallet.ui.theme.modal
 
+import com.ivy.base.model.LoanSaveResult
+import com.ivy.ui.SaveController
 import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -93,13 +95,14 @@ fun BoxWithConstraintsScope.LoanModal(
     dateTime: Instant,
     onSetDate: () -> Unit,
     onSetTime: () -> Unit,
-    onCreateLoan: (CreateLoanData) -> Unit,
-    onEditLoan: (Loan, Boolean) -> Unit,
+    onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult,
+    onEditLoan: suspend (Loan, Boolean) -> LoanSaveResult,
     accounts: List<Account> = emptyList(),
     onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
     onPerformCalculations: () -> Unit = {},
     dismiss: () -> Unit,
 ) {
+    val saveController = rememberLoanSaveController(modal?.id, dismiss)
     val loan = modal?.loan
     val timeConverter = LocalTimeConverter.current
 
@@ -148,13 +151,13 @@ fun BoxWithConstraintsScope.LoanModal(
     IvyModal(
         id = modal?.id,
         visible = modal != null,
-        dismiss = dismiss,
+        dismiss = { saveController.editFields { dismiss() } },
         shiftIfKeyboardShown = false,
         PrimaryAction = {
             ModalAddSave(
                 item = modal?.loan,
                 // enabled = nameTextFieldValue.text.isNotNullOrBlank() && amount > 0 && ((createLoanTrans && selectedAcc != null) || !createLoanTrans)
-                enabled = nameTextFieldValue.text.isNotNullOrBlank() && amount > 0 && selectedAcc != null
+                enabled = !saveController.isSaving && nameTextFieldValue.text.isNotNullOrBlank() && amount > 0 && selectedAcc != null
             ) {
                 accountChangeModal =
                     loan != null && modal.selectedAccount != null && currencyCode != (
@@ -177,7 +180,7 @@ fun BoxWithConstraintsScope.LoanModal(
 
                         onCreateLoan = onCreateLoan,
                         onEditLoan = onEditLoan,
-                        dismiss = dismiss
+                        controller = saveController
                     )
                 }
             }
@@ -185,11 +188,12 @@ fun BoxWithConstraintsScope.LoanModal(
     ) {
         onScreenStart {
             if (modal?.autoOpenAmountModal == true) {
-                amountModalVisible = true
+                saveController.editFields { amountModalVisible = true }
             }
         }
 
         Spacer(Modifier.height(32.dp))
+        LoanSaveStatus(saveController)
 
         ModalTitle(
             text = if (modal?.loan != null) stringResource(R.string.edit_loan) else stringResource(R.string.new_loan),
@@ -206,9 +210,9 @@ fun BoxWithConstraintsScope.LoanModal(
             autoFocusKeyboard = modal?.autoFocusKeyboard ?: true,
 
             nameTextFieldValue = nameTextFieldValue,
-            setNameTextFieldValue = { nameTextFieldValue = it },
+            setNameTextFieldValue = { saveController.editFields { nameTextFieldValue = it } },
             showChooseIconModal = {
-                chooseIconModalVisible = true
+                saveController.editFields { chooseIconModalVisible = true }
             }
         )
 
@@ -216,22 +220,22 @@ fun BoxWithConstraintsScope.LoanModal(
 
         DateTimeRow(
             dateTime = dateTime,
-            onEditDate = onSetDate,
-            onEditTime = onSetTime
+            onEditDate = { saveController.editFields(onSetDate) },
+            onEditTime = { saveController.editFields(onSetTime) }
         )
 
         Spacer(Modifier.height(24.dp))
 
         LoanTypePicker(
             type = type,
-            onTypeSelected = { type = it }
+            onTypeSelected = { saveController.editFields { type = it } }
         )
 
         Spacer(Modifier.height(24.dp))
 
         IvyColorPicker(
             selectedColor = color,
-            onColorSelected = { color = it }
+            onColorSelected = { saveController.editFields { color = it } }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -252,7 +256,7 @@ fun BoxWithConstraintsScope.LoanModal(
             autoFocusKeyboard = false,
             textFieldValue = noteTextFieldValue,
             setTextFieldValue = {
-                noteTextFieldValue = it
+                saveController.editFields { noteTextFieldValue = it }
             }
         )
 
@@ -273,15 +277,19 @@ fun BoxWithConstraintsScope.LoanModal(
             accounts = accounts,
             selectedAccount = selectedAcc,
             onSelectedAccountChanged = {
+                saveController.editFields {
                 selectedAcc = it
                 currencyCode = it.currency ?: getDefaultFIATCurrency().currencyCode
+                }
             },
             onAddNewAccount = {
+                saveController.editFields {
                 accountModalData = AccountModalData(
                     account = null,
                     baseCurrency = selectedAcc?.currency ?: "USD",
                     balance = 0.0
                 )
+                }
             },
             childrenTestTag = "amount_modal_account"
         )
@@ -295,7 +303,7 @@ fun BoxWithConstraintsScope.LoanModal(
             text = stringResource(R.string.create_main_transaction),
             checked = createLoanTrans
         ) {
-            createLoanTrans = it
+            saveController.editFields { createLoanTrans = it }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -307,7 +315,7 @@ fun BoxWithConstraintsScope.LoanModal(
             amountPaddingTop = 40.dp,
             amountPaddingBottom = 40.dp,
         ) {
-            amountModalVisible = true
+            saveController.editFields { amountModalVisible = true }
         }
     }
 
@@ -321,7 +329,7 @@ fun BoxWithConstraintsScope.LoanModal(
         initialAmount = amount,
         dismiss = { amountModalVisible = false }
     ) { newAmount ->
-        amount = newAmount
+        saveController.editFields { amount = newAmount }
     }
 
     CurrencyModal(
@@ -330,7 +338,7 @@ fun BoxWithConstraintsScope.LoanModal(
         visible = currencyModalVisible,
         dismiss = { currencyModalVisible = false }
     ) {
-        currencyCode = it
+        saveController.editFields { currencyCode = it }
     }
 
     AccountModal(
@@ -348,7 +356,7 @@ fun BoxWithConstraintsScope.LoanModal(
         color = color,
         dismiss = { chooseIconModalVisible = false }
     ) {
-        icon = it
+        saveController.editFields { icon = it }
     }
 
     DeleteModal(
@@ -377,7 +385,7 @@ fun BoxWithConstraintsScope.LoanModal(
 
             onCreateLoan = onCreateLoan,
             onEditLoan = onEditLoan,
-            dismiss = dismiss
+            controller = saveController
         )
         accountChangeModal = false
     }
@@ -614,10 +622,11 @@ private fun save(
     selectedAccount: Account? = null,
     createLoanTransaction: Boolean = false,
 
-    onCreateLoan: (CreateLoanData) -> Unit,
-    onEditLoan: (Loan, Boolean) -> Unit,
-    dismiss: () -> Unit
+    onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult,
+    onEditLoan: suspend (Loan, Boolean) -> LoanSaveResult,
+    controller: SaveController<LoanSaveResult>
 ) {
+    controller.submit {
     if (loan != null) {
         onEditLoan(
             loan.copy(
@@ -648,7 +657,7 @@ private fun save(
         )
     }
 
-    dismiss()
+    }
 }
 
 @Preview
@@ -660,8 +669,8 @@ private fun Preview() {
                 loan = null,
                 baseCurrency = "BGN",
             ),
-            onCreateLoan = { },
-            onEditLoan = { _, _ -> },
+            onCreateLoan = { LoanSaveResult.Saved },
+            onEditLoan = { _, _ -> LoanSaveResult.Saved },
             onSetTime = { },
             onSetDate = { },
             dateTime = Instant.now()

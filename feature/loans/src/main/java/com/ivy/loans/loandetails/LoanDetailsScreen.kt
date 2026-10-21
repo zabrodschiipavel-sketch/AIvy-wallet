@@ -1,6 +1,9 @@
 package com.ivy.loans.loandetails
 
 import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
+import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanRecordData
+import com.ivy.wallet.domain.deprecated.logic.model.EditLoanRecordData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -100,6 +103,9 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
     UI(
         state = state,
         onCreateAccount = viewModel::createAccount,
+        onEditLoan = viewModel::editLoan,
+        onCreateRecord = viewModel::createLoanRecord,
+        onEditRecord = viewModel::editLoanRecord,
         onEventHandler = viewModel::onEvent
     )
 }
@@ -107,6 +113,9 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanDetailsScreenState,
+    onEditLoan: suspend (Loan, Boolean) -> LoanSaveResult = { _, _ -> LoanSaveResult.Saved },
+    onCreateRecord: suspend (CreateLoanRecordData) -> LoanSaveResult = { LoanSaveResult.Saved },
+    onEditRecord: suspend (EditLoanRecordData) -> LoanSaveResult = { LoanSaveResult.Saved },
     onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
         AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanDetailsScreenEvent) -> Unit = {}
@@ -206,11 +215,8 @@ private fun BoxWithConstraintsScope.UI(
     }
 
     LoanModal(
-        modal = state.loanModalData, onCreateLoan = {
-        // do nothing
-    }, onEditLoan = { loan, createLoanTransaction ->
-        onEventHandler.invoke(LoanModalEvent.OnEditLoanModal(loan, createLoanTransaction))
-    }, dismiss = {
+        modal = state.loanModalData, onCreateLoan = { LoanSaveResult.Saved },
+        onEditLoan = onEditLoan, dismiss = {
         onEventHandler.invoke(LoanModalEvent.OnDismissLoanModal)
     }, onCreateAccount = onCreateAccount, accounts = state.accounts, onPerformCalculations = {
         onEventHandler.invoke(LoanModalEvent.PerformCalculation)
@@ -224,11 +230,8 @@ private fun BoxWithConstraintsScope.UI(
     )
 
     LoanRecordModal(
-        modal = state.loanRecordModalData, onCreate = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnCreateLoanRecord(it))
-    }, onEdit = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnEditLoanRecord(it))
-    }, onDelete = { loanRecord ->
+        modal = state.loanRecordModalData, onCreate = onCreateRecord,
+        onEdit = onEditRecord, onDelete = { loanRecord ->
         onEventHandler.invoke(LoanRecordModalEvent.OnDeleteLoanRecord(loanRecord))
     }, accounts = state.accounts, dismiss = {
         onEventHandler.invoke(LoanRecordModalEvent.OnDismissLoanRecord)
