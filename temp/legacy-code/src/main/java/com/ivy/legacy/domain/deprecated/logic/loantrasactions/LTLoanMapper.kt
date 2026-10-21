@@ -81,21 +81,16 @@ class LTLoanMapper @Inject constructor(
     }
 
     suspend fun updateAssociatedLoan(
-        transaction: Transaction?,
-        onBackgroundProcessingStart: suspend () -> Unit = {},
-        onBackgroundProcessingEnd: suspend () -> Unit = {},
-        accountsChanged: Boolean = true
+        transaction: Transaction
     ) {
         computationThread {
-            transaction?.loanId ?: return@computationThread
+            val loanId = requireNotNull(transaction.loanId)
 
-            onBackgroundProcessingStart()
+            val loan = requireNotNull(ltCore.fetchLoan(loanId))
 
-            val loan = ltCore.fetchLoan(transaction.loanId!!) ?: return@computationThread
-
-            if (accountsChanged) {
+            if (loan.accountId != transaction.accountId) {
                 val newLoanRecords: List<LoanRecord> = calculateLoanRecords(
-                    loanId = transaction.loanId!!,
+                    loanId = loanId,
                     newAccountId = transaction.accountId
                 )
                 ltCore.saveLoanRecords(newLoanRecords)
@@ -110,7 +105,6 @@ class LTLoanMapper @Inject constructor(
 
             ltCore.saveLoan(modifiedLoan.toLegacyDomain())
         }
-        onBackgroundProcessingEnd()
     }
 
     private suspend fun calculateLoanRecords(
