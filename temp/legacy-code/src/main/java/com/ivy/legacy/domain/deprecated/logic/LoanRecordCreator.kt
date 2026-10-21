@@ -31,24 +31,25 @@ class LoanRecordCreator @Inject constructor(
             loanRecordType = data.loanRecordType
         )
 
-        return save(item, loan, true, writeAssociatedData, onRefreshUI)
+        return save(item, loan, null, writeAssociatedData, onRefreshUI)
     }
 
     suspend fun edit(
+        originalItem: LoanRecord,
         updatedItem: LoanRecord,
         loan: Loan,
         writeAssociatedData: suspend (LoanRecord) -> Unit,
         onRefreshUI: suspend (LoanRecord) -> Unit
-    ): LoanSaveResult = save(updatedItem, loan, false, writeAssociatedData, onRefreshUI)
+    ): LoanSaveResult = save(updatedItem, loan, originalItem, writeAssociatedData, onRefreshUI)
 
     private suspend fun save(
         item: LoanRecord,
         loan: Loan,
-        creating: Boolean,
+        expected: LoanRecord?,
         writeAssociatedData: suspend (LoanRecord) -> Unit,
         onRefreshUI: suspend (LoanRecord) -> Unit,
     ): LoanSaveResult {
-        val result = loanWrite.saveRecord(item.toEntity(), creating, loan.toEntity()) {
+        val result = loanWrite.saveRecord(item.toEntity(), expected?.toEntity(), loan.toEntity()) {
             writeAssociatedData(item)
         }
         try {

@@ -41,7 +41,9 @@ import com.ivy.design.utils.thenIf
 import com.ivy.frp.test.TestingContext
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
+import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.datamodel.LoanRecord
+import com.ivy.data.model.LoanType
 import com.ivy.legacy.legacy.ui.theme.components.DateTimeRow
 import com.ivy.legacy.legacy.ui.theme.modal.ModalNameInput
 import com.ivy.legacy.utils.getDefaultFIATCurrency
@@ -66,6 +68,8 @@ import java.util.UUID
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 data class LoanRecordModalData(
     val loanRecord: LoanRecord?,
+    val originalRecord: LoanRecord?,
+    val loan: Loan,
     val baseCurrency: String,
     val loanAccountCurrencyCode: String? = null,
     val selectedAccount: Account? = null,
@@ -83,7 +87,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     dateTime: Instant,
     onSetDate: () -> Unit,
     onSetTime: () -> Unit,
-    onCreate: suspend (CreateLoanRecordData) -> LoanSaveResult,
+    onCreate: suspend (Loan, CreateLoanRecordData) -> LoanSaveResult,
     onEdit: suspend (EditLoanRecordData) -> LoanSaveResult,
     onDelete: (LoanRecord) -> Unit,
     dismiss: () -> Unit,
@@ -93,37 +97,37 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     val saveController = rememberLoanSaveController(modal?.id, dismiss)
     val initialRecord = modal?.loanRecord
 
-    var noteTextFieldValue by remember(modal) {
+    var noteTextFieldValue by remember(modal?.id) {
         mutableStateOf(selectEndTextFieldValue(initialRecord?.note))
     }
-    var currencyCode by remember(modal) {
+    var currencyCode by remember(modal?.id) {
         mutableStateOf(modal?.baseCurrency ?: "")
     }
-    var amount by remember(modal) {
+    var amount by remember(modal?.id) {
         mutableStateOf(modal?.loanRecord?.amount ?: 0.0)
     }
-    var selectedAcc by remember(modal) {
+    var selectedAcc by remember(modal?.id) {
         mutableStateOf(modal?.selectedAccount?.takeUnless { it.archived && it.id != initialRecord?.accountId })
     }
-    var createLoanRecordTrans by remember(modal) {
+    var createLoanRecordTrans by remember(modal?.id) {
         mutableStateOf(modal?.createLoanRecordTransaction ?: false)
     }
-    var loanInterest by remember(modal) {
+    var loanInterest by remember(modal?.id) {
         mutableStateOf(modal?.isLoanInterest ?: false)
     }
-    var reCalculate by remember(modal) {
+    var reCalculate by remember(modal?.id) {
         mutableStateOf(false)
     }
-    var reCalculateVisible by remember(modal) {
+    var reCalculateVisible by remember(modal?.id) {
         mutableStateOf(modal?.loanAccountCurrencyCode != null && modal.loanAccountCurrencyCode != modal.baseCurrency)
     }
-    var loanRecordType by remember(modal) {
+    var loanRecordType by remember(modal?.id) {
         mutableStateOf(modal?.loanRecord?.loanRecordType ?: LoanRecordType.DECREASE)
     }
 
     var dateTime = modal?.loanRecord?.dateTime ?: dateTime
     var amountModalVisible by remember { mutableStateOf(false) }
-    var deleteModalVisible by remember(modal) { mutableStateOf(false) }
+    var deleteModalVisible by remember(modal?.id) { mutableStateOf(false) }
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
     var accountChangeConformationModal by remember { mutableStateOf(false) }
 
@@ -139,6 +143,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
         )
         val editData = initialRecord?.let { original ->
             EditLoanRecordData(
+                loan = requireNotNull(modal).loan,
                 newLoanRecord = original.copy(
                     note = data.note,
                     amount = data.amount,
@@ -147,13 +152,13 @@ fun BoxWithConstraintsScope.LoanRecordModal(
                     accountId = data.account?.id,
                     loanRecordType = data.loanRecordType,
                 ),
-                originalLoanRecord = original,
+                originalLoanRecord = requireNotNull(modal.originalRecord),
                 createLoanRecordTransaction = data.createLoanRecordTransaction,
                 reCalculateLoanAmount = reCalculate,
             )
         }
         saveController.submit {
-            if (editData == null) onCreate(data) else onEdit(editData)
+            if (editData == null) onCreate(requireNotNull(modal).loan, data) else onEdit(editData)
         }
     }
 
@@ -630,9 +635,11 @@ private fun Preview() {
         LoanRecordModal(
             modal = LoanRecordModalData(
                 loanRecord = null,
+                originalRecord = null,
+                loan = Loan("Loan", 0.0, LoanType.BORROW),
                 baseCurrency = "BGN"
             ),
-            onCreate = { LoanSaveResult.Saved },
+            onCreate = { _, _ -> LoanSaveResult.Saved },
             onEdit = { LoanSaveResult.Saved },
             onDelete = {},
             dismiss = {},

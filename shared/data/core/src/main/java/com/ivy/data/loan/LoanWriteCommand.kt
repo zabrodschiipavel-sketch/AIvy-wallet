@@ -24,21 +24,24 @@ class LoanWriteCommand @Inject constructor(
     // The callback contains only dependent database writes, never UI refreshes.
     suspend fun saveLoan(
         loan: LoanEntity,
-        creating: Boolean,
+        expected: LoanEntity?,
         writeAssociatedData: suspend () -> Unit,
     ): LoanSaveResult = write {
         require(loan.name.isNotBlank() && loan.amount.isFinite() && loan.amount > 0)
         require(!loan.isDeleted)
         val previous = database.loanDao.findById(loan.id)
-        require(if (creating) previous == null else previous != null && !previous.isDeleted)
-        validateAccount(loan.accountId, !creating && previous?.accountId == loan.accountId)
+        require(previous == expected)
+        if (expected != null) {
+            require(expected.id == loan.id && !expected.isDeleted)
+        }
+        validateAccount(loan.accountId, expected != null && previous?.accountId == loan.accountId)
         database.writeLoanDao.save(loan.copy(isSynced = false))
         writeAssociatedData()
     }
 
     suspend fun saveRecord(
         record: LoanRecordEntity,
-        creating: Boolean,
+        expected: LoanRecordEntity?,
         expectedLoan: LoanEntity,
         writeAssociatedData: suspend () -> Unit,
     ): LoanSaveResult = write {
@@ -49,14 +52,11 @@ class LoanWriteCommand @Inject constructor(
         // Reject a concurrent edit/deletion instead of saving against stale data.
         require(database.loanDao.findById(record.loanId) == expectedLoan)
         val previous = database.loanRecordDao.findById(record.id)
-        require(
-            if (creating) {
-                previous == null
-            } else {
-                previous != null && !previous.isDeleted && previous.loanId == record.loanId
-            }
-        )
-        validateAccount(record.accountId, !creating && previous?.accountId == record.accountId)
+        require(previous == expected)
+        if (expected != null) {
+            require(!expected.isDeleted && expected.id == record.id && expected.loanId == record.loanId)
+        }
+        validateAccount(record.accountId, expected != null && previous?.accountId == record.accountId)
         database.writeLoanRecordDao.save(record.copy(isSynced = false))
         writeAssociatedData()
     }

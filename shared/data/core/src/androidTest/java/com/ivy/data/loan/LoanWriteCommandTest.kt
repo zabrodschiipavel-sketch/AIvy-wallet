@@ -21,6 +21,9 @@ import com.ivy.data.db.entity.TransactionEntity
 import com.ivy.data.model.LoanType
 import com.ivy.data.repository.RepositoryMemoFactory
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
@@ -79,7 +82,7 @@ class LoanWriteCommandTest {
         observing {
             assertEquals(
                 LoanSaveResult.Saved,
-                command.saveLoan(loan, true) {
+                command.saveLoan(loan, null) {
                     withContext(Dispatchers.Default) { linkedWrites() }
                 }
             )
@@ -96,7 +99,7 @@ class LoanWriteCommandTest {
             val before = graph()
             abortOnInsert(table)
             expectFailure {
-                command.saveLoan(loan, true) {
+                command.saveLoan(loan, null) {
                     linkedWrites()
                     if (table == null) error("failure after final write")
                 }
@@ -112,7 +115,7 @@ class LoanWriteCommandTest {
         linkedWrites()
         val before = graph()
         expectFailure {
-            command.saveLoan(loan.copy(amount = 200.0), false) {
+            command.saveLoan(loan.copy(amount = 200.0), loan) {
                 db.writeLoanRecordDao.save(record.copy(convertedAmount = 20.0))
                 db.writeTransactionDao.save(transaction.copy(amount = 200.0))
                 error("failure after all edits")
@@ -128,7 +131,7 @@ class LoanWriteCommandTest {
             val before = graph()
             abortOnInsert(table)
             expectFailure {
-                command.saveRecord(record, true, loan) {
+                command.saveRecord(record, null, loan) {
                     linkedWrites(transaction.copy(loanRecordId = record.id))
                     if (table == null) error("failure after final write")
                 }
@@ -143,7 +146,7 @@ class LoanWriteCommandTest {
         seedLoanAndRecord()
         val updated = record.copy(amount = 25.0, interest = true, convertedAmount = 30.0)
         observing {
-            command.saveRecord(updated, false, loan) {
+            command.saveRecord(updated, record, loan) {
                 linkedWrites(transaction.copy(amount = 25.0, loanRecordId = record.id))
             }
             assertEquals(graph(), receive())
@@ -176,7 +179,7 @@ class LoanWriteCommandTest {
         )
         val before = graph()
         expectFailure {
-            command.saveRecord(record.copy(amount = 25.0), false, loan) {
+            command.saveRecord(record.copy(amount = 25.0), record, loan) {
                 db.writeTransactionDao.deleteById(transaction.id)
                 error("failure after financial row deletion")
             }
@@ -189,7 +192,7 @@ class LoanWriteCommandTest {
         val before = graph()
         observing {
             try {
-                command.saveLoan(loan, true) {
+                command.saveLoan(loan, null) {
                     linkedWrites()
                     throw CancellationException("disposed before commit")
                 }
@@ -203,33 +206,33 @@ class LoanWriteCommandTest {
 
     @Test
     fun duplicateCreationAndMissingOrDeletedEditsAreRejected() = runBlocking {
-        command.saveLoan(loan, true) {}
+        command.saveLoan(loan, null) {}
         val before = graph()
-        expectInvalid { command.saveLoan(loan, true) {} }
-        expectInvalid { command.saveLoan(loan.copy(id = id(90)), false) {} }
+        expectInvalid { command.saveLoan(loan, null) {} }
+        expectInvalid { command.saveLoan(loan.copy(id = id(90)), loan) {} }
         assertEquals(before, graph())
         db.writeLoanDao.save(loan.copy(isDeleted = true))
-        expectInvalid { command.saveLoan(loan, false) {} }
-        expectInvalid { command.saveRecord(record, true, loan) {} }
+        expectInvalid { command.saveLoan(loan, loan) {} }
+        expectInvalid { command.saveRecord(record, null, loan) {} }
     }
 
     @Test
     fun staleParentAndChangedRecordOwnershipAreRejected() = runBlocking {
         seedLoanAndRecord()
-        expectInvalid { command.saveRecord(record, false, loan.copy(amount = 150.0)) {} }
+        expectInvalid { command.saveRecord(record, record, loan.copy(amount = 150.0)) {} }
         val otherLoan = loan.copy(id = id(90))
         db.writeLoanDao.save(otherLoan)
-        expectInvalid { command.saveRecord(record.copy(loanId = otherLoan.id), false, otherLoan) {} }
+        expectInvalid { command.saveRecord(record.copy(loanId = otherLoan.id), record, otherLoan) {} }
         assertEquals(record, db.loanRecordDao.findById(record.id))
     }
 
     @Test
     fun invalidMoneyAndMissingAccountCannotReachDependentWrites() = runBlocking {
         for (amount in listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY)) {
-            expectInvalid { command.saveLoan(loan.copy(amount = amount), true) { fail("must not write") } }
+            expectInvalid { command.saveLoan(loan.copy(amount = amount), null) { fail("must not write") } }
         }
-        expectInvalid { command.saveLoan(loan.copy(name = "  "), true) {} }
-        expectInvalid { command.saveLoan(loan.copy(accountId = id(90)), true) {} }
+        expectInvalid { command.saveLoan(loan.copy(name = "  "), null) {} }
+        expectInvalid { command.saveLoan(loan.copy(accountId = id(90)), null) {} }
         assertEquals(emptyList<LoanEntity>(), db.loanDao.findAllForRestore())
     }
 
@@ -237,7 +240,7 @@ class LoanWriteCommandTest {
     fun saveRecordWithoutParentRejectsAndLeavesGraphUnchanged() = runBlocking {
         val before = graph()
         expectInvalid {
-            command.saveRecord(record, true, loan) {
+            command.saveRecord(record, null, loan) {
                 fail("must not write")
             }
         }
@@ -250,12 +253,12 @@ class LoanWriteCommandTest {
         db.writeAccountDao.save(account.copy(isDeleted = true))
         val before = graph()
         expectInvalid {
-            command.saveLoan(loan, false) {
+            command.saveLoan(loan, loan) {
                 fail("must not write loan")
             }
         }
         expectInvalid {
-            command.saveRecord(record, false, loan) {
+            command.saveRecord(record, record, loan) {
                 fail("must not write record")
             }
         }
@@ -268,13 +271,13 @@ class LoanWriteCommandTest {
         val before = graph()
         listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY).forEach { amount ->
             expectInvalid {
-                command.saveRecord(record.copy(amount = amount), true, loan) {
+                command.saveRecord(record.copy(amount = amount), null, loan) {
                     fail("must not write")
                 }
             }
         }
         expectInvalid {
-            command.saveRecord(record.copy(convertedAmount = Double.NaN), true, loan) {
+            command.saveRecord(record.copy(convertedAmount = Double.NaN), null, loan) {
                 fail("must not write")
             }
         }
@@ -284,10 +287,10 @@ class LoanWriteCommandTest {
     @Test
     fun archivedAccountRejectsNewLoanAndNewRecord() = runBlocking {
         db.writeAccountDao.save(account.copy(archived = true))
-        expectInvalid { command.saveLoan(loan, true) { fail("must not write") } }
+        expectInvalid { command.saveLoan(loan, null) { fail("must not write") } }
         db.writeLoanDao.save(loan)
         val before = graph()
-        expectInvalid { command.saveRecord(record, true, loan) { fail("must not write") } }
+        expectInvalid { command.saveRecord(record, null, loan) { fail("must not write") } }
         assertEquals(before, graph())
     }
 
@@ -296,21 +299,94 @@ class LoanWriteCommandTest {
         seedLoanAndRecord()
         db.writeAccountDao.save(account.copy(archived = true))
         val updatedLoan = loan.copy(amount = 200.0)
-        command.saveLoan(updatedLoan, false) {}
-        command.saveRecord(record.copy(amount = 20.0), false, updatedLoan) {}
+        command.saveLoan(updatedLoan, loan) {}
+        command.saveRecord(record.copy(amount = 20.0), record, updatedLoan) {}
         assertEquals(updatedLoan, db.loanDao.findById(loan.id))
         assertEquals(20.0, db.loanRecordDao.findById(record.id)!!.amount, 0.0)
         val other = account.copy(id = id(90), archived = true)
         db.writeAccountDao.save(other)
         val before = graph()
-        expectInvalid { command.saveLoan(updatedLoan.copy(accountId = other.id), false) {} }
-        expectInvalid { command.saveRecord(record.copy(accountId = other.id), false, updatedLoan) {} }
+        expectInvalid { command.saveLoan(updatedLoan.copy(accountId = other.id), updatedLoan) {} }
+        expectInvalid {
+            command.saveRecord(record.copy(accountId = other.id), record.copy(amount = 20.0), updatedLoan) {}
+        }
         assertEquals(before, graph())
     }
 
     private suspend fun seedLoanAndRecord() {
         db.writeLoanDao.save(loan)
         db.writeLoanRecordDao.save(record)
+    }
+
+    @Test
+    fun staleLoanCannotOverwriteConcurrentAccountChangeOrRecalculateItsRecords() = runBlocking {
+        seedLoanAndRecord()
+        linkedWrites()
+        val otherAccount = account.copy(id = id(91), currency = "EUR")
+        db.writeAccountDao.save(otherAccount)
+        db.writeLoanDao.save(loan.copy(accountId = otherAccount.id, note = "Concurrent edit"))
+        db.writeLoanRecordDao.save(record.copy(convertedAmount = 12.5))
+        db.writeTransactionDao.save(transaction.copy(accountId = otherAccount.id))
+        val before = graph()
+        expectInvalid {
+            command.saveLoan(loan.copy(amount = 200.0), loan) { fail("must not recalculate") }
+        }
+        assertEquals(before, graph())
+    }
+
+    @Test
+    fun staleRecordIsRejectedWhileFreshSnapshotCanChangeDateAndAmount() = runBlocking {
+        seedLoanAndRecord()
+        linkedWrites()
+        val row = transaction.copy(
+            id = id(92),
+            loanRecordId = record.id,
+            type = TransactionType.EXPENSE,
+            amount = 20.0,
+            dateTime = Instant.EPOCH.plusSeconds(1),
+        )
+        val current = record.copy(amount = 20.0, dateTime = row.dateTime!!, note = "Concurrent edit")
+        db.writeLoanRecordDao.save(current)
+        db.writeTransactionDao.save(row)
+        val before = graph()
+        expectInvalid {
+            command.saveRecord(record.copy(amount = 30.0), record, loan) { fail("must not write") }
+        }
+        assertEquals(before, graph())
+        val updated = current.copy(amount = 25.0, dateTime = Instant.EPOCH.plusSeconds(2))
+        command.saveRecord(updated, current, loan) {
+            db.writeTransactionDao.save(row.copy(amount = updated.amount, dateTime = updated.dateTime))
+        }
+        assertEquals(updated, db.loanRecordDao.findById(record.id))
+        assertEquals(row.copy(amount = 25.0, dateTime = updated.dateTime), db.transactionDao.findById(row.id))
+    }
+
+    @Test
+    fun twoEditorsUsingTheSameSnapshotHaveExactlyOneWinner() = runBlocking {
+        seedLoanAndRecord()
+        linkedWrites()
+        val release = CompletableDeferred<Unit>()
+        val results = coroutineScope {
+            val edits = listOf(200.0, 300.0).map { amount ->
+                async(Dispatchers.IO) {
+                    release.await()
+                    runCatching {
+                        command.saveLoan(loan.copy(amount = amount), loan) {
+                            db.writeTransactionDao.save(transaction.copy(amount = amount))
+                        }
+                    }
+                }
+            }
+            release.complete(Unit)
+            edits.awaitAll()
+        }
+        assertEquals(1, results.count { it.isSuccess })
+        assertEquals(1, results.count { it.exceptionOrNull() is IllegalArgumentException })
+        val saved = db.loanDao.findById(loan.id)!!
+        assertEquals(saved.amount, db.transactionDao.findById(transaction.id)!!.amount, 0.0)
+        assertEquals(record, db.loanRecordDao.findById(record.id))
+        assertEquals(listOf(loan.id), db.loanDao.findAllForRestore().map { it.id })
+        assertEquals(listOf(transaction.id), db.transactionDao.findAllForRestore().map { it.id })
     }
 
     private suspend fun linkedWrites(row: TransactionEntity = transaction) {

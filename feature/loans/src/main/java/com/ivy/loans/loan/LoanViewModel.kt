@@ -146,6 +146,7 @@ class LoanViewModel @Inject constructor(
             is LoanScreenEvent.OnAddLoan -> {
                 loanModalData = LoanModalData(
                     loan = null,
+                    originalLoan = null,
                     baseCurrency = baseCurrencyCode,
                     selectedAccount = selectedAccount
                 )

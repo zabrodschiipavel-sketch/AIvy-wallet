@@ -135,6 +135,8 @@ class LoanDetailsViewModel @Inject constructor(
             is LoanRecordModalEvent.OnClickLoanRecord -> {
                 loanRecordModalData.value = LoanRecordModalData(
                     loanRecord = event.displayLoanRecord.loanRecord,
+                    originalRecord = event.displayLoanRecord.loanRecord,
+                    loan = requireNotNull(loan.value),
                     baseCurrency = event.displayLoanRecord.loanRecordCurrencyCode,
                     selectedAccount = event.displayLoanRecord.account,
                     createLoanRecordTransaction = event.displayLoanRecord.loanRecordTransaction,
@@ -205,6 +207,7 @@ class LoanDetailsViewModel @Inject constructor(
             LoanDetailsScreenEvent.OnAmountClick -> {
                 loanModalData.value = LoanModalData(
                     loan = loan.value,
+                    originalLoan = loan.value,
                     baseCurrency = baseCurrency.value,
                     autoFocusKeyboard = false,
                     autoOpenAmountModal = true,
@@ -216,6 +219,7 @@ class LoanDetailsViewModel @Inject constructor(
             LoanDetailsScreenEvent.OnEditLoanClick -> {
                 loanModalData.value = LoanModalData(
                     loan = loan.value,
+                    originalLoan = loan.value,
                     baseCurrency = baseCurrency.value,
                     autoFocusKeyboard = false,
                     selectedAccount = selectedLoanAccount.value,
@@ -226,6 +230,8 @@ class LoanDetailsViewModel @Inject constructor(
             LoanDetailsScreenEvent.OnAddRecord -> {
                 loanRecordModalData.value = LoanRecordModalData(
                     loanRecord = null,
+                    originalRecord = null,
+                    loan = requireNotNull(loan.value),
                     baseCurrency = baseCurrency.value,
                     selectedAccount = selectedLoanAccount.value
                 )
@@ -347,13 +353,12 @@ class LoanDetailsViewModel @Inject constructor(
         }
     }
 
-    suspend fun editLoan(loan: Loan, createLoanTransaction: Boolean = false): LoanSaveResult {
+    suspend fun editLoan(originalLoan: Loan, loan: Loan, createLoanTransaction: Boolean = false): LoanSaveResult {
         TestIdlingResource.increment()
         return try {
-            val previous = requireNotNull(this.loan.value)
-            loanCreator.edit(loan, writeAssociatedData = {
+            loanCreator.edit(originalLoan, loan, writeAssociatedData = {
                 loanTransactionsLogic.Loan.recalculateLoanRecords(
-                    oldLoanAccountId = previous.accountId,
+                    oldLoanAccountId = originalLoan.accountId,
                     newLoanAccountId = loan.accountId,
                     loanId = loan.id,
                 )
@@ -391,8 +396,7 @@ class LoanDetailsViewModel @Inject constructor(
         }
     }
 
-    suspend fun createLoanRecord(data: CreateLoanRecordData): LoanSaveResult {
-        val localLoan = requireNotNull(loan.value)
+    suspend fun createLoanRecord(localLoan: Loan, data: CreateLoanRecordData): LoanSaveResult {
         TestIdlingResource.increment()
         return try {
             val modifiedData = data.copy(
@@ -417,7 +421,7 @@ class LoanDetailsViewModel @Inject constructor(
     suspend fun editLoanRecord(editLoanRecordData: EditLoanRecordData): LoanSaveResult {
         TestIdlingResource.increment()
         return try {
-            val localLoan = requireNotNull(loan.value)
+            val localLoan = editLoanRecordData.loan
             val convertedAmount = loanTransactionsLogic.LoanRecord.calculateConvertedAmount(
                 loanAccountId = localLoan.accountId,
                 newLoanRecord = editLoanRecordData.newLoanRecord,
@@ -428,13 +432,19 @@ class LoanDetailsViewModel @Inject constructor(
             val modifiedLoanRecord =
                 editLoanRecordData.newLoanRecord.copy(convertedAmount = convertedAmount)
 
-            loanRecordCreator.edit(modifiedLoanRecord, localLoan, writeAssociatedData = { record ->
-                loanTransactionsLogic.LoanRecord.editAssociatedLoanRecordTransaction(
-                    loan = localLoan,
-                    createLoanRecordTransaction = editLoanRecordData.createLoanRecordTransaction,
-                    loanRecord = record,
-                )
-            }, onRefreshUI = { refresh(it.loanId) })
+            loanRecordCreator.edit(
+                editLoanRecordData.originalLoanRecord,
+                modifiedLoanRecord,
+                localLoan,
+                writeAssociatedData = { record ->
+                    loanTransactionsLogic.LoanRecord.editAssociatedLoanRecordTransaction(
+                        loan = localLoan,
+                        createLoanRecordTransaction = editLoanRecordData.createLoanRecordTransaction,
+                        loanRecord = record,
+                    )
+                },
+                onRefreshUI = { refresh(it.loanId) }
+            )
         } finally {
             TestIdlingResource.decrement()
         }

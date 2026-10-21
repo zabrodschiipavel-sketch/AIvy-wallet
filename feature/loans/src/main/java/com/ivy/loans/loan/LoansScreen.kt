@@ -202,7 +202,7 @@ private fun BoxWithConstraintsScope.UI(
             onCreateAccount = onCreateAccount,
             modal = state.loanModalData,
             onCreateLoan = onCreateLoan,
-            onEditLoan = { _, _ -> LoanSaveResult.Saved },
+            onEditLoan = { _, _, _ -> LoanSaveResult.Saved },
             dismiss = {
                 onEventHandler.invoke(LoanScreenEvent.OnLoanModalDismiss)
             },

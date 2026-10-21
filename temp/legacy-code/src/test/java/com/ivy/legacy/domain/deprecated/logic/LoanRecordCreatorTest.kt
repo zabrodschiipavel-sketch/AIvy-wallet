@@ -61,7 +61,7 @@ class LoanRecordCreatorTest {
         coEvery { writer.saveRecord(any(), any(), any(), any()) } throws IllegalStateException("db")
         var refresh = 0
         try {
-            creator.edit(record, loan, noopWrite) { refresh++ }
+            creator.edit(record, record, loan, noopWrite) { refresh++ }
             fail("expected IllegalStateException")
         } catch (_: IllegalStateException) { }
         assertEquals(0, refresh)
@@ -70,7 +70,7 @@ class LoanRecordCreatorTest {
     @Test
     fun refreshThrowsReturnsRefreshFailed() = runBlocking {
         coEvery { writer.saveRecord(any(), any(), any(), any()) } returns LoanSaveResult.Saved
-        val result = creator.edit(record, loan, noopWrite) { throw IllegalStateException("ui") }
+        val result = creator.edit(record, record, loan, noopWrite) { throw IllegalStateException("ui") }
         assertEquals(LoanSaveResult.RefreshFailed, result)
         coVerify(exactly = 1) { writer.saveRecord(any(), any(), any(), any()) }
     }
@@ -80,9 +80,19 @@ class LoanRecordCreatorTest {
         coEvery { writer.saveRecord(any(), any(), any(), any()) } throws CancellationException("cancel")
         var refresh = 0
         try {
-            creator.edit(record, loan, noopWrite) { refresh++ }
+            creator.edit(record, record, loan, noopWrite) { refresh++ }
             fail("expected CancellationException")
         } catch (_: CancellationException) { }
         assertEquals(0, refresh)
+    }
+
+    @Test
+    fun editPassesTheOriginalRecordAndParentToTheAtomicCommand() = runBlocking {
+        coEvery { writer.saveRecord(any(), any(), any(), any()) } returns LoanSaveResult.Saved
+        val updated = record.copy(amount = 25.0, dateTime = Instant.EPOCH.plusSeconds(1))
+        creator.edit(record, updated, loan, noopWrite) {}
+        coVerify(exactly = 1) {
+            writer.saveRecord(updated.toEntity(), record.toEntity(), loan.toEntity(), any())
+        }
     }
 }

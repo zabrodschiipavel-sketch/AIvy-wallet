@@ -76,6 +76,7 @@ import java.util.UUID
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 data class LoanModalData(
     val loan: Loan?,
+    val originalLoan: Loan?,
     val baseCurrency: String,
     val selectedAccount: Account? = null,
     val autoFocusKeyboard: Boolean = true,
@@ -93,7 +94,7 @@ fun BoxWithConstraintsScope.LoanModal(
     onSetDate: () -> Unit,
     onSetTime: () -> Unit,
     onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult,
-    onEditLoan: suspend (Loan, Boolean) -> LoanSaveResult,
+    onEditLoan: suspend (Loan, Loan, Boolean) -> LoanSaveResult,
     accounts: List<Account> = emptyList(),
     onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
     onPerformCalculations: () -> Unit = {},
@@ -103,43 +104,43 @@ fun BoxWithConstraintsScope.LoanModal(
     val loan = modal?.loan
     val timeConverter = LocalTimeConverter.current
 
-    var nameTextFieldValue by remember(modal) {
+    var nameTextFieldValue by remember(modal?.id) {
         mutableStateOf(selectEndTextFieldValue(loan?.name))
     }
     var dateTime = modal?.loan?.dateTime ?: with(timeConverter) {
         dateTime.toLocalDateTime()
     }
-    var type by remember(modal) {
+    var type by remember(modal?.id) {
         mutableStateOf(modal?.loan?.type ?: LoanType.BORROW)
     }
-    var amount by remember(modal) {
+    var amount by remember(modal?.id) {
         mutableStateOf(modal?.loan?.amount ?: 0.0)
     }
-    var color by remember(modal) {
+    var color by remember(modal?.id) {
         mutableStateOf(loan?.color?.let { Color(it) } ?: Ivy)
     }
-    var icon by remember(modal) {
+    var icon by remember(modal?.id) {
         mutableStateOf(loan?.icon)
     }
-    var noteTextFieldValue by remember(modal) {
+    var noteTextFieldValue by remember(modal?.id) {
         mutableStateOf(selectEndTextFieldValue(loan?.note))
     }
-    var currencyCode by remember(modal) {
+    var currencyCode by remember(modal?.id) {
         mutableStateOf(modal?.baseCurrency ?: "")
     }
 
-    var selectedAcc by remember(modal) {
+    var selectedAcc by remember(modal?.id) {
         mutableStateOf(modal?.selectedAccount?.takeUnless { it.archived && it.id != loan?.accountId })
     }
 
-    var createLoanTrans by remember(modal) {
+    var createLoanTrans by remember(modal?.id) {
         mutableStateOf(modal?.createLoanTransaction ?: false)
     }
 
     var accountChangeModal by remember { mutableStateOf(false) }
     var amountModalVisible by remember { mutableStateOf(false) }
     var currencyModalVisible by remember { mutableStateOf(false) }
-    var chooseIconModalVisible by remember(modal) {
+    var chooseIconModalVisible by remember(modal?.id) {
         mutableStateOf(false)
     }
 
@@ -168,7 +169,11 @@ fun BoxWithConstraintsScope.LoanModal(
             accountId = data.account?.id,
         )
         saveController.submit {
-            if (updatedLoan == null) onCreateLoan(data) else onEditLoan(updatedLoan, data.createLoanTransaction)
+            if (updatedLoan == null) {
+                onCreateLoan(data)
+            } else {
+                onEditLoan(requireNotNull(modal?.originalLoan), updatedLoan, data.createLoanTransaction)
+            }
         }
     }
 
@@ -612,10 +617,11 @@ private fun Preview() {
         LoanModal(
             modal = LoanModalData(
                 loan = null,
+                originalLoan = null,
                 baseCurrency = "BGN",
             ),
             onCreateLoan = { LoanSaveResult.Saved },
-            onEditLoan = { _, _ -> LoanSaveResult.Saved },
+            onEditLoan = { _, _, _ -> LoanSaveResult.Saved },
             onSetTime = { },
             onSetDate = { },
             dateTime = Instant.now()

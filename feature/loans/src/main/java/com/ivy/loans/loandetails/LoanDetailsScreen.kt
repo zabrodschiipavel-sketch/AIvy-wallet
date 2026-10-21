@@ -113,8 +113,8 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanDetailsScreenState,
-    onEditLoan: suspend (Loan, Boolean) -> LoanSaveResult = { _, _ -> LoanSaveResult.Saved },
-    onCreateRecord: suspend (CreateLoanRecordData) -> LoanSaveResult = { LoanSaveResult.Saved },
+    onEditLoan: suspend (Loan, Loan, Boolean) -> LoanSaveResult = { _, _, _ -> LoanSaveResult.Saved },
+    onCreateRecord: suspend (Loan, CreateLoanRecordData) -> LoanSaveResult = { _, _ -> LoanSaveResult.Saved },
     onEditRecord: suspend (EditLoanRecordData) -> LoanSaveResult = { LoanSaveResult.Saved },
     onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
     AccountSaveResult = { AccountSaveResult.Saved },

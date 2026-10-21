@@ -95,6 +95,7 @@ class LoanCreatorTest {
         }
         assertFalse(refreshed)
     }
+
     @Test
     fun `edit forwards updated entity with original snapshot`() = runBlocking {
         coEvery { writer.saveLoan(any(), any(), any()) } returns LoanSaveResult.Saved
