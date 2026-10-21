@@ -66,7 +66,7 @@ class LoanCreatorTest {
         coEvery { writer.saveLoan(any(), any(), any()) } throws failure
         var refreshed = false
         try {
-            creator.edit(item, {}, { refreshed = true })
+            creator.edit(item, item, {}, { refreshed = true })
             fail("expected IllegalStateException")
         } catch (e: IllegalStateException) {
             assertSame(failure, e)
@@ -77,7 +77,7 @@ class LoanCreatorTest {
     @Test
     fun `edit refresh failure returns RefreshFailed`() = runBlocking {
         coEvery { writer.saveLoan(any(), any(), any()) } returns LoanSaveResult.Saved
-        val result = creator.edit(item, {}, { throw IllegalStateException("ui") })
+        val result = creator.edit(item, item, {}, { throw IllegalStateException("ui") })
         assertEquals(LoanSaveResult.RefreshFailed, result)
         coVerify(exactly = 1) { writer.saveLoan(any(), any(), any()) }
     }
@@ -88,11 +88,18 @@ class LoanCreatorTest {
         coEvery { writer.saveLoan(any(), any(), any()) } throws cancelled
         var refreshed = false
         try {
-            creator.edit(item, {}, { refreshed = true })
+            creator.edit(item, item, {}, { refreshed = true })
             fail("expected CancellationException")
         } catch (e: CancellationException) {
             assertSame(cancelled, e)
         }
         assertFalse(refreshed)
+    }
+    @Test
+    fun `edit forwards updated entity with original snapshot`() = runBlocking {
+        coEvery { writer.saveLoan(any(), any(), any()) } returns LoanSaveResult.Saved
+        val updated = item.copy(amount = 200.0)
+        creator.edit(item, updated, {}, {})
+        coVerify(exactly = 1) { writer.saveLoan(updated.toEntity(), item.toEntity(), any()) }
     }
 }
