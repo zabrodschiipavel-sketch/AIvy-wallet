@@ -4,6 +4,8 @@ Use JDK 21, Android SDK platform 34 and build-tools 34.0.0. The wrapper pins Gra
 
 The current local toolchain is JDK `21.0.12.1+1`. CI selects Temurin 21; an identical vendor/patch and a clean-machine build have not yet been verified.
 
+On this machine, local AVD definitions are kept in `build/avd`; set `ANDROID_AVD_HOME` to that absolute directory before launching the emulator. API 28 uses `IvyWalletApi28` on port 5572, and API 35 uses `IvyWallet` on port 5570. Run one at a time for connected tests, address ADB commands by serial, and preserve the AVD data when stopping the task-owned emulator.
+
 Run from the repository root (Windows uses `gradlew.bat`):
 
 ```sh
