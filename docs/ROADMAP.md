@@ -34,7 +34,8 @@ Next bounded data-safety tasks (still open):
 | Task | Risk and reproducer | Acceptance and code to retire |
 |---|---|---|
 | Transaction tag cleanup | Physical deletion paths in `TransactionRepository` leave associations to absent transactions; a tagged operation followed by deletion and backup merge can fail reference validation | One transaction removes the selected financial rows and associations, including rule/bulk paths; real Room failure injection restores the full graph and unrelated tags survive. Replace the current standalone DAO delete calls |
-| Confirmed account-modal save | `AccountModal` dismisses after a callback that launches work without awaiting its result; a failed save can look successful and repeated taps can create duplicates | All callers await confirmed persistence; failure retains the draft and presents an error; duplicate taps and stale completions cannot close another modal. Remove the fire-and-forget callback path and superseded modal implementation |
+
+Completed on 2026-10-21 at `f97ea3eb1`: confirmed account-modal save. All callers await persistence, failures retain the draft with an error, and duplicate taps/stale completions are guarded; superseded create/edit account events were removed. Fourteen new regression tests passed, alongside the affected snapshots and analyzers. API 28 UI checks covered onboarding and account-history editors, failed currency changes, corrected retry and a populated demo update with exact financial-row comparison. See the implementation status for artifact identity and limits. Process-death drafts and stable command identity remain open; this does not close stage 1.
 
 ## Data contracts
 
