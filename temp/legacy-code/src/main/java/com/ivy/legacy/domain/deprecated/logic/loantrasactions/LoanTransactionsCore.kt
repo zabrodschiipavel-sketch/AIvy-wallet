@@ -314,4 +314,8 @@ class LoanTransactionsCore @Inject constructor(
             }
         }
     }
+
+    suspend fun fetchLoanTransaction(loanId: UUID): Transaction? = ioThread {
+        transactionDao.findLoanTransaction(loanId)?.toLegacyDomain()
+    }
 }

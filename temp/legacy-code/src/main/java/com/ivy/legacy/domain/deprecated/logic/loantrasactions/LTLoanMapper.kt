@@ -38,10 +38,10 @@ class LTLoanMapper @Inject constructor(
 
     suspend fun editAssociatedLoanTransaction(
         loan: Loan,
-        createLoanTransaction: Boolean = false,
-        transaction: Transaction?
+        createLoanTransaction: Boolean = false
     ) {
         computationThread {
+            val transaction = ltCore.fetchLoanTransaction(loan.id)
             ltCore.updateAssociatedTransaction(
                 createTransaction = createLoanTransaction,
                 loanId = loan.id,
