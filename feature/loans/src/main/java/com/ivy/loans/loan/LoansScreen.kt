@@ -1,8 +1,5 @@
 package com.ivy.loans.loan
 
-import com.ivy.base.model.AccountSaveResult
-import com.ivy.base.model.LoanSaveResult
-import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivy.base.legacy.Theme
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.data.model.LoanType
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
@@ -53,6 +52,7 @@ import com.ivy.navigation.LoansScreen
 import com.ivy.navigation.navigation
 import com.ivy.ui.R
 import com.ivy.ui.rememberScrollPositionListState
+import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import com.ivy.wallet.ui.theme.Blue
 import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.components.BalanceRow
@@ -87,7 +87,7 @@ private fun BoxWithConstraintsScope.UI(
     state: LoanScreenState,
     onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult = { LoanSaveResult.Saved },
     onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
-        AccountSaveResult = { AccountSaveResult.Saved },
+    AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanScreenEvent) -> Unit = {}
 ) {
     val nav = navigation()

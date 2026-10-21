@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="saving_loan">Сохраняем…</string>
+    <string name="loan_save_failed">Не удалось сохранить. Изменения остались в редакторе. Попробуйте ещё раз.</string>
+    <string name="loan_saved_refresh_failed">Сохранено. Не удалось обновить экран. Откройте его заново, чтобы увидеть изменения.</string>
     <string name="saving_account">Сохраняем счёт…</string>
     <string name="account_save_failed">Не удалось сохранить счёт. Изменения сохранены в редакторе. Попробуйте ещё раз.</string>
     <string name="account_saved_refresh_failed">Счёт сохранён. Не удалось обновить экран. Откройте его заново, чтобы увидеть изменения.</string>

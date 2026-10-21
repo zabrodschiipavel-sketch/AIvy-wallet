@@ -15,6 +15,8 @@ import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.CategoryEntity
 import com.ivy.data.db.entity.LoanEntity
 import com.ivy.data.db.entity.LoanRecordEntity
+import com.ivy.data.db.entity.TagAssociationEntity
+import com.ivy.data.db.entity.TagEntity
 import com.ivy.data.db.entity.TransactionEntity
 import com.ivy.data.model.LoanType
 import com.ivy.data.repository.RepositoryMemoFactory
@@ -48,8 +50,13 @@ class LoanWriteCommandTest {
     private val record = LoanRecordEntity(id(2), 10.0, dateTime = Instant.EPOCH, accountId = id(1), id = id(3))
     private val category = CategoryEntity("Loans", color = 0, id = id(4))
     private val transaction = TransactionEntity(
-        accountId = id(1), type = TransactionType.INCOME, amount = 100.0,
-        categoryId = id(4), dateTime = Instant.EPOCH, loanId = id(2), id = id(5),
+        accountId = id(1),
+        type = TransactionType.INCOME,
+        amount = 100.0,
+        categoryId = id(4),
+        dateTime = Instant.EPOCH,
+        loanId = id(2),
+        id = id(5),
     )
 
     @Before
@@ -70,9 +77,12 @@ class LoanWriteCommandTest {
     @Test
     fun createLoanPublishesOnlyTheCommittedGraphAndPreservesCoroutineTransactionContext() = runBlocking {
         observing {
-            assertEquals(LoanSaveResult.Saved, command.saveLoan(loan, true) {
-                withContext(Dispatchers.Default) { linkedWrites() }
-            })
+            assertEquals(
+                LoanSaveResult.Saved,
+                command.saveLoan(loan, true) {
+                    withContext(Dispatchers.Default) { linkedWrites() }
+                }
+            )
             assertEquals(graph(), receive())
         }
         assertEquals(listOf(loan), db.loanDao.findAllForRestore())
@@ -146,6 +156,24 @@ class LoanWriteCommandTest {
     fun editRecordFailureRestoresPreviousFinancialValues() = runBlocking {
         seedLoanAndRecord()
         linkedWrites(transaction.copy(loanRecordId = record.id))
+        db.writeTagDao.save(
+            listOf(
+                TagEntity(
+                    id = id(6), name = "Shared", description = null, color = 0, icon = null,
+                    orderNum = 0.0, dateTime = Instant.EPOCH, isDeleted = false, lastSyncedTime = Instant.EPOCH,
+                )
+            )
+        )
+        db.writeTagAssociationDao.save(
+            listOf(
+                TagAssociationEntity(
+                    tagId = id(6),
+                    associatedId = transaction.id,
+                    lastSyncedTime = Instant.EPOCH,
+                    isDeleted = false,
+                )
+            )
+        )
         val before = graph()
         expectFailure {
             command.saveRecord(record.copy(amount = 25.0), false, loan) {
@@ -264,21 +292,31 @@ class LoanWriteCommandTest {
     }
 
     private suspend fun graph(): List<Any> = listOf(
-        db.accountDao.findAll(), db.loanDao.findAllForRestore(), db.loanRecordDao.findAllForRestore(),
-        db.categoryDao.findAll(), db.transactionDao.findAllForRestore(), db.tagAssociationDao.findAll(),
+        db.accountDao.findAll(),
+        db.loanDao.findAllForRestore(),
+        db.loanRecordDao.findAllForRestore(),
+        db.categoryDao.findAll(),
+        db.transactionDao.findAllForRestore(),
+        db.tagAssociationDao.findAll(),
+        db.tagDao.findAll(),
     )
 
     private fun abortOnInsert(table: String?) {
-        if (table != null) db.openHelper.writableDatabase.execSQL(
-            "CREATE TRIGGER injected_abort BEFORE INSERT ON $table " +
-                "BEGIN SELECT RAISE(ABORT, 'injected write failure'); END;"
-        )
+        if (table != null) {
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER injected_abort BEFORE INSERT ON $table " +
+                    "BEGIN SELECT RAISE(ABORT, 'injected write failure'); END;"
+            )
+        }
     }
 
     private fun dropAbort() { db.openHelper.writableDatabase.execSQL("DROP TRIGGER IF EXISTS injected_abort") }
 
     private suspend fun expectFailure(block: suspend () -> Unit) {
-        try { block(); fail("Expected failure") } catch (_: SQLiteException) {
+        try {
+            block();
+            fail("Expected failure")
+        } catch (_: SQLiteException) {
             // Trigger reached a real SQLite write.
         } catch (_: IllegalStateException) {
             // Fault injected after a successful dependent write.
@@ -286,7 +324,10 @@ class LoanWriteCommandTest {
     }
 
     private suspend fun expectInvalid(block: suspend () -> Unit) {
-        try { block(); fail("Expected invalid command") } catch (_: IllegalArgumentException) {
+        try {
+            block();
+            fail("Expected invalid command")
+        } catch (_: IllegalArgumentException) {
             // Validation must happen inside the transaction, before writes.
         }
     }

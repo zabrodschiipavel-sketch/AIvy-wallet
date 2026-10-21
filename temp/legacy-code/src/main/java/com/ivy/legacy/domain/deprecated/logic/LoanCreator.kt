@@ -1,16 +1,16 @@
 package com.ivy.wallet.domain.deprecated.logic
 
 import androidx.compose.ui.graphics.toArgb
-import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.base.model.LoanSaveResult
+import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.loan.LoanDeletionCommand
 import com.ivy.data.loan.LoanWriteCommand
 import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import com.ivy.wallet.domain.pure.util.nextOrderNum
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import javax.inject.Inject
 
 class LoanCreator @Inject constructor(
     private val dao: LoanDao,
@@ -23,18 +23,18 @@ class LoanCreator @Inject constructor(
         onRefreshUI: suspend (Loan) -> Unit
     ): LoanSaveResult {
         val item = ioThread {
-                Loan(
-                    name = data.name.trim(),
-                    amount = data.amount,
-                    type = data.type,
-                    color = data.color.toArgb(),
-                    icon = data.icon,
-                    note = data.note,
-                    orderNum = dao.findMaxOrderNum().nextOrderNum(),
-                    isSynced = false,
-                    accountId = data.account?.id,
-                    dateTime = data.dateTime
-                )
+            Loan(
+                name = data.name.trim(),
+                amount = data.amount,
+                type = data.type,
+                color = data.color.toArgb(),
+                icon = data.icon,
+                note = data.note,
+                orderNum = dao.findMaxOrderNum().nextOrderNum(),
+                isSynced = false,
+                accountId = data.account?.id,
+                dateTime = data.dateTime
+            )
         }
         return save(item, creating = true, writeAssociatedData, onRefreshUI)
     }

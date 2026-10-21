@@ -6,8 +6,8 @@ import com.ivy.data.loan.LoanWriteCommand
 import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.datamodel.LoanRecord
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanRecordData
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import javax.inject.Inject
 
 class LoanRecordCreator @Inject constructor(
     private val loanWrite: LoanWriteCommand,
@@ -20,16 +20,16 @@ class LoanRecordCreator @Inject constructor(
         onRefreshUI: suspend (LoanRecord) -> Unit
     ): LoanSaveResult {
         val item = LoanRecord(
-                    loanId = loan.id,
-                    note = data.note?.trim(),
-                    amount = data.amount,
-                    dateTime = data.dateTime,
-                    isSynced = false,
-                    interest = data.interest,
-                    accountId = data.account?.id,
-                    convertedAmount = data.convertedAmount,
-                    loanRecordType = data.loanRecordType
-                )
+            loanId = loan.id,
+            note = data.note?.trim(),
+            amount = data.amount,
+            dateTime = data.dateTime,
+            isSynced = false,
+            interest = data.interest,
+            accountId = data.account?.id,
+            convertedAmount = data.convertedAmount,
+            loanRecordType = data.loanRecordType
+        )
 
         return save(item, loan, true, writeAssociatedData, onRefreshUI)
     }

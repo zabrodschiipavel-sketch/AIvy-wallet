@@ -49,9 +49,13 @@ class LoanWriteCommand @Inject constructor(
         // Reject a concurrent edit/deletion instead of saving against stale data.
         require(database.loanDao.findById(record.loanId) == expectedLoan)
         val previous = database.loanRecordDao.findById(record.id)
-        require(if (creating) previous == null else {
-            previous != null && !previous.isDeleted && previous.loanId == record.loanId
-        })
+        require(
+            if (creating) {
+                previous == null
+            } else {
+                previous != null && !previous.isDeleted && previous.loanId == record.loanId
+            }
+        )
         validateAccount(record.accountId)
         database.writeLoanRecordDao.save(record.copy(isSynced = false))
         writeAssociatedData()
@@ -64,27 +68,24 @@ class LoanWriteCommand @Inject constructor(
     }
 
     private suspend fun write(rows: suspend () -> Unit): LoanSaveResult {
-        var committed = false
-        var published = true
         try {
             withContext(dispatchers.io) {
                 database.withTransaction { rows() }
-                committed = true
             }
         } finally {
             withContext(NonCancellable + dispatchers.io) {
                 memoFactory.invalidateAll()
-                if (committed) {
-                    try {
-                        observer.post(DataWriteEvent.AllDataChange)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (_: Exception) {
-                        published = false
-                    }
-                }
             }
         }
-        return if (published) LoanSaveResult.Saved else LoanSaveResult.RefreshFailed
+        return withContext(NonCancellable + dispatchers.io) {
+            try {
+                observer.post(DataWriteEvent.AllDataChange)
+                LoanSaveResult.Saved
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                LoanSaveResult.RefreshFailed
+            }
+        }
     }
 }

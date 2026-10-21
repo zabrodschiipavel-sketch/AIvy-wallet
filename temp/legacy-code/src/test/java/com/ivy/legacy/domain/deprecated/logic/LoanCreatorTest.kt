@@ -1,21 +1,26 @@
 package com.ivy.wallet.domain.deprecated.logic
 
+import androidx.compose.ui.graphics.Color
 import com.ivy.base.model.LoanSaveResult
 import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.loan.LoanDeletionCommand
 import com.ivy.data.loan.LoanWriteCommand
+import com.ivy.data.model.LoanType
 import com.ivy.legacy.datamodel.Loan
-import com.ivy.legacy.datamodel.LoanType
+import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.fail
 import org.junit.Test
+import java.time.LocalDateTime
 
 class LoanCreatorTest {
     private val dao: LoanDao = mockk<LoanDao>()
@@ -23,6 +28,35 @@ class LoanCreatorTest {
     private val deleter: LoanDeletionCommand = mockk<LoanDeletionCommand>()
     private val creator = LoanCreator(dao, writer, deleter)
     private val item = Loan("Synthetic", 100.0, LoanType.BORROW)
+
+    @Test
+    fun creationWaitsForPersistenceBeforeRefreshing() = runBlocking {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        var refreshed = 0
+        coEvery { dao.findMaxOrderNum() } returns 0.0
+        coEvery { writer.saveLoan(any(), any(), any()) } coAnswers {
+            started.complete(Unit)
+            release.await()
+            LoanSaveResult.Saved
+        }
+        val data = CreateLoanData(
+            "New",
+            10.0,
+            LoanType.LEND,
+            Color.Blue,
+            null,
+            note = null,
+            dateTime = LocalDateTime.of(2026, 1, 1, 12, 0)
+        )
+        val save = async { creator.create(data, {}) { refreshed++ } }
+        started.await()
+        assertFalse(save.isCompleted)
+        assertEquals(0, refreshed)
+        release.complete(Unit)
+        assertEquals(LoanSaveResult.Saved, save.await())
+        assertEquals(1, refreshed)
+    }
 
     @Test
     fun `edit writer IllegalStateException propagates without refresh`() = runBlocking {

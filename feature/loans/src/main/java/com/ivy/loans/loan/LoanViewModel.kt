@@ -1,7 +1,5 @@
 package com.ivy.loans.loan
 
-import com.ivy.base.model.AccountSaveResult
-import com.ivy.base.model.LoanSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -10,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.base.model.processByType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
@@ -187,7 +187,7 @@ class LoanViewModel @Inject constructor(
     }
 
     private suspend fun refresh() {
-            TestIdlingResource.increment()
+        TestIdlingResource.increment()
         try {
             dateTime = timeProvider.utcNow()
 
@@ -238,7 +238,6 @@ class LoanViewModel @Inject constructor(
             }
             loadPendingLoans()
             loadCompletedLoans()
-
         } finally {
             TestIdlingResource.decrement()
         }

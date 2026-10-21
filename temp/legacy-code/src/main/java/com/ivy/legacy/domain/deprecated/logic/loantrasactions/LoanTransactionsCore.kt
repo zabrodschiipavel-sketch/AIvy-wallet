@@ -11,10 +11,10 @@ import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.read.LoanRecordDao
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.read.TransactionDao
-import com.ivy.data.db.dao.write.WriteLoanDao
 import com.ivy.data.db.dao.write.WriteCategoryDao
-import com.ivy.data.db.entity.CategoryEntity
+import com.ivy.data.db.dao.write.WriteLoanDao
 import com.ivy.data.db.dao.write.WriteLoanRecordDao
+import com.ivy.data.db.entity.CategoryEntity
 import com.ivy.data.model.Category
 import com.ivy.data.model.LoanType
 import com.ivy.data.model.TransactionId
@@ -172,9 +172,11 @@ class LoanTransactionsCore @Inject constructor(
             )
 
         ioThread {
-            transactionRepo.save(requireNotNull(modifiedTransaction.toDomain(transactionMapper)) {
-                "Cannot convert the linked loan transaction"
-            })
+            transactionRepo.save(
+                requireNotNull(modifiedTransaction.toDomain(transactionMapper)) {
+                    "Cannot convert the linked loan transaction"
+                }
+            )
         }
     }
 
@@ -252,7 +254,7 @@ class LoanTransactionsCore @Inject constructor(
                 }
 
                 reCalculateLoanAmount || loanRecordCurrenciesChanged ||
-                        oldLonRecordConvertedAmount == null -> {
+                    oldLonRecordConvertedAmount == null -> {
                     ioThread {
                         exchangeRatesLogic.convertAmount(
                             baseCurrency = baseCurrency(),

@@ -1,8 +1,5 @@
 package com.ivy.wallet.ui.theme.modal
 
-import com.ivy.base.model.LoanSaveResult
-import com.ivy.ui.SaveController
-import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,24 +34,27 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.data.model.LoanType
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.design.api.LocalTimeConverter
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.utils.thenIf
 import com.ivy.domain.legacy.ui.IvyColorPicker
 import com.ivy.frp.test.TestingContext
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.legacy.ui.theme.components.DateTimeRow
+import com.ivy.legacy.legacy.ui.theme.modal.ModalNameInput
 import com.ivy.legacy.utils.getDefaultFIATCurrency
 import com.ivy.legacy.utils.isNotNullOrBlank
 import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.selectEndTextFieldValue
-import com.ivy.design.utils.thenIf
-import com.ivy.legacy.legacy.ui.theme.modal.ModalNameInput
 import com.ivy.ui.R
+import com.ivy.ui.SaveController
 import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
@@ -278,17 +278,17 @@ fun BoxWithConstraintsScope.LoanModal(
             selectedAccount = selectedAcc,
             onSelectedAccountChanged = {
                 saveController.editFields {
-                selectedAcc = it
-                currencyCode = it.currency ?: getDefaultFIATCurrency().currencyCode
+                    selectedAcc = it
+                    currencyCode = it.currency ?: getDefaultFIATCurrency().currencyCode
                 }
             },
             onAddNewAccount = {
                 saveController.editFields {
-                accountModalData = AccountModalData(
-                    account = null,
-                    baseCurrency = selectedAcc?.currency ?: "USD",
-                    balance = 0.0
-                )
+                    accountModalData = AccountModalData(
+                        account = null,
+                        baseCurrency = selectedAcc?.currency ?: "USD",
+                        balance = 0.0
+                    )
                 }
             },
             childrenTestTag = "amount_modal_account"
@@ -627,36 +627,35 @@ private fun save(
     controller: SaveController<LoanSaveResult>
 ) {
     controller.submit {
-    if (loan != null) {
-        onEditLoan(
-            loan.copy(
-                name = nameTextFieldValue.text.trim(),
-                dateTime = dateTime,
-                note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
-                type = type,
-                amount = amount,
-                color = color.toArgb(),
-                icon = icon,
-                accountId = selectedAccount?.id
-            ),
-            createLoanTransaction
-        )
-    } else {
-        onCreateLoan(
-            CreateLoanData(
-                name = nameTextFieldValue.text.trim(),
-                type = type,
-                amount = amount,
-                color = color,
-                icon = icon,
-                account = selectedAccount,
-                createLoanTransaction = createLoanTransaction,
-                dateTime = dateTime,
-                note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value
+        if (loan != null) {
+            onEditLoan(
+                loan.copy(
+                    name = nameTextFieldValue.text.trim(),
+                    dateTime = dateTime,
+                    note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
+                    type = type,
+                    amount = amount,
+                    color = color.toArgb(),
+                    icon = icon,
+                    accountId = selectedAccount?.id
+                ),
+                createLoanTransaction
             )
-        )
-    }
-
+        } else {
+            onCreateLoan(
+                CreateLoanData(
+                    name = nameTextFieldValue.text.trim(),
+                    type = type,
+                    amount = amount,
+                    color = color,
+                    icon = icon,
+                    account = selectedAccount,
+                    createLoanTransaction = createLoanTransaction,
+                    dateTime = dateTime,
+                    note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value
+                )
+            )
+        }
     }
 }
 

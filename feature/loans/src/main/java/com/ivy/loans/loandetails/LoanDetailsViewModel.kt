@@ -1,7 +1,5 @@
 package com.ivy.loans.loandetails
 
-import com.ivy.base.model.AccountSaveResult
-import com.ivy.base.model.LoanSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -10,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.Toaster
 import com.ivy.base.legacy.Transaction
+import com.ivy.base.model.AccountSaveResult
 import com.ivy.base.model.LoanRecordType
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.LoanRecordDao
@@ -33,8 +33,8 @@ import com.ivy.loans.loandetails.events.LoanModalEvent
 import com.ivy.loans.loandetails.events.LoanRecordModalEvent
 import com.ivy.navigation.LoanDetailsScreen
 import com.ivy.navigation.Navigation
-import com.ivy.ui.R
 import com.ivy.ui.ComposeViewModel
+import com.ivy.ui.R
 import com.ivy.ui.time.impl.DateTimePicker
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.action.loan.LoanByIdAct
@@ -244,7 +244,7 @@ class LoanDetailsViewModel @Inject constructor(
     }
 
     private suspend fun refresh(loanId: UUID) {
-            TestIdlingResource.increment()
+        TestIdlingResource.increment()
         try {
             dateTime.value = timeProvider.utcNow()
 
@@ -342,14 +342,13 @@ class LoanDetailsViewModel @Inject constructor(
             } ?: run {
                 createLoanTransaction.value = false
             }
-
         } finally {
             TestIdlingResource.decrement()
         }
     }
 
     suspend fun editLoan(loan: Loan, createLoanTransaction: Boolean = false): LoanSaveResult {
-            TestIdlingResource.increment()
+        TestIdlingResource.increment()
         return try {
             val previous = requireNotNull(this.loan.value)
             loanCreator.edit(loan, writeAssociatedData = {
@@ -359,7 +358,8 @@ class LoanDetailsViewModel @Inject constructor(
                     loanId = loan.id,
                 )
                 loanTransactionsLogic.Loan.editAssociatedLoanTransaction(
-                    loan, createLoanTransaction, associatedTransaction,
+                    loan,
+                    createLoanTransaction,
                 )
             }, onRefreshUI = { refresh(it.id) })
         } finally {
@@ -393,7 +393,7 @@ class LoanDetailsViewModel @Inject constructor(
 
     suspend fun createLoanRecord(data: CreateLoanRecordData): LoanSaveResult {
         val localLoan = requireNotNull(loan.value)
-            TestIdlingResource.increment()
+        TestIdlingResource.increment()
         return try {
             val modifiedData = data.copy(
                 convertedAmount = loanTransactionsLogic.LoanRecord.calculateConvertedAmount(
@@ -415,7 +415,7 @@ class LoanDetailsViewModel @Inject constructor(
     }
 
     suspend fun editLoanRecord(editLoanRecordData: EditLoanRecordData): LoanSaveResult {
-            TestIdlingResource.increment()
+        TestIdlingResource.increment()
         return try {
             val localLoan = requireNotNull(loan.value)
             val convertedAmount = loanTransactionsLogic.LoanRecord.calculateConvertedAmount(
