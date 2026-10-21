@@ -151,11 +151,18 @@ class TransactionDeletionTest {
         db.writeTransactionDao.deleteById(id(1))
         val after = graph()
         val data = IvyWalletCompleteData(
-            formatVersion = 2, accounts = after.accounts, plannedPaymentRules = after.rules,
-            transactions = after.transactions, tags = after.tags, tagAssociations = after.associations,
+            formatVersion = 2,
+            accounts = after.accounts,
+            plannedPaymentRules = after.rules,
+            transactions = after.transactions,
+            tags = after.tags,
+            tagAssociations = after.associations,
         )
         val plan = BackupMergePlanner.plan(data, IvyWalletCompleteData(formatVersion = 2))
-        assertEquals(after.transactions.filterNot { it.isDeleted }.map { it.id }, plan.additions.transactions.map { it.id })
+        assertEquals(
+            after.transactions.filterNot { it.isDeleted }.map { it.id },
+            plan.additions.transactions.map { it.id },
+        )
         assertEquals(after.tags.map { it.id }, plan.additions.tags.map { it.id })
         assertTrue(plan.additions.tagAssociations.none { it.associatedId == id(1) })
     }
@@ -184,8 +191,14 @@ class TransactionDeletionTest {
             AccountEntity(name = "Other", currency = "USD", color = 0, id = id(91)),
         )
         val rule = PlannedPaymentRuleEntity(
-            startDate = Instant.EPOCH, intervalN = null, intervalType = null, oneTime = true,
-            type = TransactionType.EXPENSE, accountId = id(90), amount = 10.0, id = id(70),
+            startDate = Instant.EPOCH,
+            intervalN = null,
+            intervalType = null,
+            oneTime = true,
+            type = TransactionType.EXPENSE,
+            accountId = id(90),
+            amount = 10.0,
+            id = id(70),
         )
         val transactions = listOf(
             transaction(1),
@@ -193,16 +206,29 @@ class TransactionDeletionTest {
             transaction(3).copy(dateTime = null, recurringRuleId = id(70), isDeleted = true),
             transaction(4).copy(recurringRuleId = id(70), paidForDateTime = Instant.EPOCH),
             transaction(5).copy(
-                accountId = id(91), dateTime = null, dueDate = Instant.EPOCH, recurringRuleId = id(71),
+                accountId = id(91),
+                dateTime = null,
+                dueDate = Instant.EPOCH,
+                recurringRuleId = id(71),
             ),
             transaction(6).copy(type = TransactionType.TRANSFER, toAccountId = id(91), toAmount = 6.0),
             transaction(7).copy(
-                accountId = id(91), type = TransactionType.TRANSFER, toAccountId = id(90), toAmount = 7.0,
+                accountId = id(91),
+                type = TransactionType.TRANSFER,
+                toAccountId = id(90),
+                toAmount = 7.0,
             ),
         )
         val tag = TagEntity(
-            id = id(80), name = "Shared", description = null, color = 0, icon = null,
-            orderNum = 0.0, dateTime = Instant.EPOCH, isDeleted = false, lastSyncedTime = Instant.EPOCH,
+            id = id(80),
+            name = "Shared",
+            description = null,
+            color = 0,
+            icon = null,
+            orderNum = 0.0,
+            dateTime = Instant.EPOCH,
+            isDeleted = false,
+            lastSyncedTime = Instant.EPOCH,
         )
         val associations = transactions.map { link(it) } + listOf(
             link(transactions.first()).copy(tagId = id(81), isDeleted = true),
@@ -235,13 +261,18 @@ class TransactionDeletionTest {
     )
 
     private fun transaction(number: Int) = TransactionEntity(
-        accountId = id(90), type = TransactionType.EXPENSE, amount = number.toDouble(),
-        dateTime = Instant.EPOCH, id = id(number),
+        accountId = id(90),
+        type = TransactionType.EXPENSE,
+        amount = number.toDouble(),
+        dateTime = Instant.EPOCH,
+        id = id(number),
     )
 
     private fun link(transaction: TransactionEntity) = TagAssociationEntity(
-        tagId = id(80), associatedId = transaction.id,
-        lastSyncedTime = Instant.EPOCH, isDeleted = transaction.isDeleted,
+        tagId = id(80),
+        associatedId = transaction.id,
+        lastSyncedTime = Instant.EPOCH,
+        isDeleted = transaction.isDeleted,
     )
 
     private fun id(number: Int) = UUID(0, number.toLong())

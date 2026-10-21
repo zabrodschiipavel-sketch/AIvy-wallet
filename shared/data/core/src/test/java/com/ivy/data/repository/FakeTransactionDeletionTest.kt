@@ -17,17 +17,23 @@ class FakeTransactionDeletionTest {
         val links = FakeTagAssociationDao()
         val transactions = FakeTransactionDao(tagAssociations = links)
         val pending = TransactionEntity(
-            accountId = id(90), type = TransactionType.EXPENSE, amount = 10.0,
-            recurringRuleId = id(70), dateTime = null, id = id(1),
+            accountId = id(90),
+            type = TransactionType.EXPENSE,
+            amount = 10.0,
+            recurringRuleId = id(70),
+            dateTime = null,
+            id = id(1),
         )
         val paid = pending.copy(id = id(2), dateTime = Instant.EPOCH)
         val deletedPending = pending.copy(id = id(3), isDeleted = true)
         val otherRule = pending.copy(id = id(4), recurringRuleId = id(71))
         val rows = listOf(pending, paid, deletedPending, otherRule)
         transactions.saveMany(rows)
-        links.save(rows.map {
-            TagAssociationEntity(id(80), it.id, Instant.EPOCH, it.isDeleted)
-        })
+        links.save(
+            rows.map {
+                TagAssociationEntity(id(80), it.id, Instant.EPOCH, it.isDeleted)
+            },
+        )
 
         transactions.deletedByRecurringRuleIdAndNoDateTime(id(70))
 
