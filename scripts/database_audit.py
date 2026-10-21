@@ -1,7 +1,6 @@
 """Schema-131 tag-link rules and a private, deterministic whole-database fingerprint."""
 import hashlib
 import json
-import sqlite3
 from uuid import UUID
 
 

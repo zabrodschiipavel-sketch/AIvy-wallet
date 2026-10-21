@@ -1,6 +1,6 @@
 """Offline tag-link audit and reviewed repair into a new SQLite copy (stdlib only)."""
 import argparse
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import json
 import os
@@ -16,7 +16,7 @@ from database_audit import audit, fingerprint
 @contextmanager
 def read_snapshot(path):
     source = Path(path).resolve(strict=True)
-    with sqlite3.connect(source.as_uri() + '?mode=ro', uri=True, timeout=10) as connection:
+    with closing(sqlite3.connect(source.as_uri() + '?mode=ro', uri=True, timeout=10)) as connection:
         connection.execute('PRAGMA query_only=ON')
         connection.execute('BEGIN')
         try:
@@ -26,8 +26,10 @@ def read_snapshot(path):
 
 
 def new_path(path):
+    if any(os.path.lexists(str(path) + suffix) for suffix in ('', '-wal', '-shm', '-journal')):
+        raise ValueError(f'Refusing to overwrite an existing path or SQLite sidecar: {path}')
     path = Path(path).resolve()
-    if os.path.lexists(path):
+    if any(os.path.lexists(str(path) + suffix) for suffix in ('', '-wal', '-shm', '-journal')):
         raise ValueError(f'Refusing to overwrite {path}')
     if not path.parent.is_dir():
         raise ValueError(f'Parent directory does not exist: {path.parent}')
@@ -39,7 +41,7 @@ def create_snapshot(connection, destination):
     descriptor = os.open(destination, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
     os.close(descriptor)
     try:
-        with sqlite3.connect(destination) as backup:
+        with closing(sqlite3.connect(destination)) as backup:
             connection.backup(backup)
             backup.execute('PRAGMA journal_mode=DELETE')
     except BaseException:
@@ -77,7 +79,7 @@ def repair_copy(database, review, backup, output):
             temporary = Path(name).resolve()
             temporary.relative_to(output.parent)
             shutil.copyfile(backup, temporary)
-            with sqlite3.connect(temporary) as repaired:
+            with closing(sqlite3.connect(temporary)) as repaired, repaired:
                 repaired.execute('PRAGMA foreign_keys=ON')
                 repaired.execute('BEGIN IMMEDIATE')
                 for tag_id, owner_id in keys:

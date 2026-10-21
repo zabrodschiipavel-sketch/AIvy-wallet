@@ -61,11 +61,7 @@ class AuditCliTests(unittest.TestCase):
             r = run_cli(db, rep)
             self.assertEqual(r.returncode, 1)
             data = json.loads(rep.read_text())
-            cands = data["candidates"]
-            self.assertEqual(len(cands), 1)
-            c0 = cands[0]
-            s = c0 if isinstance(c0, str) else json.dumps(c0)
-            self.assertIn(TX3, s)
+            self.assertEqual(data["candidates"], [{"tagId": TAG1, "associatedId": TX3}])
 
     def test_existing_report_preserved_exits2(self):
         with TemporaryDirectory() as t:
