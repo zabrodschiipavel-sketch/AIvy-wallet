@@ -12,6 +12,7 @@ import java.util.UUID
 @VisibleForTesting
 class FakeTransactionDao(
     private val loanRecords: LoanRecordDao = FakeLoanRecordDao(),
+    private val tagAssociations: FakeTagAssociationDao = FakeTagAssociationDao(),
 ) : TransactionDao, WriteTransactionDao {
     private val items = mutableListOf<TransactionEntity>()
 
@@ -325,15 +326,15 @@ class FakeTransactionDao(
         values.forEach { save(it) }
     }
 
-    override suspend fun deletedByRecurringRuleIdAndNoDateTime(recurringRuleId: UUID) {
-        items.removeIf { it.recurringRuleId == recurringRuleId }
+    override suspend fun deletedByRecurringRuleIdAndNoDateTimeRaw(recurringRuleId: UUID) {
+        items.removeIf { it.recurringRuleId == recurringRuleId && it.dateTime == null }
     }
 
-    override suspend fun deleteById(id: UUID) {
+    override suspend fun deleteByIdRaw(id: UUID) {
         items.removeIf { it.id == id }
     }
 
-    override suspend fun deleteAllByAccountId(accountId: UUID) {
+    override suspend fun deleteAllByAccountIdRaw(accountId: UUID) {
         items.removeIf { it.accountId == accountId }
     }
 
@@ -346,8 +347,28 @@ class FakeTransactionDao(
         items.removeIf { it.loanRecordId == loanRecordId }
     }
 
-    override suspend fun deleteAll() {
+    override suspend fun deleteAllRaw() {
         items.clear()
+    }
+
+    override suspend fun deleteTagsByRecurringRuleIdAndNoDateTime(recurringRuleId: UUID) {
+        deleteTagLinks { it.recurringRuleId == recurringRuleId && it.dateTime == null }
+    }
+
+    override suspend fun deleteTagsById(id: UUID) {
+        deleteTagLinks { it.id == id }
+    }
+
+    override suspend fun deleteTagsAllByAccountId(accountId: UUID) {
+        deleteTagLinks { it.accountId == accountId }
+    }
+
+    override suspend fun deleteTagsForAll() {
+        deleteTagLinks { true }
+    }
+
+    private suspend fun deleteTagLinks(predicate: (TransactionEntity) -> Boolean) {
+        tagAssociations.deleteAssociationsByAssociateIds(items.filter(predicate).map { it.id })
     }
 
     private fun isBetween(

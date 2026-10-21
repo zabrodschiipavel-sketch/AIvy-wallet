@@ -7,6 +7,8 @@ import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ivy.base.model.TransactionType
+import com.ivy.data.backup.BackupMergePlanner
+import com.ivy.data.backup.IvyWalletCompleteData
 import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.PlannedPaymentRuleEntity
@@ -58,7 +60,8 @@ class TransactionDeletionTest {
     fun deletingAccountTransactionsPreservesIncomingTransfersFromOtherAccounts() = runBlocking {
         val before = seed()
         db.writeTransactionDao.deleteAllByAccountId(id(90))
-        assertEquals(without(before, before.transactions.filter { it.accountId == id(90) }.map { it.id }.toSet()), graph())
+        val selected = before.transactions.filter { it.accountId == id(90) }.map { it.id }.toSet()
+        assertEquals(without(before, selected), graph())
     }
 
     @Test
@@ -137,6 +140,24 @@ class TransactionDeletionTest {
         val selected = extra.map { it.id }.toSet() + setOf(id(2), id(3))
         db.writeTransactionDao.deletedByRecurringRuleIdAndNoDateTime(id(70))
         assertEquals(without(before, selected), graph())
+    }
+
+    @Test
+    fun deletedTaggedTransactionDoesNotBreakBackupReferenceValidation() = runBlocking {
+        seed()
+        // The preservation tests deliberately include a pre-existing unrelated orphan.
+        // Start this backup acceptance case from an otherwise valid graph.
+        db.writeTagAssociationDao.deleteAssociationsByAssociateId(id(999))
+        db.writeTransactionDao.deleteById(id(1))
+        val after = graph()
+        val data = IvyWalletCompleteData(
+            formatVersion = 2, accounts = after.accounts, plannedPaymentRules = after.rules,
+            transactions = after.transactions, tags = after.tags, tagAssociations = after.associations,
+        )
+        val plan = BackupMergePlanner.plan(data, IvyWalletCompleteData(formatVersion = 2))
+        assertEquals(after.transactions.filterNot { it.isDeleted }.map { it.id }, plan.additions.transactions.map { it.id })
+        assertEquals(after.tags.map { it.id }, plan.additions.tags.map { it.id })
+        assertTrue(plan.additions.tagAssociations.none { it.associatedId == id(1) })
     }
 
     private fun rollbackAfterTags(target: Int = 1, operation: suspend () -> Unit) = runBlocking {

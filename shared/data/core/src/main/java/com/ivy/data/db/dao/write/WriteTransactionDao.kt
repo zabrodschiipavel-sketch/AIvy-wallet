@@ -21,7 +21,10 @@ interface WriteTransactionDao {
         deletedByRecurringRuleIdAndNoDateTimeRaw(recurringRuleId)
     }
 
-    @Query("DELETE FROM tags_association WHERE associatedId IN (SELECT id FROM transactions WHERE recurringRuleId = :recurringRuleId AND dateTime IS NULL)")
+    @Query(
+        "DELETE FROM tags_association WHERE associatedId IN " +
+            "(SELECT id FROM transactions WHERE recurringRuleId = :recurringRuleId AND dateTime IS NULL)"
+    )
     suspend fun deleteTagsByRecurringRuleIdAndNoDateTime(recurringRuleId: UUID)
 
     @Query("DELETE FROM transactions WHERE recurringRuleId = :recurringRuleId AND dateTime IS NULL")
@@ -45,7 +48,10 @@ interface WriteTransactionDao {
         deleteAllByAccountIdRaw(accountId)
     }
 
-    @Query("DELETE FROM tags_association WHERE associatedId IN (SELECT id FROM transactions WHERE accountId = :accountId)")
+    @Query(
+        "DELETE FROM tags_association WHERE associatedId IN " +
+            "(SELECT id FROM transactions WHERE accountId = :accountId)"
+    )
     suspend fun deleteTagsAllByAccountId(accountId: UUID)
 
     @Query("DELETE FROM transactions WHERE accountId = :accountId")
