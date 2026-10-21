@@ -31,7 +31,7 @@ class LoanWriteCommand @Inject constructor(
         require(!loan.isDeleted)
         val previous = database.loanDao.findById(loan.id)
         require(if (creating) previous == null else previous != null && !previous.isDeleted)
-        validateAccount(loan.accountId)
+        validateAccount(loan.accountId, !creating && previous?.accountId == loan.accountId)
         database.writeLoanDao.save(loan.copy(isSynced = false))
         writeAssociatedData()
     }
@@ -56,15 +56,16 @@ class LoanWriteCommand @Inject constructor(
                 previous != null && !previous.isDeleted && previous.loanId == record.loanId
             }
         )
-        validateAccount(record.accountId)
+        validateAccount(record.accountId, !creating && previous?.accountId == record.accountId)
         database.writeLoanRecordDao.save(record.copy(isSynced = false))
         writeAssociatedData()
     }
 
-    private suspend fun validateAccount(id: UUID?) {
+    private suspend fun validateAccount(id: UUID?, allowArchived: Boolean) {
         if (id == null) return
         val account = database.accountDao.findById(id)
         require(account != null && !account.isDeleted) { "Account no longer exists" }
+        require(!account.archived || allowArchived) { "Cannot add entries to an archived account" }
     }
 
     private suspend fun write(rows: suspend () -> Unit): LoanSaveResult {

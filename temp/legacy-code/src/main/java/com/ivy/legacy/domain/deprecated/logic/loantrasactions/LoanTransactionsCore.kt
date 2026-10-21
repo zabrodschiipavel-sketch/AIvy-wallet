@@ -143,6 +143,8 @@ class LoanTransactionsCore @Inject constructor(
         loanRecordType: LoanRecordType
     ) {
         requireNotNull(selectedAccountId) { "A linked transaction needs an account" }
+        val account = requireNotNull(accountsDao.findById(selectedAccountId))
+        require(!account.isDeleted && (!account.archived || transaction?.accountId == selectedAccountId))
 
         val transType = if (isLoanRecord && loanRecordType != LoanRecordType.INCREASE) {
             if (loanType == LoanType.BORROW) TransactionType.EXPENSE else TransactionType.INCOME

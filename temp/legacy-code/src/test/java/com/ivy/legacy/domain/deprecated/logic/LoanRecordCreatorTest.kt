@@ -28,7 +28,9 @@ class LoanRecordCreatorTest {
     private val deleter = mockk<LoanDeletionCommand>()
     private val creator = LoanRecordCreator(writer, deleter)
     private val loan = Loan("Synthetic", 100.0, LoanType.BORROW)
-    private val record = LoanRecord(loan.id, 10.0, dateTime = Instant.EPOCH)
+    private val record = LoanRecord(
+        loan.id, 10.0, dateTime = Instant.EPOCH, loanRecordType = LoanRecordType.DECREASE,
+    )
     private val noopWrite: suspend (LoanRecord) -> Unit = {}
 
     @Test

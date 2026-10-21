@@ -281,6 +281,33 @@ class LoanWriteCommandTest {
         assertEquals(before, graph())
     }
 
+    @Test
+    fun archivedAccountRejectsNewLoanAndNewRecord() = runBlocking {
+        db.writeAccountDao.save(account.copy(archived = true))
+        expectInvalid { command.saveLoan(loan, true) { fail("must not write") } }
+        db.writeLoanDao.save(loan)
+        val before = graph()
+        expectInvalid { command.saveRecord(record, true, loan) { fail("must not write") } }
+        assertEquals(before, graph())
+    }
+
+    @Test
+    fun archivedHistoryCanBeEditedButCannotMoveToAnotherArchivedAccount() = runBlocking {
+        seedLoanAndRecord()
+        db.writeAccountDao.save(account.copy(archived = true))
+        val updatedLoan = loan.copy(amount = 200.0)
+        command.saveLoan(updatedLoan, false) {}
+        command.saveRecord(record.copy(amount = 20.0), false, updatedLoan) {}
+        assertEquals(updatedLoan, db.loanDao.findById(loan.id))
+        assertEquals(20.0, db.loanRecordDao.findById(record.id)!!.amount, 0.0)
+        val other = account.copy(id = id(90), archived = true)
+        db.writeAccountDao.save(other)
+        val before = graph()
+        expectInvalid { command.saveLoan(updatedLoan.copy(accountId = other.id), false) {} }
+        expectInvalid { command.saveRecord(record.copy(accountId = other.id), false, updatedLoan) {} }
+        assertEquals(before, graph())
+    }
+
     private suspend fun seedLoanAndRecord() {
         db.writeLoanDao.save(loan)
         db.writeLoanRecordDao.save(record)

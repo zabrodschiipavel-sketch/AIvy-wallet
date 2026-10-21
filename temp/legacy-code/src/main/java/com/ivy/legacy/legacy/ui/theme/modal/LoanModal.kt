@@ -129,7 +129,7 @@ fun BoxWithConstraintsScope.LoanModal(
     }
 
     var selectedAcc by remember(modal) {
-        mutableStateOf(modal?.selectedAccount)
+        mutableStateOf(modal?.selectedAccount?.takeUnless { it.archived && it.id != loan?.accountId })
     }
 
     var createLoanTrans by remember(modal) {
@@ -284,7 +284,7 @@ fun BoxWithConstraintsScope.LoanModal(
         Spacer(Modifier.height(16.dp))
 
         AccountsRow(
-            accounts = accounts,
+            accounts = accounts.filter { !it.archived || it.id == loan?.accountId },
             selectedAccount = selectedAcc,
             onSelectedAccountChanged = {
                 saveController.editFields {
