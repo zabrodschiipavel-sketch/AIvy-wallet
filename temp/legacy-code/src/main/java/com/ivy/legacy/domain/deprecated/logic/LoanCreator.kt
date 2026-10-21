@@ -36,22 +36,23 @@ class LoanCreator @Inject constructor(
                 dateTime = data.dateTime
             )
         }
-        return save(item, creating = true, writeAssociatedData, onRefreshUI)
+        return save(item, expected = null, writeAssociatedData, onRefreshUI)
     }
 
     suspend fun edit(
+        originalItem: Loan,
         updatedItem: Loan,
         writeAssociatedData: suspend (Loan) -> Unit,
         onRefreshUI: suspend (Loan) -> Unit
-    ): LoanSaveResult = save(updatedItem, false, writeAssociatedData, onRefreshUI)
+    ): LoanSaveResult = save(updatedItem, expected = originalItem, writeAssociatedData, onRefreshUI)
 
     private suspend fun save(
         item: Loan,
-        creating: Boolean,
+        expected: Loan?,
         writeAssociatedData: suspend (Loan) -> Unit,
         onRefreshUI: suspend (Loan) -> Unit,
     ): LoanSaveResult {
-        val result = loanWrite.saveLoan(item.toEntity(), creating) { writeAssociatedData(item) }
+        val result = loanWrite.saveLoan(item.toEntity(), expected?.toEntity()) { writeAssociatedData(item) }
         try {
             onRefreshUI(item)
         } catch (cancelled: CancellationException) {
