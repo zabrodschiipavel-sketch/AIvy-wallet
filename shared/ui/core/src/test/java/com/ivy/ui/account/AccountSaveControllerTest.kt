@@ -25,7 +25,12 @@ class AccountSaveControllerTest {
         var writes = 0
         var closed = 0
         val controller = controller { closed++ }
-        repeat(2) { controller.submit { writes++; gate.await() } }
+        repeat(2) {
+            controller.submit {
+                writes++
+                gate.await()
+            }
+        }
         assertTrue(controller.isSaving)
         assertEquals(0, closed)
         runCurrent()
@@ -35,7 +40,10 @@ class AccountSaveControllerTest {
         runCurrent()
         assertEquals(1, closed)
         assertFalse(controller.isSaving)
-        controller.submit { writes++; AccountSaveResult.Saved }
+        controller.submit {
+            writes++
+            AccountSaveResult.Saved
+        }
         runCurrent()
         assertEquals(1, writes)
     }
@@ -45,12 +53,18 @@ class AccountSaveControllerTest {
         var closed = 0
         var writes = 0
         val controller = controller { closed++ }
-        controller.submit { writes++; error("disk full") }
+        controller.submit {
+            writes++
+            error("disk full")
+        }
         runCurrent()
         assertTrue(controller.failed)
         assertFalse(controller.isSaving)
         assertEquals(0, closed)
-        controller.submit { writes++; AccountSaveResult.Saved }
+        controller.submit {
+            writes++
+            AccountSaveResult.Saved
+        }
         assertFalse(controller.failed)
         runCurrent()
         assertEquals(2, writes)
@@ -62,11 +76,17 @@ class AccountSaveControllerTest {
         val results = mutableListOf<AccountSaveResult>()
         var writes = 0
         val controller = controller { results.add(it) }
-        controller.submit { writes++; AccountSaveResult.RefreshFailed }
+        controller.submit {
+            writes++
+            AccountSaveResult.RefreshFailed
+        }
         runCurrent()
         assertEquals(listOf(AccountSaveResult.RefreshFailed), results)
         assertFalse(controller.failed)
-        controller.submit { writes++; AccountSaveResult.Saved }
+        controller.submit {
+            writes++
+            AccountSaveResult.Saved
+        }
         runCurrent()
         assertEquals(1, writes)
     }
@@ -124,7 +144,10 @@ class AccountSaveControllerTest {
     fun disposingBeforeLaunchPreventsTheWrite() = runTest {
         var writes = 0
         val controller = controller { error("must not close") }
-        controller.submit { writes++; AccountSaveResult.Saved }
+        controller.submit {
+            writes++
+            AccountSaveResult.Saved
+        }
         controller.dispose()
         runCurrent()
         assertEquals(0, writes)

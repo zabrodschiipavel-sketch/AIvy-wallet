@@ -168,7 +168,6 @@ class LoanViewModel @Inject constructor(
                 reorder(event.reorderedList)
             }
 
-
             LoanScreenEvent.OnTogglePaidOffLoanVisibility -> {
                 updatePaidOffLoanVisibility()
             }

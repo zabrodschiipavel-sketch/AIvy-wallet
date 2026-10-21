@@ -69,7 +69,7 @@ class MainViewModel @Inject constructor(
     suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
         TestIdlingResource.increment()
         return try {
-            accountCreator.createAccount(data) {  }
+            accountCreator.createAccount(data) {}
         } finally {
             TestIdlingResource.decrement()
         }

@@ -242,7 +242,6 @@ class LoanDetailsViewModel @Inject constructor(
                 )
             }
 
-
             else -> {}
         }
     }

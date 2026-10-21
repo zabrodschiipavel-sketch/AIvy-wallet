@@ -162,12 +162,14 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
                     baseCurrency = baseCurrency,
                     accounts = accounts,
                     onClick = {
-                        if (!suggestionSave.isSaving) accountModalData = AccountModalData(
-                            account = it.account,
-                            baseCurrency = baseCurrency,
-                            balance = it.balance,
-                            autoFocusKeyboard = false
-                        )
+                        if (!suggestionSave.isSaving) {
+                            accountModalData = AccountModalData(
+                                account = it.account,
+                                baseCurrency = baseCurrency,
+                                balance = it.balance,
+                                autoFocusKeyboard = false
+                            )
+                        }
                     }
                 )
 
@@ -192,16 +194,20 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
                     },
                     onAddSuggestion = {
                         val data = it as CreateAccountData
-                        if (data !in savedSuggestions) suggestionSave.submit {
-                            onCreateAccount(data).also { savedSuggestions = savedSuggestions + data }
+                        if (data !in savedSuggestions) {
+                            suggestionSave.submit {
+                                onCreateAccount(data).also { savedSuggestions = savedSuggestions + data }
+                            }
                         }
                     },
                     onAddNew = {
-                        if (!suggestionSave.isSaving) accountModalData = AccountModalData(
-                            account = null,
-                            baseCurrency = baseCurrency,
-                            balance = 0.0
-                        )
+                        if (!suggestionSave.isSaving) {
+                            accountModalData = AccountModalData(
+                                account = null,
+                                baseCurrency = baseCurrency,
+                                balance = 0.0
+                            )
+                        }
                     }
                 )
 

@@ -26,7 +26,8 @@ class AccountSaveController(
     private var committed = false
 
     fun submit(operation: suspend () -> AccountSaveResult) {
-        if (!active || committed || !scope.isActive || !isCurrent() || isSaving) return
+        if (!active || committed || !scope.isActive) return
+        if (!isCurrent() || isSaving) return
         // Set before launch: a second tap may arrive before the coroutine starts.
         isSaving = true
         failed = false

@@ -144,7 +144,7 @@ fun BoxWithConstraintsScope.AccountModal(
     IvyModal(
         id = modal?.id,
         visible = modal != null,
-        dismiss = { if (!saveController.isSaving) dismiss() },
+        dismiss = { saveController.editFields { dismiss() } },
         shiftIfKeyboardShown = false,
         PrimaryAction = {
             ModalAddSave(
@@ -176,16 +176,7 @@ fun BoxWithConstraintsScope.AccountModal(
 
         Spacer(Modifier.height(24.dp))
 
-        if (saveController.failed || saveController.isSaving) {
-            Text(
-                text = stringResource(
-                    if (saveController.failed) R.string.account_save_failed else R.string.saving_account
-                ),
-                modifier = Modifier.padding(horizontal = 24.dp).testTag("account_save_status"),
-                style = UI.typo.b2.style(),
-            )
-            Spacer(Modifier.height(16.dp))
-        }
+        AccountSaveStatus(failed = saveController.failed, saving = saveController.isSaving)
 
         IconNameRow(
             hint = stringResource(R.string.account_name),
@@ -196,9 +187,9 @@ fun BoxWithConstraintsScope.AccountModal(
             autoFocusKeyboard = modal?.autoFocusKeyboard ?: true,
 
             nameTextFieldValue = nameTextFieldValue,
-            setNameTextFieldValue = { if (!saveController.isSaving) nameTextFieldValue = it },
+            setNameTextFieldValue = { saveController.editFields { nameTextFieldValue = it } },
             showChooseIconModal = {
-                if (!saveController.isSaving) chooseIconModalVisible = true
+                saveController.editFields { chooseIconModalVisible = true }
             }
         )
 
@@ -206,32 +197,20 @@ fun BoxWithConstraintsScope.AccountModal(
 
         IvyColorPicker(
             selectedColor = color,
-            onColorSelected = { if (!saveController.isSaving) color = it }
+            onColorSelected = { saveController.editFields { color = it } }
         )
 
         Spacer(modifier = Modifier.height(40.dp))
 
         ModalAmountSection(
             Header = {
-                Spacer(Modifier.height(16.dp))
-
-                AccountCurrency(
-                    currencyCode = currencyCode
-                ) {
-                    if (!saveController.isSaving) currencyModalVisible = true
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                IvyCheckboxWithText(
-                    modifier = Modifier
-                        .padding(start = 16.dp)
-                        .align(Alignment.Start),
-                    text = stringResource(R.string.include_account),
-                    checked = includeInBalance
-                ) {
-                    if (!saveController.isSaving) includeInBalance = it
-                }
+                AccountBalanceHeader(
+                    currencyCode = currencyCode,
+                    includeInBalance = includeInBalance,
+                    checkboxModifier = Modifier.align(Alignment.Start),
+                    onCurrencyClick = { saveController.editFields { currencyModalVisible = true } },
+                    onIncludeChange = { saveController.editFields { includeInBalance = it } },
+                )
             },
             label = stringResource(R.string.enter_account_balance).uppercase(),
             currency = currencyCode,
@@ -239,7 +218,7 @@ fun BoxWithConstraintsScope.AccountModal(
             amountPaddingTop = 40.dp,
             amountPaddingBottom = 40.dp,
         ) {
-            if (!saveController.isSaving) amountModalVisible = true
+            saveController.editFields { amountModalVisible = true }
         }
     }
 
@@ -254,7 +233,7 @@ fun BoxWithConstraintsScope.AccountModal(
         showPlusMinus = true,
         dismiss = { amountModalVisible = false }
     ) { newAmount ->
-        if (!saveController.isSaving) {
+        saveController.editFields {
             amount = newAmount
             if (modal?.adjustBalanceMode == true) submit(newAmount)
         }
@@ -267,7 +246,7 @@ fun BoxWithConstraintsScope.AccountModal(
         visible = currencyModalVisible,
         dismiss = { currencyModalVisible = false }
     ) {
-        if (!saveController.isSaving) currencyCode = it
+        saveController.editFields { currencyCode = it }
 
 //        if (IvyCurrency.fromCode(it)?.isCrypto == true) {
 //            if (getCustomIconId(context = context, iconName = it, size = "m") != null) {
@@ -282,8 +261,43 @@ fun BoxWithConstraintsScope.AccountModal(
         color = color,
         dismiss = { chooseIconModalVisible = false }
     ) {
-        if (!saveController.isSaving) icon = it
+        saveController.editFields { icon = it }
     }
+}
+
+private inline fun AccountSaveController.editFields(action: () -> Unit) {
+    if (!isSaving) action()
+}
+
+@Composable
+private fun AccountSaveStatus(failed: Boolean, saving: Boolean) {
+    if (failed || saving) {
+        Text(
+            text = stringResource(if (failed) R.string.account_save_failed else R.string.saving_account),
+            modifier = Modifier.padding(horizontal = 24.dp).testTag("account_save_status"),
+            style = UI.typo.b2.style(),
+        )
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun AccountBalanceHeader(
+    currencyCode: String,
+    includeInBalance: Boolean,
+    checkboxModifier: Modifier,
+    onCurrencyClick: () -> Unit,
+    onIncludeChange: (Boolean) -> Unit,
+) {
+    Spacer(Modifier.height(16.dp))
+    AccountCurrency(currencyCode = currencyCode, onClick = onCurrencyClick)
+    Spacer(Modifier.height(16.dp))
+    IvyCheckboxWithText(
+        modifier = checkboxModifier.padding(start = 16.dp),
+        text = stringResource(R.string.include_account),
+        checked = includeInBalance,
+        onCheckedChange = onIncludeChange,
+    )
 }
 
 private suspend fun save(
