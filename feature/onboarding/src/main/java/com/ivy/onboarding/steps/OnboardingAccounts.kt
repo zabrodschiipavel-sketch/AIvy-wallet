@@ -252,9 +252,7 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
         onEditAccount = onEditAccount,
-        dismiss = {
-            accountModalData = null
-        }
+        dismiss = { accountModalData = null }
     )
 }
 

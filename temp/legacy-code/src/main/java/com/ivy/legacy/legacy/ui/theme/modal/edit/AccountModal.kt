@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -207,7 +208,6 @@ fun BoxWithConstraintsScope.AccountModal(
                 AccountBalanceHeader(
                     currencyCode = currencyCode,
                     includeInBalance = includeInBalance,
-                    checkboxModifier = Modifier.align(Alignment.Start),
                     onCurrencyClick = { saveController.editFields { currencyModalVisible = true } },
                     onIncludeChange = { saveController.editFields { includeInBalance = it } },
                 )
@@ -239,7 +239,6 @@ fun BoxWithConstraintsScope.AccountModal(
         }
     }
 
-    val context = LocalContext.current
     CurrencyModal(
         title = stringResource(R.string.choose_currency),
         initialCurrency = IvyCurrency.fromCode(currencyCode),
@@ -247,12 +246,6 @@ fun BoxWithConstraintsScope.AccountModal(
         dismiss = { currencyModalVisible = false }
     ) {
         saveController.editFields { currencyCode = it }
-
-//        if (IvyCurrency.fromCode(it)?.isCrypto == true) {
-//            if (getCustomIconId(context = context, iconName = it, size = "m") != null) {
-//                icon = it
-//            }
-//        }
     }
 
     ChooseIconModal(
@@ -270,7 +263,7 @@ private inline fun AccountSaveController.editFields(action: () -> Unit) {
 }
 
 @Composable
-private fun AccountSaveStatus(failed: Boolean, saving: Boolean) {
+private fun ColumnScope.AccountSaveStatus(failed: Boolean, saving: Boolean) {
     if (failed || saving) {
         Text(
             text = stringResource(if (failed) R.string.account_save_failed else R.string.saving_account),
@@ -282,10 +275,9 @@ private fun AccountSaveStatus(failed: Boolean, saving: Boolean) {
 }
 
 @Composable
-private fun AccountBalanceHeader(
+private fun ColumnScope.AccountBalanceHeader(
     currencyCode: String,
     includeInBalance: Boolean,
-    checkboxModifier: Modifier,
     onCurrencyClick: () -> Unit,
     onIncludeChange: (Boolean) -> Unit,
 ) {
@@ -293,7 +285,7 @@ private fun AccountBalanceHeader(
     AccountCurrency(currencyCode = currencyCode, onClick = onCurrencyClick)
     Spacer(Modifier.height(16.dp))
     IvyCheckboxWithText(
-        modifier = checkboxModifier.padding(start = 16.dp),
+        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp),
         text = stringResource(R.string.include_account),
         checked = includeInBalance,
         onCheckedChange = onIncludeChange,

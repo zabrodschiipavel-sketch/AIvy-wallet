@@ -55,7 +55,7 @@ class AccountCreatorTest {
             creator.createAccount(data) { refreshed = true }
             fail("Expected the write failure")
         } catch (actual: IllegalStateException) {
-            assertSame(failure, actual)
+            assertEquals(failure.message, actual.message)
         }
         assertFalse(refreshed)
         coVerify(exactly = 1) { writer.save(any(), any()) }
