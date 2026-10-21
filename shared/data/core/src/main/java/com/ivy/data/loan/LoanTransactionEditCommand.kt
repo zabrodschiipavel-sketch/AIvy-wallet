@@ -2,6 +2,7 @@ package com.ivy.data.loan
 
 import androidx.room.withTransaction
 import com.ivy.base.model.LoanSaveResult
+import com.ivy.base.model.LoanRecordType
 import com.ivy.base.model.TransactionType
 import com.ivy.base.threading.DispatchersProvider
 import com.ivy.data.DataObserver
@@ -9,6 +10,7 @@ import com.ivy.data.DataWriteEvent
 import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.entity.TransactionEntity
 import com.ivy.data.repository.RepositoryMemoFactory
+import com.ivy.data.model.LoanType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -36,6 +38,7 @@ class LoanTransactionEditCommand @Inject constructor(
                 database.withTransaction {
                     validate(expected, updated)
                     writeAssociatedData()
+                    validateAssociatedWrites(updated)
                     database.writeTransactionDao.save(updated.copy(isSynced = false))
                 }
             }
@@ -77,5 +80,23 @@ class LoanTransactionEditCommand @Inject constructor(
         require(ownerAccount == expected.accountId) { "Loan and transaction accounts disagree" }
         val account = requireNotNull(database.accountDao.findById(updated.accountId))
         require(!account.isDeleted && (!account.archived || updated.accountId == expected.accountId))
+    }
+
+    private suspend fun validateAssociatedWrites(updated: TransactionEntity) {
+        val loan = requireNotNull(database.loanDao.findById(requireNotNull(updated.loanId)))
+        require(!loan.isDeleted)
+        if (updated.loanRecordId == null) {
+            require(loan.accountId == updated.accountId && loan.amount == updated.amount)
+            val type = if (updated.type == TransactionType.INCOME) LoanType.BORROW else LoanType.LEND
+            require(loan.type == type)
+        } else {
+            val record = requireNotNull(database.loanRecordDao.findById(updated.loanRecordId))
+            require(!record.isDeleted && record.loanId == loan.id)
+            require(record.accountId == updated.accountId && record.amount == updated.amount)
+            require(record.dateTime == updated.dateTime)
+            require(record.convertedAmount == null || record.convertedAmount.isFinite())
+            val incoming = (loan.type == LoanType.BORROW) == (record.loanRecordType == LoanRecordType.INCREASE)
+            require(updated.type == if (incoming) TransactionType.INCOME else TransactionType.EXPENSE)
+        }
     }
 }

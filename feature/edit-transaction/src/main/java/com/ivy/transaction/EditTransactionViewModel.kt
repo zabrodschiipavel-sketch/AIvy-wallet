@@ -21,7 +21,6 @@ import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.entity.TransactionEntity
-import com.ivy.data.loan.LoanTransactionEditCommand
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.Tag
@@ -37,9 +36,7 @@ import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
 import com.ivy.legacy.data.EditTransactionDisplayLoan
 import com.ivy.legacy.datamodel.Account
-import com.ivy.legacy.datamodel.toEntity
 import com.ivy.legacy.datamodel.temp.toDomain
-import com.ivy.legacy.datamodel.temp.toLegacyDomain
 import com.ivy.legacy.domain.deprecated.logic.AccountCreator
 import com.ivy.legacy.utils.computationThread
 import com.ivy.legacy.utils.ioThread
@@ -109,7 +106,6 @@ class EditTransactionViewModel @Inject constructor(
     private val accountByIdAct: AccountByIdAct,
     private val transactionRepo: TransactionRepository,
     private val transactionMapper: TransactionMapper,
-    private val loanTransactionEditCommand: LoanTransactionEditCommand,
     private val tagRepository: TagRepository,
     private val tagMapper: TagMapper,
     private val features: Features,
@@ -204,9 +200,11 @@ class EditTransactionViewModel @Inject constructor(
             )
 
             if (loadedTransaction().loanId != null) {
-                val snapshot = requireNotNull(loanTransactionEditCommand.snapshot(loadedTransaction().id))
+                val (snapshot, transaction) = requireNotNull(
+                    loanTransactionsLogic.transactionSnapshot(loadedTransaction().id)
+                )
                 expectedLoanTransaction = snapshot
-                loadedTransaction = snapshot.toLegacyDomain()
+                loadedTransaction = transaction
             }
 
             tags = tagList.await()
@@ -792,18 +790,9 @@ class EditTransactionViewModel @Inject constructor(
             categoryId = category?.id?.value,
             isSynced = false,
         )
-        // Preserve fields the legacy/domain round-trip discards, including attachments.
-        val updated = pending.toEntity().copy(
-            toAccountId = expected.toAccountId,
-            toAmount = expected.toAmount,
-            attachmentUrl = expected.attachmentUrl,
-        )
         closeAfterLoanSave = closeScreen
         loanSaveController.submit {
-            val result = loanTransactionEditCommand.save(expected, updated) {
-                loanTransactionsLogic.updateAssociatedLoanData(pending)
-            }
-            updated to result
+            loanTransactionsLogic.saveTransaction(expected, pending)
         }
     }
 

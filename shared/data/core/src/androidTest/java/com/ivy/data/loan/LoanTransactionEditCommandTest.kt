@@ -174,6 +174,39 @@ class LoanTransactionEditCommandTest {
         db.transactionDao.findAllForRestore(), db.tagAssociationDao.findAll(),
     )
 
+    @Test
+    fun requiresMatchingAssociatedWritesAndAllowsAtomicAccountMove() = runBlocking {
+        val other = account.copy(id = id(20), currency = "EUR")
+        db.writeAccountDao.save(other)
+        val before = graph()
+        val moved = transaction.copy(accountId = other.id)
+        expectInvalid { command.save(transaction, moved) {} }
+        expectInvalid { command.save(transaction, transaction.copy(amount = 200.0)) {} }
+        assertEquals(before, graph())
+        command.save(transaction, moved) { db.writeLoanDao.save(loan.copy(accountId = other.id)) }
+        assertEquals(moved, command.snapshot(transaction.id))
+        assertEquals(other.id, db.loanDao.findById(loan.id)!!.accountId)
+    }
+
+    @Test
+    fun rejectsDeletedParentsAndRecordOwnershipMismatch() = runBlocking {
+        db.writeLoanDao.save(loan.copy(isDeleted = true))
+        val deletedGraph = graph()
+        expectInvalid { command.save(transaction, transaction) { fail("callback") } }
+        assertEquals(deletedGraph, graph())
+        db.writeLoanDao.save(loan)
+        val repayment = transaction.copy(
+            type = TransactionType.EXPENSE, amount = 10.0, loanRecordId = record.id,
+        )
+        db.writeTransactionDao.save(repayment)
+        for (invalidRecord in listOf(record.copy(isDeleted = true), record.copy(loanId = id(88)))) {
+            db.writeLoanRecordDao.save(invalidRecord)
+            val before = graph()
+            expectInvalid { command.save(repayment, repayment) { fail("callback") } }
+            assertEquals(before, graph())
+        }
+    }
+
     private suspend fun observing(block: suspend Channel<List<Any>>.() -> Unit) = withTimeout(10_000) {
         coroutineScope {
             val events = Channel<List<Any>>(Channel.UNLIMITED)
