@@ -189,6 +189,17 @@ class LoanTransactionEditCommandTest {
     }
 
     @Test
+    fun permitsArchivedHistoryButRejectsNewArchivedAccount() = runBlocking {
+        db.writeAccountDao.save(account.copy(archived = true))
+        command.save(transaction, transaction) {}
+        val archived = account.copy(id = id(21), archived = true)
+        db.writeAccountDao.save(archived)
+        val before = graph()
+        expectInvalid { command.save(transaction, transaction.copy(accountId = archived.id)) { fail("callback") } }
+        assertEquals(before, graph())
+    }
+
+    @Test
     fun rejectsDeletedParentsAndRecordOwnershipMismatch() = runBlocking {
         db.writeLoanDao.save(loan.copy(isDeleted = true))
         val deletedGraph = graph()
