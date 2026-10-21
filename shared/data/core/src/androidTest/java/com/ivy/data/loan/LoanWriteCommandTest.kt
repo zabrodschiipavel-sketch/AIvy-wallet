@@ -205,6 +205,54 @@ class LoanWriteCommandTest {
         assertEquals(emptyList<LoanEntity>(), db.loanDao.findAllForRestore())
     }
 
+    @Test
+    fun saveRecordWithoutParentRejectsAndLeavesGraphUnchanged() = runBlocking {
+        val before = graph()
+        expectInvalid {
+            command.saveRecord(record, true, loan) {
+                fail("must not write")
+            }
+        }
+        assertEquals(before, graph())
+    }
+
+    @Test
+    fun saveWithDeletedAccountRejectsDependentsAndLeavesGraphUnchanged() = runBlocking {
+        seedLoanAndRecord()
+        db.writeAccountDao.save(account.copy(isDeleted = true))
+        val before = graph()
+        expectInvalid {
+            command.saveLoan(loan, false) {
+                fail("must not write loan")
+            }
+        }
+        expectInvalid {
+            command.saveRecord(record, false, loan) {
+                fail("must not write record")
+            }
+        }
+        assertEquals(before, graph())
+    }
+
+    @Test
+    fun saveRecordWithInvalidAmountsRejectsAndLeavesGraphUnchanged() = runBlocking {
+        db.writeLoanDao.save(loan)
+        val before = graph()
+        listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY).forEach { amount ->
+            expectInvalid {
+                command.saveRecord(record.copy(amount = amount), true, loan) {
+                    fail("must not write")
+                }
+            }
+        }
+        expectInvalid {
+            command.saveRecord(record.copy(convertedAmount = Double.NaN), true, loan) {
+                fail("must not write")
+            }
+        }
+        assertEquals(before, graph())
+    }
+
     private suspend fun seedLoanAndRecord() {
         db.writeLoanDao.save(loan)
         db.writeLoanRecordDao.save(record)
