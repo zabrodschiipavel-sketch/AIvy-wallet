@@ -1,5 +1,6 @@
 package com.ivy.transaction
 
+import com.ivy.base.model.AccountSaveResult
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -313,7 +314,6 @@ class EditTransactionViewModel @Inject constructor(
     @Suppress("CyclomaticComplexMethod")
     override fun onEvent(event: EditTransactionViewEvent) {
         when (event) {
-            is EditTransactionViewEvent.CreateAccount -> createAccount(event.data)
             is EditTransactionViewEvent.CreateCategory -> createCategory(event.data)
             EditTransactionViewEvent.Delete -> delete()
             EditTransactionViewEvent.Duplicate -> duplicate()
@@ -685,12 +685,8 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
-            }
-        }
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        return accountCreator.createAccount(data) { accounts = accountsAct(Unit) }
     }
 
     private fun save(closeScreen: Boolean = true) {

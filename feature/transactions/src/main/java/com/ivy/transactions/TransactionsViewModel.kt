@@ -1,5 +1,6 @@
 package com.ivy.transactions
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -305,11 +306,6 @@ class TransactionsViewModel @Inject constructor(
     override fun onEvent(event: TransactionsEvent) {
         when (event) {
             is TransactionsEvent.Delete -> delete(event.screen)
-            is TransactionsEvent.EditAccount -> editAccount(
-                event.screen,
-                event.account,
-                event.newBalance
-            )
 
             is TransactionsEvent.EditCategory -> editCategory(event.updatedCategory)
             is TransactionsEvent.NextMonth -> nextMonth(event.screen)
@@ -766,19 +762,13 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
-    private fun editAccount(
+    suspend fun editAccount(
         screen: TransactionsScreen,
         account: LegacyAccount,
         newBalance: Double,
-    ) {
-        viewModelScope.launch {
-            accountCreator.editAccount(account, newBalance) {
-                start(
-                    screen = screen,
-                    timePeriod = period.value,
-                    reset = false
-                )
-            }
+    ): AccountSaveResult {
+        return accountCreator.editAccount(account, newBalance) {
+            start(screen = screen, timePeriod = period.value, reset = false)
         }
     }
 

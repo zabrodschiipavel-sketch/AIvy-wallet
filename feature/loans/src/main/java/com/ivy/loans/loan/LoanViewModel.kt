@@ -1,5 +1,6 @@
 package com.ivy.loans.loan
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -167,9 +168,6 @@ class LoanViewModel @Inject constructor(
                 reorder(event.reorderedList)
             }
 
-            is LoanScreenEvent.OnCreateAccount -> {
-                createAccount(event.accountData)
-            }
 
             LoanScreenEvent.OnTogglePaidOffLoanVisibility -> {
                 updatePaidOffLoanVisibility()
@@ -356,14 +354,11 @@ class LoanViewModel @Inject constructor(
         pendingLoans = allLoans.filter { loan -> loan.percentPaid < 1.0 }.toImmutableList()
     }
 
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
-            }
-
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        TestIdlingResource.increment()
+        return try {
+            accountCreator.createAccount(data) { accounts = accountsAct(Unit) }
+        } finally {
             TestIdlingResource.decrement()
         }
     }

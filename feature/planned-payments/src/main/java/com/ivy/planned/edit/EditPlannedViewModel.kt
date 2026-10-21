@@ -1,5 +1,6 @@
 package com.ivy.planned.edit
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -227,7 +228,6 @@ class EditPlannedViewModel @Inject constructor(
             is EditPlannedScreenEvent.OnDescriptionChanged ->
                 updateDescription(event.newDescription)
 
-            is EditPlannedScreenEvent.OnCreateAccount -> createAccount(event.data)
             is EditPlannedScreenEvent.OnCreateCategory -> createCategory(event.data)
             is EditPlannedScreenEvent.OnAccountChanged -> updateAccount(event.newAccount)
             is EditPlannedScreenEvent.OnAmountChanged -> updateAmount(event.newAmount)
@@ -499,12 +499,8 @@ class EditPlannedViewModel @Inject constructor(
         }
     }
 
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
-            }
-        }
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        return accountCreator.createAccount(data) { accounts = accountsAct(Unit) }
     }
 
     private fun reset() {

@@ -1,5 +1,6 @@
 package com.ivy.loans.loandetails
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -98,6 +99,7 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
 
     UI(
         state = state,
+        onCreateAccount = viewModel::createAccount,
         onEventHandler = viewModel::onEvent
     )
 }
@@ -105,6 +107,8 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanDetailsScreenState,
+    onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
+        AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanDetailsScreenEvent) -> Unit = {}
 ) {
     val itemColor = state.loan?.color?.toComposeColor() ?: Gray
@@ -208,9 +212,7 @@ private fun BoxWithConstraintsScope.UI(
         onEventHandler.invoke(LoanModalEvent.OnEditLoanModal(loan, createLoanTransaction))
     }, dismiss = {
         onEventHandler.invoke(LoanModalEvent.OnDismissLoanModal)
-    }, onCreateAccount = { createAccountData ->
-        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData))
-    }, accounts = state.accounts, onPerformCalculations = {
+    }, onCreateAccount = onCreateAccount, accounts = state.accounts, onPerformCalculations = {
         onEventHandler.invoke(LoanModalEvent.PerformCalculation)
     }, dateTime = state.dateTime,
         onSetDate = {
@@ -230,9 +232,7 @@ private fun BoxWithConstraintsScope.UI(
         onEventHandler.invoke(LoanRecordModalEvent.OnDeleteLoanRecord(loanRecord))
     }, accounts = state.accounts, dismiss = {
         onEventHandler.invoke(LoanRecordModalEvent.OnDismissLoanRecord)
-    }, onCreateAccount = { createAccountData ->
-        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData))
-    },
+    }, onCreateAccount = onCreateAccount,
         dateTime = state.dateTime,
         onSetDate = {
             onEventHandler.invoke(LoanRecordModalEvent.OnChangeDate)

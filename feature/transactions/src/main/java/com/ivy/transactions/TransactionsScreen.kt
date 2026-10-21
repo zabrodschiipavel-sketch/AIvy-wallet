@@ -1,5 +1,6 @@
 package com.ivy.transactions
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -176,7 +177,7 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
             viewModel.onEvent(TransactionsEvent.EditCategory(it))
         },
         onEditAccount = { acc, newBalance ->
-            viewModel.onEvent(TransactionsEvent.EditAccount(screen, acc, newBalance))
+            viewModel.editAccount(screen, acc, newBalance)
         },
         onPayOrGet = { transaction ->
             viewModel.onEvent(TransactionsEvent.PayOrGet(screen, transaction))
@@ -237,7 +238,7 @@ private fun BoxWithConstraintsScope.UI(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onSetPeriod: (TimePeriod) -> Unit,
-    onEditAccount: (Account, Double) -> Unit,
+    onEditAccount: suspend (Account, Double) -> AccountSaveResult,
     onEditCategory: (Category) -> Unit,
     onDelete: () -> Unit,
     deleteModal1Visible: Boolean,
@@ -459,7 +460,7 @@ private fun BoxWithConstraintsScope.UI(
 
     AccountModal(
         modal = accountModalData,
-        onCreateAccount = { },
+        onCreateAccount = { AccountSaveResult.Saved },
         onEditAccount = onEditAccount,
         dismiss = {
             accountModalData = null
@@ -849,7 +850,7 @@ private fun BoxWithConstraintsScope.Preview_empty() {
             onPreviousMonth = {},
             onNextMonth = {},
             onDelete = {},
-            onEditAccount = { _, _ -> },
+            onEditAccount = { _, _ -> AccountSaveResult.Saved },
             onEditCategory = {},
             updateAccountNameConfirmation = {},
             enableDeletionButton = true,
@@ -897,7 +898,7 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
             onPreviousMonth = {},
             onNextMonth = {},
             onDelete = {},
-            onEditAccount = { _, _ -> },
+            onEditAccount = { _, _ -> AccountSaveResult.Saved },
             onEditCategory = {},
             updateAccountNameConfirmation = {},
             enableDeletionButton = true,
@@ -937,7 +938,7 @@ private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
             onPreviousMonth = {},
             onNextMonth = {},
             onDelete = {},
-            onEditAccount = { _, _ -> },
+            onEditAccount = { _, _ -> AccountSaveResult.Saved },
             onEditCategory = {},
             upcoming = persistentListOf(
                 Transaction(

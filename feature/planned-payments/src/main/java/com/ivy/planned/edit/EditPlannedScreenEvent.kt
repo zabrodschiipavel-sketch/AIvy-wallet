@@ -4,7 +4,6 @@ import com.ivy.base.model.TransactionType
 import com.ivy.data.model.Category
 import com.ivy.data.model.IntervalType
 import com.ivy.legacy.datamodel.Account
-import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateCategoryData
 import com.ivy.wallet.ui.theme.modal.RecurringRuleModalData
 import com.ivy.wallet.ui.theme.modal.edit.AccountModalData
@@ -31,7 +30,6 @@ sealed interface EditPlannedScreenEvent {
     data object OnDelete : EditPlannedScreenEvent
     data class OnEditCategory(val updatedCategory: Category) : EditPlannedScreenEvent
     data class OnCreateCategory(val data: CreateCategoryData) : EditPlannedScreenEvent
-    data class OnCreateAccount(val data: CreateAccountData) : EditPlannedScreenEvent
     data class OnCategoryModalVisible(val visible: Boolean) : EditPlannedScreenEvent
     data class OnDescriptionModalVisible(val visible: Boolean) : EditPlannedScreenEvent
     data class OnDeleteTransactionModalVisible(val visible: Boolean) : EditPlannedScreenEvent

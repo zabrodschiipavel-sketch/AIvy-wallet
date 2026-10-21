@@ -1,5 +1,6 @@
 package com.ivy.onboarding.viewmodel
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
@@ -139,10 +140,8 @@ class OnboardingViewModel @Inject constructor(
     override fun onEvent(event: OnboardingEvent) {
         viewModelScope.launch {
             when (event) {
-                is OnboardingEvent.CreateAccount -> createAccount(event.data)
-                is OnboardingEvent.CreateCategory -> createCategory(event.data)
-                is OnboardingEvent.EditAccount -> editAccount(event.account, event.newBalance)
-                is OnboardingEvent.EditCategory -> editCategory(event.updatedCategory)
+                    is OnboardingEvent.CreateCategory -> createCategory(event.data)
+                    is OnboardingEvent.EditCategory -> editCategory(event.updatedCategory)
                 is OnboardingEvent.ImportFinished -> importFinished(event.success)
                 OnboardingEvent.ImportSkip -> importSkip()
                 OnboardingEvent.LoginOfflineAccount -> loginOfflineAccount()
@@ -200,16 +199,14 @@ class OnboardingViewModel @Inject constructor(
     }
 
     // --------------------- Accounts ---------------------------------------------------------------
-    private suspend fun editAccount(account: Account, newBalance: Double) {
-        accountCreator.editAccount(account, newBalance) {
+    suspend fun editAccount(account: Account, newBalance: Double): AccountSaveResult {
+        return accountCreator.editAccount(account, newBalance) {
             _accounts.value = accountsWithBalance()
         }
     }
 
-    private suspend fun createAccount(data: CreateAccountData) {
-        accountCreator.createAccount(data) {
-            _accounts.value = accountsWithBalance()
-        }
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        return accountCreator.createAccount(data) { _accounts.value = accountsWithBalance() }
     }
 
     private suspend fun accountsWithBalance(): ImmutableList<AccountBalance> = ioThread {

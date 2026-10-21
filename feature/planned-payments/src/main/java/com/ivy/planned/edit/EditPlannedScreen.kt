@@ -1,5 +1,6 @@
 package com.ivy.planned.edit
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
@@ -65,6 +66,7 @@ fun BoxWithConstraintsScope.EditPlannedScreen(screen: EditPlannedScreen) {
     UI(
         screen = screen,
         state = uiState,
+        onCreateAccount = viewModel::createAccount,
         onEvent = viewModel::onEvent
     )
 }
@@ -79,6 +81,8 @@ fun BoxWithConstraintsScope.EditPlannedScreen(screen: EditPlannedScreen) {
 private fun BoxWithConstraintsScope.UI(
     screen: EditPlannedScreen,
     state: EditPlannedScreenState,
+    onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
+        AccountSaveResult = { AccountSaveResult.Saved },
     onEvent: (EditPlannedScreenEvent) -> Unit,
 ) {
     var titleTextFieldValue by remember(state.initialTitle) {
@@ -327,8 +331,8 @@ private fun BoxWithConstraintsScope.UI(
 
     AccountModal(
         modal = state.accountModalData,
-        onCreateAccount = { onEvent(EditPlannedScreenEvent.OnCreateAccount(it)) },
-        onEditAccount = { _, _ -> },
+        onCreateAccount = onCreateAccount,
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             onEvent(EditPlannedScreenEvent.OnAccountModalDataChanged(null))
         }

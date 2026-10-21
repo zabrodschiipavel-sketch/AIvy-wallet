@@ -1,5 +1,6 @@
 package com.ivy.wallet.ui.theme.modal
 
+import com.ivy.base.model.AccountSaveResult
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -87,7 +88,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     onDelete: (LoanRecord) -> Unit,
     dismiss: () -> Unit,
     accounts: List<Account> = emptyList(),
-    onCreateAccount: (CreateAccountData) -> Unit = {},
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
 ) {
     val initialRecord = modal?.loanRecord
 
@@ -344,7 +345,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             accountModalData = null
         }

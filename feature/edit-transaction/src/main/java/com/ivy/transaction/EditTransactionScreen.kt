@@ -1,5 +1,6 @@
 package com.ivy.transaction
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
@@ -175,9 +176,7 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         onDuplicate = {
             viewModel.onEvent(EditTransactionViewEvent.Duplicate)
         },
-        onCreateAccount = {
-            viewModel.onEvent(EditTransactionViewEvent.CreateAccount(it))
-        },
+        onCreateAccount = viewModel::createAccount,
         onExchangeRateChange = {
             viewModel.onEvent(EditTransactionViewEvent.UpdateExchangeRate(it))
         },
@@ -227,7 +226,7 @@ private fun BoxWithConstraintsScope.UI(
     onSetHasChanges: (hasChanges: Boolean) -> Unit,
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
-    onCreateAccount: (CreateAccountData) -> Unit,
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
     onExchangeRateChange: (Double?) -> Unit = { },
     onTagOperation: (EditTransactionViewEvent.TagEvent) -> Unit = {},
     loanData: EditTransactionDisplayLoan = EditTransactionDisplayLoan(),
@@ -543,7 +542,7 @@ private fun BoxWithConstraintsScope.UI(
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             accountModalData = null
         }
@@ -697,7 +696,7 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             onSetHasChanges = {},
             onDelete = {},
             onDuplicate = {},
-            onCreateAccount = { },
+            onCreateAccount = { AccountSaveResult.Saved },
             onSetDate = {},
             onSetTime = {},
             onSetTransactionType = {}

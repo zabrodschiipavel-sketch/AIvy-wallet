@@ -1,5 +1,6 @@
 package com.ivy.loans.loandetails
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -241,9 +242,6 @@ class LoanDetailsViewModel @Inject constructor(
                 )
             }
 
-            is LoanDetailsScreenEvent.OnCreateAccount -> {
-                createAccount(event.data)
-            }
 
             else -> {}
         }
@@ -583,14 +581,11 @@ class LoanDetailsViewModel @Inject constructor(
         createLoanTransaction.value = boolean
     }
 
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
-            accountCreator.createAccount(data) {
-                accounts.value = accountsAct(Unit)
-            }
-
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        TestIdlingResource.increment()
+        return try {
+            accountCreator.createAccount(data) { accounts.value = accountsAct(Unit) }
+        } finally {
             TestIdlingResource.decrement()
         }
     }

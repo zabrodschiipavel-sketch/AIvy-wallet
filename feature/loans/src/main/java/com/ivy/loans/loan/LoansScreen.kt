@@ -1,5 +1,6 @@
 package com.ivy.loans.loan
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -73,6 +74,7 @@ fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
     val state = viewModel.uiState()
     UI(
         state = state,
+        onCreateAccount = viewModel::createAccount,
         onEventHandler = viewModel::onEvent
     )
 }
@@ -80,6 +82,8 @@ fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanScreenState,
+    onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
+        AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanScreenEvent) -> Unit = {}
 ) {
     val nav = navigation()
@@ -191,9 +195,7 @@ private fun BoxWithConstraintsScope.UI(
     if (state.loanModalData != null) {
         LoanModal(
             accounts = state.accounts,
-            onCreateAccount = {
-                onEventHandler.invoke(LoanScreenEvent.OnCreateAccount(accountData = it))
-            },
+            onCreateAccount = onCreateAccount,
             modal = state.loanModalData,
             onCreateLoan = {
                 onEventHandler.invoke(LoanScreenEvent.OnLoanCreate(createLoanData = it))

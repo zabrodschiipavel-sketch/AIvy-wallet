@@ -1,5 +1,6 @@
 package com.ivy.wallet.ui.theme.modal
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -95,7 +96,7 @@ fun BoxWithConstraintsScope.LoanModal(
     onCreateLoan: (CreateLoanData) -> Unit,
     onEditLoan: (Loan, Boolean) -> Unit,
     accounts: List<Account> = emptyList(),
-    onCreateAccount: (CreateAccountData) -> Unit = {},
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
     onPerformCalculations: () -> Unit = {},
     dismiss: () -> Unit,
 ) {
@@ -335,7 +336,7 @@ fun BoxWithConstraintsScope.LoanModal(
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             accountModalData = null
         }

@@ -1,5 +1,6 @@
 package com.ivy.onboarding
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -47,6 +48,8 @@ fun BoxWithConstraintsScope.OnboardingScreen(screen: OnboardingScreen) {
         categorySuggestions = uiState.categorySuggestions,
         categories = uiState.categories,
 
+        onCreateAccount = viewModel::createAccount,
+        onEditAccount = { viewModel.editAccount(it.account, it.balance) },
         onEvent = viewModel::onEvent
 
     )
@@ -64,6 +67,8 @@ private fun BoxWithConstraintsScope.UI(
     categorySuggestions: ImmutableList<CreateCategoryData>,
     categories: ImmutableList<Category>,
 
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
+    onEditAccount: suspend (AccountBalance) -> AccountSaveResult = { AccountSaveResult.Saved },
     onEvent: (OnboardingEvent) -> Unit = {}
 ) {
     when (onboardingState) {
@@ -94,15 +99,8 @@ private fun BoxWithConstraintsScope.UI(
                 suggestions = accountSuggestions,
                 accounts = accounts,
 
-                onCreateAccount = { onEvent(OnboardingEvent.CreateAccount(it)) },
-                onEditAccount = { account, newBalance ->
-                    onEvent(
-                        OnboardingEvent.EditAccount(
-                            account,
-                            newBalance
-                        )
-                    )
-                },
+                onCreateAccount = onCreateAccount,
+                onEditAccount = { account, balance -> onEditAccount(AccountBalance(account, balance)) },
 
                 onDoneClick = { onEvent(OnboardingEvent.OnAddAccountsDone) },
                 onSkip = { onEvent(OnboardingEvent.OnAddAccountsSkip) }

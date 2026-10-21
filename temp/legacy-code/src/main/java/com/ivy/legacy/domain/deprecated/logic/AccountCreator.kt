@@ -1,6 +1,7 @@
 package com.ivy.legacy.domain.deprecated.logic
 
 import androidx.compose.ui.graphics.toArgb
+import com.ivy.base.model.AccountSaveResult
 import arrow.core.getOrElse
 import arrow.core.raise.either
 import com.ivy.data.account.AccountBalanceWriteCommand
@@ -88,7 +89,7 @@ class AccountCreator @Inject constructor(
             onRefreshUI()
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return AccountSaveResult.RefreshFailed
         }
         return AccountSaveResult.Saved

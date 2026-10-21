@@ -1,5 +1,6 @@
 package com.ivy.wallet.ui.theme.modal.edit
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +35,8 @@ import com.ivy.design.l0_system.style
 import com.ivy.domain.legacy.ui.IvyColorPicker
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.ui.account.AccountSaveController
 import com.ivy.legacy.utils.isNotNullOrBlank
 import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.selectEndTextFieldValue
@@ -48,6 +54,8 @@ import com.ivy.wallet.ui.theme.modal.IvyModal
 import com.ivy.wallet.ui.theme.modal.ModalAddSave
 import com.ivy.wallet.ui.theme.modal.ModalAmountSection
 import com.ivy.wallet.ui.theme.modal.ModalTitle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import java.util.UUID
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
@@ -65,8 +73,8 @@ data class AccountModalData(
 @Composable
 fun BoxWithConstraintsScope.AccountModal(
     modal: AccountModalData?,
-    onCreateAccount: (CreateAccountData) -> Unit,
-    onEditAccount: (Account, balance: Double) -> Unit,
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
+    onEditAccount: suspend (Account, balance: Double) -> AccountSaveResult,
     dismiss: () -> Unit,
 ) {
     val account = modal?.account
@@ -96,30 +104,55 @@ fun BoxWithConstraintsScope.AccountModal(
     }
 
     val forceNonZeroBalance = modal?.forceNonZeroBalance ?: false
+    val scope = rememberCoroutineScope()
+    val modalId = modal?.id
+    val currentId by rememberUpdatedState(modalId)
+    val currentDismiss by rememberUpdatedState(dismiss)
+    val refreshError = stringResource(R.string.account_saved_refresh_failed)
+    val appContext = LocalContext.current.applicationContext
+    val saveController = remember(modalId) {
+        AccountSaveController(
+            scope = CoroutineScope(scope.coroutineContext + Job(scope.coroutineContext[Job])),
+            isCurrent = { modalId != null && currentId == modalId },
+            onSaved = { result ->
+                if (result == AccountSaveResult.RefreshFailed) {
+                    Toast.makeText(appContext, refreshError, Toast.LENGTH_LONG).show()
+                }
+                currentDismiss()
+            },
+        )
+    }
+    DisposableEffect(saveController) {
+        onDispose { saveController.dispose() }
+    }
+    fun submit(balance: Double) {
+        saveController.submit {
+            save(
+                account = account,
+                nameTextFieldValue = nameTextFieldValue,
+                currency = currencyCode,
+                color = color,
+                icon = icon,
+                amount = balance,
+                includeInBalance = includeInBalance,
+                onCreateAccount = onCreateAccount,
+                onEditAccount = onEditAccount,
+            )
+        }
+    }
 
     IvyModal(
         id = modal?.id,
         visible = modal != null,
-        dismiss = dismiss,
+        dismiss = { if (!saveController.isSaving) dismiss() },
         shiftIfKeyboardShown = false,
         PrimaryAction = {
             ModalAddSave(
                 item = modal?.account,
-                enabled = nameTextFieldValue.text.isNotNullOrBlank() && (!forceNonZeroBalance || amount > 0)
+                enabled = !saveController.isSaving && nameTextFieldValue.text.isNotNullOrBlank() &&
+                    (!forceNonZeroBalance || amount > 0)
             ) {
-                save(
-                    account = account,
-                    nameTextFieldValue = nameTextFieldValue,
-                    currency = currencyCode,
-                    color = color,
-                    icon = icon,
-                    amount = amount,
-                    includeInBalance = includeInBalance,
-
-                    onCreateAccount = onCreateAccount,
-                    onEditAccount = onEditAccount,
-                    dismiss = dismiss
-                )
+                submit(amount)
             }
         }
     ) {
@@ -143,6 +176,17 @@ fun BoxWithConstraintsScope.AccountModal(
 
         Spacer(Modifier.height(24.dp))
 
+        if (saveController.failed || saveController.isSaving) {
+            Text(
+                text = stringResource(
+                    if (saveController.failed) R.string.account_save_failed else R.string.saving_account
+                ),
+                modifier = Modifier.padding(horizontal = 24.dp).testTag("account_save_status"),
+                style = UI.typo.b2.style(),
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+
         IconNameRow(
             hint = stringResource(R.string.account_name),
             defaultIcon = R.drawable.ic_custom_account_m,
@@ -152,9 +196,9 @@ fun BoxWithConstraintsScope.AccountModal(
             autoFocusKeyboard = modal?.autoFocusKeyboard ?: true,
 
             nameTextFieldValue = nameTextFieldValue,
-            setNameTextFieldValue = { nameTextFieldValue = it },
+            setNameTextFieldValue = { if (!saveController.isSaving) nameTextFieldValue = it },
             showChooseIconModal = {
-                chooseIconModalVisible = true
+                if (!saveController.isSaving) chooseIconModalVisible = true
             }
         )
 
@@ -162,7 +206,7 @@ fun BoxWithConstraintsScope.AccountModal(
 
         IvyColorPicker(
             selectedColor = color,
-            onColorSelected = { color = it }
+            onColorSelected = { if (!saveController.isSaving) color = it }
         )
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -174,7 +218,7 @@ fun BoxWithConstraintsScope.AccountModal(
                 AccountCurrency(
                     currencyCode = currencyCode
                 ) {
-                    currencyModalVisible = true
+                    if (!saveController.isSaving) currencyModalVisible = true
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -186,7 +230,7 @@ fun BoxWithConstraintsScope.AccountModal(
                     text = stringResource(R.string.include_account),
                     checked = includeInBalance
                 ) {
-                    includeInBalance = it
+                    if (!saveController.isSaving) includeInBalance = it
                 }
             },
             label = stringResource(R.string.enter_account_balance).uppercase(),
@@ -195,7 +239,7 @@ fun BoxWithConstraintsScope.AccountModal(
             amountPaddingTop = 40.dp,
             amountPaddingBottom = 40.dp,
         ) {
-            amountModalVisible = true
+            if (!saveController.isSaving) amountModalVisible = true
         }
     }
 
@@ -210,22 +254,9 @@ fun BoxWithConstraintsScope.AccountModal(
         showPlusMinus = true,
         dismiss = { amountModalVisible = false }
     ) { newAmount ->
-        amount = newAmount
-
-        if (modal?.adjustBalanceMode == true) {
-            save(
-                account = account,
-                nameTextFieldValue = nameTextFieldValue,
-                currency = currencyCode,
-                color = color,
-                icon = icon,
-                amount = newAmount,
-                includeInBalance = includeInBalance,
-
-                onCreateAccount = onCreateAccount,
-                onEditAccount = onEditAccount,
-                dismiss = dismiss
-            )
+        if (!saveController.isSaving) {
+            amount = newAmount
+            if (modal?.adjustBalanceMode == true) submit(newAmount)
         }
     }
 
@@ -236,7 +267,7 @@ fun BoxWithConstraintsScope.AccountModal(
         visible = currencyModalVisible,
         dismiss = { currencyModalVisible = false }
     ) {
-        currencyCode = it
+        if (!saveController.isSaving) currencyCode = it
 
 //        if (IvyCurrency.fromCode(it)?.isCrypto == true) {
 //            if (getCustomIconId(context = context, iconName = it, size = "m") != null) {
@@ -251,11 +282,11 @@ fun BoxWithConstraintsScope.AccountModal(
         color = color,
         dismiss = { chooseIconModalVisible = false }
     ) {
-        icon = it
+        if (!saveController.isSaving) icon = it
     }
 }
 
-private fun save(
+private suspend fun save(
     account: Account?,
     nameTextFieldValue: TextFieldValue,
     currency: String,
@@ -264,11 +295,10 @@ private fun save(
     amount: Double,
     includeInBalance: Boolean,
 
-    onCreateAccount: (CreateAccountData) -> Unit,
-    onEditAccount: (Account, balance: Double) -> Unit,
-    dismiss: () -> Unit
-) {
-    if (account != null) {
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
+    onEditAccount: suspend (Account, balance: Double) -> AccountSaveResult,
+): AccountSaveResult {
+    return if (account != null) {
         onEditAccount(
             account.copy(
                 name = nameTextFieldValue.text.trim(),
@@ -291,8 +321,6 @@ private fun save(
             )
         )
     }
-
-    dismiss()
 }
 
 @Composable
@@ -347,8 +375,8 @@ private fun Preview() {
                 baseCurrency = "BGN",
                 balance = 0.0
             ),
-            onCreateAccount = { },
-            onEditAccount = { _, _ -> }
+            onCreateAccount = { AccountSaveResult.Saved },
+            onEditAccount = { _, _ -> AccountSaveResult.Saved }
         ) {
         }
     }
