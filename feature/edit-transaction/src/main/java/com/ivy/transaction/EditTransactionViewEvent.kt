@@ -34,7 +34,8 @@ data class EditTransactionViewState(
     val backgroundProcessingStarted: Boolean,
     val customExchangeRateState: CustomExchangeRateState,
     val tags: ImmutableList<Tag>,
-    val transactionAssociatedTags: ImmutableList<TagId>
+    val transactionAssociatedTags: ImmutableList<TagId>,
+    val saveFailed: Boolean = false,
 )
 
 sealed interface EditTransactionViewEvent {
@@ -56,7 +57,6 @@ sealed interface EditTransactionViewEvent {
     data class CreateCategory(val data: CreateCategoryData) : EditTransactionViewEvent
     data class EditCategory(val updatedCategory: Category) : EditTransactionViewEvent
     data class Save(val closeScreen: Boolean) : EditTransactionViewEvent
-    data class SetHasChanges(val hasChangesValue: Boolean) : EditTransactionViewEvent
     data class UpdateExchangeRate(val exRate: Double?) : EditTransactionViewEvent
 
     sealed interface TagEvent : EditTransactionViewEvent {

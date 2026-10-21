@@ -117,6 +117,7 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         amount = uiState.amount,
         loanData = uiState.displayLoanHelper,
         backgroundProcessing = uiState.backgroundProcessingStarted,
+        saveFailed = uiState.saveFailed,
         customExchangeRateState = uiState.customExchangeRateState,
 
         categories = uiState.categories,
@@ -166,9 +167,6 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         onSave = {
             view.hideKeyboard()
             viewModel.onEvent(EditTransactionViewEvent.Save(it))
-        },
-        onSetHasChanges = {
-            viewModel.onEvent(EditTransactionViewEvent.SetHasChanges(it))
         },
         onDelete = {
             viewModel.onEvent(EditTransactionViewEvent.Delete)
@@ -223,7 +221,6 @@ private fun BoxWithConstraintsScope.UI(
     onEditCategory: (Category) -> Unit,
     onPayPlannedPayment: () -> Unit,
     onSave: (closeScreen: Boolean) -> Unit,
-    onSetHasChanges: (hasChanges: Boolean) -> Unit,
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
     onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
@@ -231,6 +228,7 @@ private fun BoxWithConstraintsScope.UI(
     onTagOperation: (EditTransactionViewEvent.TagEvent) -> Unit = {},
     loanData: EditTransactionDisplayLoan = EditTransactionDisplayLoan(),
     backgroundProcessing: Boolean = false,
+    saveFailed: Boolean = false,
     hasChanges: Boolean = false,
 
 ) {
@@ -294,11 +292,18 @@ private fun BoxWithConstraintsScope.UI(
             onChangeTransactionTypeModal = {
                 changeTransactionTypeModalVisible = true
             },
-            showDuplicateButton = true,
+            showDuplicateButton = !loanData.isLoan && !loanData.isLoanRecord,
             onDuplicate = onDuplicate
         )
 
         Spacer(Modifier.height(32.dp))
+
+        if (saveFailed) {
+            Text(
+                text = stringResource(R.string.loan_save_failed),
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
 
         Title(
             type = transactionType,
@@ -454,7 +459,6 @@ private fun BoxWithConstraintsScope.UI(
                         // has changes
                         ModalSave {
                             onSave(false)
-                            onSetHasChanges(false)
                         }
                     } else {
                         // no changes, pay
@@ -693,7 +697,6 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             onEditCategory = {},
             onPayPlannedPayment = {},
             onSave = {},
-            onSetHasChanges = {},
             onDelete = {},
             onDuplicate = {},
             onCreateAccount = { AccountSaveResult.Saved },
