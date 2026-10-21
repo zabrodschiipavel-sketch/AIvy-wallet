@@ -35,7 +35,7 @@ data class EditTransactionViewState(
     val customExchangeRateState: CustomExchangeRateState,
     val tags: ImmutableList<Tag>,
     val transactionAssociatedTags: ImmutableList<TagId>,
-    val saveFailed: Boolean = false,
+    val saveFailed: Boolean,
 )
 
 sealed interface EditTransactionViewEvent {

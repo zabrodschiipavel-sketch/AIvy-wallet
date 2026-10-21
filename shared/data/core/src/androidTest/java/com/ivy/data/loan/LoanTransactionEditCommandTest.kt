@@ -48,7 +48,12 @@ class LoanTransactionEditCommandTest {
     private val loan = LoanEntity("Loan", 100.0, LoanType.BORROW, accountId = id(1), id = id(2))
     private val record = LoanRecordEntity(id(2), 10.0, dateTime = Instant.EPOCH, accountId = id(1), id = id(3))
     private val transaction = TransactionEntity(
-        id(1), TransactionType.INCOME, 100.0, dateTime = Instant.EPOCH, loanId = id(2), id = id(4),
+        id(1),
+        TransactionType.INCOME,
+        100.0,
+        dateTime = Instant.EPOCH,
+        loanId = id(2),
+        id = id(4),
         attachmentUrl = "synthetic://attachment",
     )
 
@@ -75,9 +80,12 @@ class LoanTransactionEditCommandTest {
     fun commitsParentAndFinancialRowAndPublishesOutsideRoomLock() = runBlocking {
         observing {
             val updated = transaction.copy(amount = 150.0)
-            assertEquals(LoanSaveResult.Saved, command.save(transaction, updated) {
-                withContext(Dispatchers.Default) { db.writeLoanDao.save(loan.copy(amount = 150.0)) }
-            })
+            assertEquals(
+                LoanSaveResult.Saved,
+                command.save(transaction, updated) {
+                    withContext(Dispatchers.Default) { db.writeLoanDao.save(loan.copy(amount = 150.0)) }
+                }
+            )
             assertEquals(graph(), receive())
             assertEquals(updated, command.snapshot(transaction.id))
             assertFalse(tryReceive().isSuccess)
@@ -88,10 +96,12 @@ class LoanTransactionEditCommandTest {
     fun failureAtEachWriteRollsBackLoanRecordsFinancialRowAndTags() = runBlocking {
         for (table in listOf("loans", "loan_records", "transactions", null)) {
             val before = graph()
-            if (table != null) db.openHelper.writableDatabase.execSQL(
-                "CREATE TRIGGER injected_abort BEFORE INSERT ON $table " +
-                    "BEGIN SELECT RAISE(ABORT, 'injected failure'); END;"
-            )
+            if (table != null) {
+                db.openHelper.writableDatabase.execSQL(
+                    "CREATE TRIGGER injected_abort BEFORE INSERT ON $table " +
+                        "BEGIN SELECT RAISE(ABORT, 'injected failure'); END;"
+                )
+            }
             observing {
                 expectFailure {
                     command.save(transaction, transaction.copy(amount = 200.0)) {
@@ -110,7 +120,9 @@ class LoanTransactionEditCommandTest {
     @Test
     fun repaymentAndFinancialRowRollBackTogether() = runBlocking {
         val repayment = transaction.copy(
-            type = TransactionType.EXPENSE, amount = 10.0, loanRecordId = record.id,
+            type = TransactionType.EXPENSE,
+            amount = 10.0,
+            loanRecordId = record.id,
         )
         db.writeTransactionDao.save(repayment)
         val before = graph()
@@ -170,8 +182,11 @@ class LoanTransactionEditCommandTest {
     }
 
     private suspend fun graph(): List<Any> = listOf(
-        db.accountDao.findAll(), db.loanDao.findAllForRestore(), db.loanRecordDao.findAllForRestore(),
-        db.transactionDao.findAllForRestore(), db.tagAssociationDao.findAll(),
+        db.accountDao.findAll(),
+        db.loanDao.findAllForRestore(),
+        db.loanRecordDao.findAllForRestore(),
+        db.transactionDao.findAllForRestore(),
+        db.tagAssociationDao.findAll(),
     )
 
     @Test
@@ -207,7 +222,9 @@ class LoanTransactionEditCommandTest {
         assertEquals(deletedGraph, graph())
         db.writeLoanDao.save(loan)
         val repayment = transaction.copy(
-            type = TransactionType.EXPENSE, amount = 10.0, loanRecordId = record.id,
+            type = TransactionType.EXPENSE,
+            amount = 10.0,
+            loanRecordId = record.id,
         )
         db.writeTransactionDao.save(repayment)
         for (invalidRecord in listOf(record.copy(isDeleted = true), record.copy(loanId = id(88)))) {
@@ -227,17 +244,29 @@ class LoanTransactionEditCommandTest {
                     events.send(graph())
                 }
             }
-            try { events.block() } finally { collector.cancelAndJoin(); events.close() }
+            try { events.block() } finally {
+                collector.cancelAndJoin()
+                events.close()
+            }
         }
     }
 
     private suspend fun expectInvalid(block: suspend () -> Unit) {
-        try { block(); fail("Expected rejection") } catch (_: IllegalArgumentException) { /* validation */ }
+        try {
+            block()
+            fail("Expected rejection")
+        } catch (_: IllegalArgumentException) { /* validation */ }
     }
 
     private suspend fun expectFailure(block: suspend () -> Unit) {
-        try { block(); fail("Expected rollback") } catch (_: SQLiteException) { /* SQLite trigger */ }
-        catch (_: IllegalStateException) { /* fault after dependent write */ }
+        try {
+            block()
+            fail(
+                "Expected rollback"
+            )
+        } catch (_: SQLiteException) {
+            /* SQLite trigger */
+        } catch (_: IllegalStateException) { /* fault after dependent write */ }
     }
 
     private fun id(value: Int): UUID = UUID(0, value.toLong())

@@ -10,7 +10,7 @@ import com.ivy.legacy.utils.computationThread
 import java.util.UUID
 import javax.inject.Inject
 
-data class LoanTransactionsLogic @Inject constructor(
+class LoanTransactionsLogic @Inject constructor(
     val Loan: LTLoanMapper,
     val LoanRecord: LTLoanRecordMapper,
     private val editCommand: LoanTransactionEditCommand,

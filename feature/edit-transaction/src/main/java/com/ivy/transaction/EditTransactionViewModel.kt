@@ -530,8 +530,6 @@ class EditTransactionViewModel @Inject constructor(
             viewModelScope.launch {
                 updateCurrency(account = newAccount)
             }
-
-
             // update last selected account
             sharedPrefs.putString(SharedPrefs.LAST_SELECTED_ACCOUNT_ID, newAccount.id.toString())
 

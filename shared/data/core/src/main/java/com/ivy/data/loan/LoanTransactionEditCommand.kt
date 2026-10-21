@@ -1,16 +1,16 @@
 package com.ivy.data.loan
 
 import androidx.room.withTransaction
-import com.ivy.base.model.LoanSaveResult
 import com.ivy.base.model.LoanRecordType
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.base.model.TransactionType
 import com.ivy.base.threading.DispatchersProvider
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
 import com.ivy.data.db.IvyRoomDatabase
 import com.ivy.data.db.entity.TransactionEntity
-import com.ivy.data.repository.RepositoryMemoFactory
 import com.ivy.data.model.LoanType
+import com.ivy.data.repository.RepositoryMemoFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
