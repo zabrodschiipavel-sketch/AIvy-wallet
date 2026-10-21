@@ -41,3 +41,7 @@ Release signing reads `IVY_SIGNING_STORE_FILE`, `IVY_SIGNING_STORE_PASSWORD`, `I
 Workers use isolated Git worktrees, finite request/cost/time limits and exact configured model IDs. The primary checkout reviews and integrates their patches, resolves conflicts and runs the Android checks. Do not increase a failed session's lifetime budget or reset its accounting. Preserve partial changes and distinguish them from accepted results.
 
 The Harness gateway applies a conservative request-body size limit as well as a token/output cap. A session can hit that boundary before its request or monetary allowance ends. Start a separate bounded task from an integrated checkpoint for new work; a failed continuation is not evidence that the application change passed.
+
+The loan-write slice is verified with `:temp:legacy-code:testDebugUnitTest`, `:feature:loans:verifyPaparazziDebug`, the shared UI/core suites, Detekt and the data-core connected tests on each API. New creator tests must use the required legacy `LoanRecord.loanRecordType`; worker patches are compiled and corrected in the primary checkout before acceptance. Failed or truncated Muse reviews are retained in the session ledger and do not count as completed reviews.
+
+Inspect report coverage as well as the Compose gate exit code: incremental Kotlin compilation can emit a header-only production report for a module that contains UI. Complete fresh candidate coverage remains unverified. The local R8 gate result alone is not a frame-time measurement or proof of a clean build.

@@ -27,18 +27,21 @@ An in-progress checkpoint is not a release candidate. A worker declaring success
 8. P4-UX/PERF: Home/operations/accounts/more navigation, focused editor, shared components, accessibility and release-like Macrobenchmark/Perfetto. Measure on fixed 2K/20K fixtures; physical-device gates remain open until observed.
 9. P5-DELIVERY: remove upstream services/unused permissions/body logging, compatible dependency upgrades, external signing, verify update/backup recovery, publish the tested artifact explicitly.
 
-## Next data safety tasks
+## Next bounded tasks
 
-Next bounded data-safety tasks (still open):
+Next tasks (still open):
 
 | Task | Risk and reproducer | Acceptance and code to retire |
 |---|---|---|
-| Atomic loan/record create and edit | Loan creation writes the loan and refreshes before creating its associated transaction; record editing also performs financial and record writes separately. Reproduce a failure between those writes | One Room boundary and confirmed UI result for each compound command; injected failures/cancellation retain the original graph, repeated submission is guarded. Retire the independent write/refresh paths in the loan viewmodels and creators |
+| Complete fresh Compose reports | A local incremental build produced a header-only legacy production report despite compiled UI functions. Other report rows can still make the existing gate pass | Generate complete reports for the tested candidate and verify coverage from clean inputs; retire reliance on partial incremental snapshots. Preserve deliberately incomplete-report failures |
+| Atomic reverse loan edits and stale-edit protection | The transaction editor changes loan/record data before saving its financial row; loan-screen edits also derive the previous account from a screen snapshot. Inject a final transaction failure or interleave account changes | One Room boundary and checked preconditions for every entrypoint. Remove standalone writes in the reverse mappers and the stale previous-account calculation; verify rollback and currency-linked record preservation |
 | Historical orphan audit and explicit repair | Older deletion code could already have left dangling tag links, so existing backups may still fail reference validation. Actual damage to user data has not been established | Read-only inventory and a reviewable repair report; preserve a backup before an atomic repair of proven orphan links. Verify exact financial rows and a backup roundtrip; do not introduce a blanket association purge |
 
 Completed on 2026-10-21 at `f97ea3eb1`: confirmed account-modal save. All callers await persistence, failures retain the draft with an error, and duplicate taps/stale completions are guarded; superseded create/edit account events were removed. Fourteen new regression tests passed, alongside the affected snapshots and analyzers. API 28 UI checks covered onboarding and account-history editors, failed currency changes, corrected retry and a populated demo update with exact financial-row comparison. See the implementation status for artifact identity and limits. Process-death drafts and stable command identity remain open; this does not close stage 1.
 
-Completed on 2026-10-21 at `ecdadeeda`: ordinary transaction/tag cleanup. All four physical deletion entrypoints remove their matching tag links in one Room transaction; paid rule history, tag definitions and non-selected rows remain intact. The old orphan-link failure was reproduced before integration. All 77 Room tests passed on API 28 and 35, including 13 new cases; all 168 core JVM tests and Detekt passed. The updated R8 demo passed the Compose gate and a one-account API 28 update smoke check with exact row comparison. Existing orphan repair and compound loan writes remain open; stage 1 is still in progress.
+Completed on 2026-10-21 at `ecdadeeda`: ordinary transaction/tag cleanup. All four physical deletion entrypoints remove their matching tag links in one Room transaction; paid rule history, tag definitions and non-selected rows remain intact. The old orphan-link failure was reproduced before integration. All 77 Room tests passed on API 28 and 35, including 13 new cases; all 168 core JVM tests and Detekt passed. The updated R8 demo passed the Compose gate and a one-account API 28 update smoke check with exact row comparison. Existing orphan repair remains open; stage 1 is still in progress.
+
+Completed for the loan-screen scope on 2026-10-21 at `0e3ac27cf`: atomic create/edit, confirmed modal results, draft retention and duplicate-save guards. All 92 Room tests passed on API 28 and 35, including 15 new cases; all 252 focused JVM tests, six snapshot comparisons and Detekt passed. The R8 demo was updated on the populated synthetic AVD with exact prior-data comparison; a real failing linked insert retained the draft and rolled back, then retry/create/edit preserved identities and refreshed Home. The Compose gate passed, with an observed incremental report-coverage gap that remains a stage-0 task. Reverse transaction-editor writes, stale loan edits and durable command identity remain open; this does not close stage 1.
 
 ## Data contracts
 
