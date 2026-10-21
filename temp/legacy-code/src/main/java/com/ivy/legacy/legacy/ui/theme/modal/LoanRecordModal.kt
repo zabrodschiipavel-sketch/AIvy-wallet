@@ -49,7 +49,6 @@ import com.ivy.legacy.utils.getDefaultFIATCurrency
 import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.selectEndTextFieldValue
 import com.ivy.ui.R
-import com.ivy.ui.SaveController
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanRecordData
 import com.ivy.wallet.domain.deprecated.logic.model.EditLoanRecordData
@@ -129,6 +128,36 @@ fun BoxWithConstraintsScope.LoanRecordModal(
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
     var accountChangeConformationModal by remember { mutableStateOf(false) }
 
+    fun submit() {
+        val data = CreateLoanRecordData(
+            note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
+            amount = amount,
+            dateTime = dateTime,
+            interest = loanInterest,
+            account = selectedAcc,
+            createLoanRecordTransaction = createLoanRecordTrans,
+            loanRecordType = loanRecordType,
+        )
+        val editData = initialRecord?.let { original ->
+            EditLoanRecordData(
+                newLoanRecord = original.copy(
+                    note = data.note,
+                    amount = data.amount,
+                    dateTime = data.dateTime,
+                    interest = data.interest,
+                    accountId = data.account?.id,
+                    loanRecordType = data.loanRecordType,
+                ),
+                originalLoanRecord = original,
+                createLoanRecordTransaction = data.createLoanRecordTransaction,
+                reCalculateLoanAmount = reCalculate,
+            )
+        }
+        saveController.submit {
+            if (editData == null) onCreate(data) else onEdit(editData)
+        }
+    }
+
     IvyModal(
         id = modal?.id,
         visible = modal != null,
@@ -145,21 +174,7 @@ fun BoxWithConstraintsScope.LoanRecordModal(
                     modal.baseCurrency != currencyCode && currencyCode != modal.loanAccountCurrencyCode
 
                 if (!accountChangeConformationModal) {
-                    save(
-                        loanRecord = initialRecord,
-                        noteTextFieldValue = noteTextFieldValue,
-                        amount = amount,
-                        dateTime = dateTime,
-                        loanRecordInterest = loanInterest,
-                        selectedAccount = selectedAcc,
-                        createLoanRecordTransaction = createLoanRecordTrans,
-                        reCalculateAmount = reCalculate,
-                        loanRecordType = loanRecordType,
-
-                        onCreate = onCreate,
-                        onEdit = onEdit,
-                        controller = saveController,
-                    )
+                    submit()
                 }
             }
         }
@@ -238,7 +253,8 @@ fun BoxWithConstraintsScope.LoanRecordModal(
                     currencyCode = it.currency ?: getDefaultFIATCurrency().currencyCode
 
                     reCalculateVisible =
-                        initialRecord?.convertedAmount != null && selectedAcc != null && currencyCode == modal.baseCurrency
+                        initialRecord?.convertedAmount != null && selectedAcc != null &&
+                            currencyCode == modal.baseCurrency
                     // Unchecks the Recalculate Option if Recalculate Checkbox is not visible
                     reCalculate = !reCalculateVisible
 
@@ -372,72 +388,9 @@ fun BoxWithConstraintsScope.LoanRecordModal(
             accountChangeConformationModal = false
         }
     ) {
-        save(
-            loanRecord = initialRecord,
-            noteTextFieldValue = noteTextFieldValue,
-            amount = amount,
-            dateTime = dateTime,
-            loanRecordInterest = loanInterest,
-            selectedAccount = selectedAcc,
-            createLoanRecordTransaction = createLoanRecordTrans,
-            reCalculateAmount = reCalculate,
-            loanRecordType = loanRecordType,
-
-            onCreate = onCreate,
-            onEdit = onEdit,
-            controller = saveController,
-        )
+        submit()
 
         accountChangeConformationModal = false
-    }
-}
-
-private fun save(
-    loanRecord: LoanRecord?,
-    noteTextFieldValue: TextFieldValue,
-    amount: Double,
-    dateTime: Instant,
-    loanRecordInterest: Boolean = false,
-    createLoanRecordTransaction: Boolean = false,
-    selectedAccount: Account? = null,
-    reCalculateAmount: Boolean = false,
-    loanRecordType: LoanRecordType,
-
-    onCreate: suspend (CreateLoanRecordData) -> LoanSaveResult,
-    onEdit: suspend (EditLoanRecordData) -> LoanSaveResult,
-    controller: SaveController<LoanSaveResult>
-) {
-    controller.submit {
-        if (loanRecord != null) {
-            val record = loanRecord.copy(
-                note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
-                amount = amount,
-                dateTime = dateTime,
-                interest = loanRecordInterest,
-                accountId = selectedAccount?.id,
-                loanRecordType = loanRecordType
-            )
-            onEdit(
-                EditLoanRecordData(
-                    newLoanRecord = record,
-                    originalLoanRecord = loanRecord,
-                    createLoanRecordTransaction = createLoanRecordTransaction,
-                    reCalculateLoanAmount = reCalculateAmount,
-                )
-            )
-        } else {
-            onCreate(
-                CreateLoanRecordData(
-                    note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
-                    amount = amount,
-                    dateTime = dateTime,
-                    interest = loanRecordInterest,
-                    account = selectedAccount,
-                    createLoanRecordTransaction = createLoanRecordTransaction,
-                    loanRecordType = loanRecordType
-                )
-            )
-        }
     }
 }
 

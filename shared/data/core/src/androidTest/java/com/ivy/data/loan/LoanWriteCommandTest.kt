@@ -314,7 +314,7 @@ class LoanWriteCommandTest {
 
     private suspend fun expectFailure(block: suspend () -> Unit) {
         try {
-            block();
+            block()
             fail("Expected failure")
         } catch (_: SQLiteException) {
             // Trigger reached a real SQLite write.
@@ -325,7 +325,7 @@ class LoanWriteCommandTest {
 
     private suspend fun expectInvalid(block: suspend () -> Unit) {
         try {
-            block();
+            block()
             fail("Expected invalid command")
         } catch (_: IllegalArgumentException) {
             // Validation must happen inside the transaction, before writes.

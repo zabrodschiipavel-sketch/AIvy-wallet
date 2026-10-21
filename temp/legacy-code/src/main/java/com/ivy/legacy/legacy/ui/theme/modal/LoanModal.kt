@@ -54,7 +54,6 @@ import com.ivy.legacy.utils.isNotNullOrBlank
 import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.selectEndTextFieldValue
 import com.ivy.ui.R
-import com.ivy.ui.SaveController
 import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
@@ -73,7 +72,6 @@ import com.ivy.wallet.ui.theme.modal.edit.IconNameRow
 import com.ivy.wallet.ui.theme.toComposeColor
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.LocalDateTime
 import java.util.UUID
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
@@ -148,6 +146,33 @@ fun BoxWithConstraintsScope.LoanModal(
 
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
 
+    fun submit() {
+        val data = CreateLoanData(
+            name = nameTextFieldValue.text.trim(),
+            type = type,
+            amount = amount,
+            color = color,
+            icon = icon,
+            account = selectedAcc,
+            createLoanTransaction = createLoanTrans,
+            dateTime = dateTime,
+            note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
+        )
+        val updatedLoan = loan?.copy(
+            name = data.name,
+            dateTime = data.dateTime,
+            note = data.note,
+            type = data.type,
+            amount = data.amount,
+            color = data.color.toArgb(),
+            icon = data.icon,
+            accountId = data.account?.id,
+        )
+        saveController.submit {
+            if (updatedLoan == null) onCreateLoan(data) else onEditLoan(updatedLoan, data.createLoanTransaction)
+        }
+    }
+
     IvyModal(
         id = modal?.id,
         visible = modal != null,
@@ -157,7 +182,8 @@ fun BoxWithConstraintsScope.LoanModal(
             ModalAddSave(
                 item = modal?.loan,
                 // enabled = nameTextFieldValue.text.isNotNullOrBlank() && amount > 0 && ((createLoanTrans && selectedAcc != null) || !createLoanTrans)
-                enabled = !saveController.isSaving && nameTextFieldValue.text.isNotNullOrBlank() && amount > 0 && selectedAcc != null
+                enabled = !saveController.isSaving && nameTextFieldValue.text.isNotNullOrBlank() &&
+                    amount > 0 && selectedAcc != null
             ) {
                 accountChangeModal =
                     loan != null && modal.selectedAccount != null && currencyCode != (
@@ -166,22 +192,7 @@ fun BoxWithConstraintsScope.LoanModal(
                         )
 
                 if (!accountChangeModal) {
-                    save(
-                        loan = loan,
-                        nameTextFieldValue = nameTextFieldValue,
-                        dateTime = dateTime,
-                        noteTextFieldValue = noteTextFieldValue,
-                        type = type,
-                        color = color,
-                        icon = icon,
-                        amount = amount,
-                        selectedAccount = selectedAcc,
-                        createLoanTransaction = createLoanTrans,
-
-                        onCreateLoan = onCreateLoan,
-                        onEditLoan = onEditLoan,
-                        controller = saveController
-                    )
+                    submit()
                 }
             }
         }
@@ -371,22 +382,7 @@ fun BoxWithConstraintsScope.LoanModal(
         }
     ) {
         onPerformCalculations()
-        save(
-            loan = loan,
-            nameTextFieldValue = nameTextFieldValue,
-            dateTime = dateTime,
-            noteTextFieldValue = noteTextFieldValue,
-            type = type,
-            color = color,
-            icon = icon,
-            amount = amount,
-            selectedAccount = selectedAcc,
-            createLoanTransaction = createLoanTrans,
-
-            onCreateLoan = onCreateLoan,
-            onEditLoan = onEditLoan,
-            controller = saveController
-        )
+        submit()
         accountChangeModal = false
     }
 }
@@ -608,55 +604,6 @@ private fun RowScope.SelectorButton(
             textAlign = TextAlign.Center
         )
     )
-}
-
-private fun save(
-    loan: Loan?,
-    nameTextFieldValue: TextFieldValue,
-    dateTime: LocalDateTime,
-    noteTextFieldValue: TextFieldValue,
-    type: LoanType,
-    color: Color,
-    icon: String?,
-    amount: Double,
-    selectedAccount: Account? = null,
-    createLoanTransaction: Boolean = false,
-
-    onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult,
-    onEditLoan: suspend (Loan, Boolean) -> LoanSaveResult,
-    controller: SaveController<LoanSaveResult>
-) {
-    controller.submit {
-        if (loan != null) {
-            onEditLoan(
-                loan.copy(
-                    name = nameTextFieldValue.text.trim(),
-                    dateTime = dateTime,
-                    note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value,
-                    type = type,
-                    amount = amount,
-                    color = color.toArgb(),
-                    icon = icon,
-                    accountId = selectedAccount?.id
-                ),
-                createLoanTransaction
-            )
-        } else {
-            onCreateLoan(
-                CreateLoanData(
-                    name = nameTextFieldValue.text.trim(),
-                    type = type,
-                    amount = amount,
-                    color = color,
-                    icon = icon,
-                    account = selectedAccount,
-                    createLoanTransaction = createLoanTransaction,
-                    dateTime = dateTime,
-                    note = NotBlankTrimmedString.from(noteTextFieldValue.text).getOrNull()?.value
-                )
-            )
-        }
-    }
 }
 
 @Preview

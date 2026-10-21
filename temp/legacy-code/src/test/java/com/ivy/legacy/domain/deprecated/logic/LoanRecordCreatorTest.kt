@@ -1,4 +1,6 @@
-package com.ivy.wallet.domain.deprecated.logic
+package com.ivy.legacy.domain.deprecated.logic
+
+import com.ivy.wallet.domain.deprecated.logic.LoanRecordCreator
 
 import com.ivy.base.model.LoanRecordType
 import com.ivy.base.model.LoanSaveResult

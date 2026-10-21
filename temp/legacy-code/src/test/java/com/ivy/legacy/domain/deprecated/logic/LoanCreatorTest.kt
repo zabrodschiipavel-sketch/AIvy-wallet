@@ -1,4 +1,6 @@
-package com.ivy.wallet.domain.deprecated.logic
+package com.ivy.legacy.domain.deprecated.logic
+
+import com.ivy.wallet.domain.deprecated.logic.LoanCreator
 
 import androidx.compose.ui.graphics.Color
 import com.ivy.base.model.LoanSaveResult
