@@ -192,7 +192,9 @@ class TransactionDeletionTest {
             transaction(2).copy(dateTime = null, dueDate = Instant.EPOCH, recurringRuleId = id(70)),
             transaction(3).copy(dateTime = null, recurringRuleId = id(70), isDeleted = true),
             transaction(4).copy(recurringRuleId = id(70), paidForDateTime = Instant.EPOCH),
-            transaction(5).copy(accountId = id(91), dateTime = null, recurringRuleId = id(71)),
+            transaction(5).copy(
+                accountId = id(91), dateTime = null, dueDate = Instant.EPOCH, recurringRuleId = id(71),
+            ),
             transaction(6).copy(type = TransactionType.TRANSFER, toAccountId = id(91), toAmount = 6.0),
             transaction(7).copy(
                 accountId = id(91), type = TransactionType.TRANSFER, toAccountId = id(90), toAmount = 7.0,
