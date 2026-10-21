@@ -19,6 +19,7 @@ import com.ivy.wallet.domain.pure.util.nextOrderNum
 import java.util.UUID
 import javax.inject.Inject
 import com.ivy.legacy.datamodel.Account as LegacyAccount
+import kotlin.coroutines.cancellation.CancellationException
 
 class AccountCreator @Inject constructor(
     private val accountLogic: WalletAccountLogic,
@@ -26,11 +27,10 @@ class AccountCreator @Inject constructor(
     private val accountWrite: AccountBalanceWriteCommand,
     private val currencyRepository: CurrencyRepository,
 ) {
-
     suspend fun createAccount(
         data: CreateAccountData,
         onRefreshUI: suspend () -> Unit
-    ) {
+    ): AccountSaveResult {
         ioThread {
             require(data.balance.isFinite()) { "Balance must be finite" }
             accountWrite.save(account = {
@@ -51,14 +51,14 @@ class AccountCreator @Inject constructor(
             })
         }
 
-        onRefreshUI()
+        return runRefresh(onRefreshUI)
     }
 
     suspend fun editAccount(
         legacyAccount: LegacyAccount,
         newBalance: Double,
         onRefreshUI: suspend () -> Unit
-    ) {
+    ): AccountSaveResult {
         val updatedLegacyAccount = legacyAccount.copy(
             isSynced = false
         )
@@ -80,6 +80,17 @@ class AccountCreator @Inject constructor(
             })
         }
 
-        onRefreshUI()
+        return runRefresh(onRefreshUI)
+    }
+
+    private suspend fun runRefresh(onRefreshUI: suspend () -> Unit): AccountSaveResult {
+        try {
+            onRefreshUI()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return AccountSaveResult.RefreshFailed
+        }
+        return AccountSaveResult.Saved
     }
 }
