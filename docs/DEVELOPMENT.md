@@ -62,4 +62,12 @@ Repair creates an exclusive, verified pre-repair SQLite backup and performs the 
 
 Backup, repaired copy and report paths must be new, with existing parent directories. Existing SQLite sidecars also prevent reuse of a destination. Output publication uses a same-volume hard link, requiring a filesystem that supports it, such as NTFS or ext4. A publication failure leaves the verified backup available. The outputs are SQLite files for developer maintenance; recovery UI integration remains roadmap work.
 
-The schema-131 synthetic acceptance exported the repaired copy through the existing API-28 application, then imported the resulting Ivy Backup as an identical merge. Schema and every row matched after import, and the original AVD database was restored exactly. This covers physical orphan links; tombstone policy and restoration into an empty application remain separate acceptance work.
+The schema-131 synthetic acceptance exported the repaired copy through the existing API-28 application, then imported the resulting Ivy Backup as an identical merge. Schema and every row matched after import, and the original AVD database was restored exactly. This covers physical orphan links; reviewed application recovery remains roadmap work.
+
+## Active backup and explicit deletion
+
+Export and merge normalization share `BackupActiveRecords.activeRecords()`. An association to a tag or transaction explicitly marked deleted in that payload is excluded from the active archive. The source database is never changed by this filter. Links whose owners are physically absent or ambiguous remain validation errors; a destination tombstone alone is insufficient proof. Conflicting live/deleted copies of one identity fail before writes.
+
+`omittedDeletedTagAssociations` is optional diagnostic metadata with a default of zero. It records active associations omitted because of explicit owner deletion, survives repeated normalization and appears in the import warning. It must be nonnegative and cannot bypass reference validation. Old archives retain their existing decoding path. Backups contain the active wallet; they do not preserve raw tombstone history. Keep raw snapshots for reviewed maintenance and recovery.
+
+The source `83dfa84a2` regression cohort contains 183 core JVM cases and 106 connected Room cases on each API 28/35. The new Room cases restore a complete active backup into empty Room, preserve manual rates/preferences, repeat import without duplication and verify rollback for unknown references. Its development R8 APK also passed a real populated update/export/reimport smoke check; evidence is in `outputs/backup-tombstones-83dfa84a2/`.
