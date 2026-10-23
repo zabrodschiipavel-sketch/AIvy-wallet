@@ -29,6 +29,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class BackupDataUseCaseAndroidTest {
@@ -407,6 +408,93 @@ class BackupDataUseCaseAndroidTest {
             exported.delete()
         }
     }
+
+    @Test
+    fun tombstoneExportRestoresCompleteActiveWalletIntoEmptyRoom() = runBlocking {
+        val json = KotlinxSerializationModule.provideJson()
+        val payload = completeRestorePayload()
+        useCase.importJson(json.encodeToString(payload)).shouldBeSuccessful()
+        val legacy = withDeletedTagOwners(payload)
+        db.writeTagDao.save(legacy.tags.last())
+        db.writeTransactionDao.save(legacy.transactions.last())
+        db.writeTagAssociationDao.save(legacy.tagAssociations.drop(1))
+        val original = rawBackupGraph()
+        val active = json.decodeFromString<IvyWalletCompleteData>(useCase.generateJsonBackup())
+        org.junit.Assert.assertEquals(3, active.omittedDeletedTagAssociations)
+        org.junit.Assert.assertEquals(payload.transactions, active.transactions)
+        org.junit.Assert.assertEquals(payload.tags, active.tags)
+        org.junit.Assert.assertEquals(payload.tagAssociations, active.tagAssociations)
+        val archive = tempAndroidFile("tombstone-backup", ".zip")
+        try {
+            useCase.exportToFile(archive.toUri())
+            org.junit.Assert.assertEquals(original, rawBackupGraph())
+            closeDb()
+            createDb()
+            val restored = useCase.importBackupFile(archive.toUri(), onProgress = {})
+            restored.shouldBeSuccessful()
+            org.junit.Assert.assertTrue(restored.warnings.any { it.startsWith("3 tag associations") })
+            val after = json.decodeFromString<IvyWalletCompleteData>(useCase.generateJsonBackup())
+            org.junit.Assert.assertEquals(active.copy(omittedDeletedTagAssociations = 0), after)
+            val first = rawBackupGraph()
+            val repeated = useCase.importBackupFile(archive.toUri(), onProgress = {})
+            repeated.shouldBeSuccessful()
+            org.junit.Assert.assertEquals(0, repeated.transactionsImported)
+            org.junit.Assert.assertEquals(first, rawBackupGraph())
+        } finally {
+            archive.delete()
+        }
+    }
+
+    @Test
+    fun rawTombstonesAreReportedButUnknownReferencesStillRollback() = runBlocking {
+        val json = KotlinxSerializationModule.provideJson()
+        val legacy = withDeletedTagOwners(completeRestorePayload())
+        val result = useCase.importJson(json.encodeToString(legacy))
+        result.shouldBeSuccessful()
+        org.junit.Assert.assertTrue(result.warnings.any { it.startsWith("3 tag associations") })
+        org.junit.Assert.assertEquals(1, db.tagAssociationDao.findAll().size)
+        val before = rawBackupGraph()
+        val failure = runCatching {
+            useCase.importJson(json.encodeToString(legacy.copy(tags = emptyList())))
+        }.exceptionOrNull()
+        org.junit.Assert.assertNotNull(failure)
+        org.junit.Assert.assertTrue(
+            generateSequence(failure) { it.cause }.any { it.message.orEmpty().contains("Dangling tag association") }
+        )
+        org.junit.Assert.assertEquals(before, rawBackupGraph())
+    }
+
+    private fun withDeletedTagOwners(payload: IvyWalletCompleteData): IvyWalletCompleteData {
+        val tag = payload.tags.single()
+        val transaction = payload.transactions.single()
+        val deletedTag = tag.copy(id = UUID.randomUUID(), isDeleted = true)
+        val deletedTransaction = transaction.copy(id = UUID.randomUUID(), isDeleted = true)
+        val association = payload.tagAssociations.single()
+        return payload.copy(
+            tags = payload.tags + deletedTag,
+            transactions = payload.transactions + deletedTransaction,
+            tagAssociations = payload.tagAssociations + listOf(
+                association.copy(tagId = deletedTag.id),
+                association.copy(associatedId = deletedTransaction.id),
+                association.copy(tagId = deletedTag.id, associatedId = deletedTransaction.id),
+            ),
+        )
+    }
+
+    private suspend fun rawBackupGraph(): List<Any?> = listOf(
+        db.accountDao.findAll() + db.accountDao.findAll(deleted = true),
+        db.categoryDao.findAll() + db.categoryDao.findAll(deleted = true),
+        db.transactionDao.findAllForRestore(),
+        db.loanDao.findAllForRestore(),
+        db.loanRecordDao.findAllForRestore(),
+        db.plannedPaymentRuleDao.findAllForRestore(),
+        db.budgetDao.findAllForRestore(),
+        db.settingsDao.findAll(),
+        db.tagDao.findAll(),
+        db.tagAssociationDao.findAll(),
+        db.exchangeRatesDao.findAllManuallyOverridden(),
+        db.restorePreferencesDao.getPending(),
+    )
 
     private suspend fun backupTestCase(version: String) {
         importBackupZipTestCase(version)

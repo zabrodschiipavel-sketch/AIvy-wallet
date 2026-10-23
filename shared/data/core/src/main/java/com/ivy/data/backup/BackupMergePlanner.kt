@@ -101,6 +101,10 @@ internal object BackupMergePlanner {
         if (incoming.transactions.size != data.transactions.size) {
             warnings += "Legacy deleted transactions were skipped."
         }
+        if (data.omittedDeletedTagAssociations > 0) {
+            warnings += "${data.omittedDeletedTagAssociations} tag associations were excluded because " +
+                "their tag or transaction was explicitly deleted."
+        }
 
         return BackupMergePlan(
             additions = IvyWalletCompleteData(
@@ -208,19 +212,20 @@ internal object BackupMergePlanner {
 
     private fun normalize(data: IvyWalletCompleteData): IvyWalletCompleteData {
         val baseCurrency = data.settings.singleOrNull()?.currency
-        return data.copy(
-            accounts = data.accounts.filterNot { it.isDeleted }.map {
+        val active = data.activeRecords()
+        return active.copy(
+            accounts = active.accounts.map {
                 it.copy(currency = it.currency ?: baseCurrency, isSynced = false)
             },
-            categories = data.categories.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            budgets = data.budgets.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            loans = data.loans.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            loanRecords = data.loanRecords.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            plannedPaymentRules = data.plannedPaymentRules.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            transactions = data.transactions.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            settings = data.settings.filterNot { it.isDeleted }.map { it.copy(isSynced = false) },
-            tags = data.tags.filterNot { it.isDeleted }.map { it.copy(lastSyncedTime = Instant.EPOCH) },
-            tagAssociations = data.tagAssociations.filterNot { it.isDeleted }.map {
+            categories = active.categories.map { it.copy(isSynced = false) },
+            budgets = active.budgets.map { it.copy(isSynced = false) },
+            loans = active.loans.map { it.copy(isSynced = false) },
+            loanRecords = active.loanRecords.map { it.copy(isSynced = false) },
+            plannedPaymentRules = active.plannedPaymentRules.map { it.copy(isSynced = false) },
+            transactions = active.transactions.map { it.copy(isSynced = false) },
+            settings = active.settings.map { it.copy(isSynced = false) },
+            tags = active.tags.map { it.copy(lastSyncedTime = Instant.EPOCH) },
+            tagAssociations = active.tagAssociations.map {
                 it.copy(lastSyncedTime = Instant.EPOCH)
             },
         )

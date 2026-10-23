@@ -90,38 +90,26 @@ class BackupDataUseCase @Inject constructor(
             check(it.mkdir()) { "Could not create backup directory" }
         }
 
-    private suspend fun snapshot(forRestore: Boolean = false): IvyWalletCompleteData = IvyWalletCompleteData(
+    private suspend fun snapshot(): IvyWalletCompleteData = IvyWalletCompleteData(
         formatVersion = 2,
-        accounts = accountDao.findAll() + if (forRestore) accountDao.findAll(deleted = true) else emptyList(),
-        budgets = if (forRestore) budgetDao.findAllForRestore() else budgetDao.findAll().filterNot { it.isDeleted },
-        categories = categoryDao.findAll() + if (forRestore) categoryDao.findAll(deleted = true) else emptyList(),
-        loanRecords = if (forRestore) {
-            loanRecordDao.findAllForRestore()
-        } else {
-            loanRecordDao.findAll().filterNot { it.isDeleted }
-        },
-        loans = if (forRestore) loanDao.findAllForRestore() else loanDao.findAll().filterNot { it.isDeleted },
-        plannedPaymentRules = if (forRestore) {
-            plannedPaymentRuleDao.findAllForRestore()
-        } else {
-            plannedPaymentRuleDao.findAll().filterNot { it.isDeleted }
-        },
-        settings = settingsDao.findAll().filter { forRestore || !it.isDeleted },
-        transactions = if (forRestore) {
-            transactionDao.findAllForRestore()
-        } else {
-            transactionDao.findAll().filterNot { it.isDeleted }
-        },
+        accounts = accountDao.findAll() + accountDao.findAll(deleted = true),
+        budgets = budgetDao.findAllForRestore(),
+        categories = categoryDao.findAll() + categoryDao.findAll(deleted = true),
+        loanRecords = loanRecordDao.findAllForRestore(),
+        loans = loanDao.findAllForRestore(),
+        plannedPaymentRules = plannedPaymentRuleDao.findAllForRestore(),
+        settings = settingsDao.findAll(),
+        transactions = transactionDao.findAllForRestore(),
         sharedPrefs = getSharedPrefsData(),
-        tags = tagsReader.findAll().filter { forRestore || !it.isDeleted },
-        tagAssociations = tagAssociationReader.findAll().filter { forRestore || !it.isDeleted },
+        tags = tagsReader.findAll(),
+        tagAssociations = tagAssociationReader.findAll(),
         manualExchangeRates = database.exchangeRatesDao.findAllManuallyOverridden(),
     )
 
     suspend fun generateJsonBackup(): String = withContext(dispatchersProvider.io) {
         recovery.withRestoreLock {
             recovery.recoverPendingLocked()
-            json.encodeToString(transactionRunner.inTransaction { snapshot() })
+            json.encodeToString(transactionRunner.inTransaction { snapshot().activeRecords() })
         }
     }
 
@@ -175,7 +163,7 @@ class BackupDataUseCase @Inject constructor(
                 recovery.recoverPendingLocked()
                 val plan = try {
                     transactionRunner.inTransaction {
-                        val plan = BackupMergePlanner.plan(incoming, snapshot(forRestore = true))
+                        val plan = BackupMergePlanner.plan(incoming, snapshot())
                         val data = plan.additions
                         database.writeAccountDao.saveMany(data.accounts)
                         categoryWriter.saveMany(data.categories)
