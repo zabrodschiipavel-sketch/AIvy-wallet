@@ -10,6 +10,7 @@ Run from the repository root (Windows uses `gradlew.bat`):
 
 ```sh
 python -m unittest discover -s scripts -p quality_tests.py -v
+python -m unittest discover -s scripts -p '*audit*tests.py' -v
 python scripts/quality.py ratchet
 ./gradlew testDebugUnitTest detekt verifyPaparazziDebug
 ./gradlew lintRelease
@@ -45,3 +46,20 @@ The Harness gateway applies a conservative request-body size limit as well as a 
 The loan-write slice is verified with `:temp:legacy-code:testDebugUnitTest`, `:feature:loans:verifyPaparazziDebug`, the shared UI/core suites, Detekt and the data-core connected tests on each API. New creator tests must use the required legacy `LoanRecord.loanRecordType`; worker patches are compiled and corrected in the primary checkout before acceptance. Failed or truncated Muse reviews are retained in the session ledger and do not count as completed reviews.
 
 Inspect report coverage as well as the Compose gate exit code: incremental Kotlin compilation can emit a header-only production report for a module that contains UI. Complete fresh candidate coverage remains unverified. The local R8 gate result alone is not a frame-time measurement or proof of a clean build.
+
+## Offline tag-link maintenance
+
+Use Python 3.12 and a SQLite snapshot of schema 131. The tool uses the standard library. It reads a consistent transaction, including uncheckpointed WAL records, and classifies tag-to-transaction references. Other tables contribute to a full preservation fingerprint. The report contains UUIDs, reasons and counts; names, notes and amounts are kept out of the report.
+
+```sh
+python scripts/audit_database.py audit snapshot.db --report audit.json
+python scripts/audit_database.py repair-copy snapshot.db --review audit.json --backup before-repair.db --output repaired.db
+```
+
+Audit exits with 0 for no findings, 1 for findings, and 2 when it cannot complete. Review the JSON before running `repair-copy`. The reviewed report must still match the complete schema and all rows. A stale or altered report fails before creating a backup. Unsupported schemas, malformed UUIDs/flags and missing required columns also fail.
+
+Repair creates an exclusive, verified pre-repair SQLite backup and performs the reviewed deletes in one transaction in a temporary copy. Only active links with a physically absent tag or transaction are eligible. Valid links, soft-deleted associations and links to tombstoned owners/tags remain intact. The complete resulting state must equal the reviewed state with exactly those eligible rows removed. Trigger failures or collateral changes prevent publication. The source is opened read-only throughout.
+
+Backup, repaired copy and report paths must be new, with existing parent directories. Existing SQLite sidecars also prevent reuse of a destination. Output publication uses a same-volume hard link, requiring a filesystem that supports it, such as NTFS or ext4. A publication failure leaves the verified backup available. The outputs are SQLite files for developer maintenance; recovery UI integration remains roadmap work.
+
+The schema-131 synthetic acceptance exported the repaired copy through the existing API-28 application, then imported the resulting Ivy Backup as an identical merge. Schema and every row matched after import, and the original AVD database was restored exactly. This covers physical orphan links; tombstone policy and restoration into an empty application remain separate acceptance work.
