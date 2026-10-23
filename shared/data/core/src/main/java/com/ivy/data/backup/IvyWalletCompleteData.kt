@@ -46,4 +46,7 @@ data class IvyWalletCompleteData(
     val tagAssociations: List<TagAssociationEntity> = emptyList(),
     @SerialName("manualExchangeRates")
     val manualExchangeRates: List<ExchangeRateEntity> = emptyList(),
+    // Active links omitted because their tag or transaction was explicitly deleted.
+    @SerialName("omittedDeletedTagAssociations")
+    val omittedDeletedTagAssociations: Int = 0,
 )
