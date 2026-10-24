@@ -45,6 +45,7 @@ fun main(args: Array<String>) {
 private val ComposePluginDeclarations = setOf(
     "id(\"ivy.feature\")",
     "id(\"ivy.compose\")",
+    "id(\"ivy.widget\")",
     "id(\"ivy.compose-reports\")",
     "id(\"org.jetbrains.kotlin.plugin.compose\")",
     "org.jetbrains.kotlin.plugin.compose",
