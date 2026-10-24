@@ -111,7 +111,8 @@ internal fun readComposeReports(
             val composables = parseComposables(csv)
             check(composables.isEmpty() || "fun " in text) { "Invalid companion report ${textFile.path}" }
             composableCount += composables.size
-            composables.filter { !it.restartable || !it.skippable }.map {
+            // Non-restartable/inline/value-returning helpers cannot be skippable, so only restartable functions are eligible for this check.
+            composables.filter { it.restartable && !it.skippable }.map {
                 it.copy(unstableArguments = it.findUnstableArguments(text).toSet())
             }
         }
