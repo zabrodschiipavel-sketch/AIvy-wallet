@@ -117,6 +117,22 @@ class ComposeReportsTest {
     }
 
     @Test
+    fun `plugin lookups and string references are not plugin declarations`() {
+        val root = temporary.newFolder()
+        module(root, "actual", "id(\"ivy.compose\")")
+        val observer = module(root, "observer", "id(\"ivy.script\")")
+        val query = """
+            val composeProjects = rootProject.subprojects.filter {
+                it.plugins.hasPlugin("org.jetbrains.kotlin.plugin.compose")
+            }
+            val pluginName = "org.jetbrains.kotlin.plugin.compose"
+        """.trimIndent()
+        File(observer, "build.gradle.kts").appendText("\n$query\n")
+        findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
+            listOf("actual/build/compose_full")
+    }
+
+    @Test
     fun `inline and trailing comment declarations count but standalone comments do not`() {
         val root = temporary.newFolder()
         val inline = module(root, "inline", "")
