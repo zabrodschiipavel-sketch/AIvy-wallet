@@ -1,4 +1,4 @@
-# Implementation status — 2026-10-23
+# Implementation status — 2026-10-24
 
 Base upstream commit: `710733dbe4729a437d573cdfb8429c50e617ded1`.
 
@@ -12,6 +12,9 @@ Observed verification checkpoints:
 
 | Source checkpoint | Check | Observed result |
 |---|---|---|
+| `5835c771b` | full Compose scope / analyzer JVM / root and app Detekt / R8 | Combined exit 0 in 3m51s; 1,417 tasks, 49 executed / 1,368 up-to-date; all 26 tests passed without failures/errors/skips; 38 modules/969 functions verified, zero new non-skippable restartable functions |
+| `5835c771b` | partial/header-only/mixed reports / unchanged-input compilation | Three real CLI controls failed as expected, removed stale green summaries and restored all report bytes; eight unchanged modules compiled again in 1m22s with identical row counts; the mixed cohort was rejected |
+| `5835c771b` | restored report gate / debt ratchet / saved evidence | Gate exit 0 in 11s; baselines, suppressions and legacy/DAO feature edges unchanged; independent package verification passed |
 | `83dfa84a2` | core JVM / root and app Detekt / API 28 Room | Combined exit 0 in 5m33s; 183 JVM and 106 Room cases passed without failures/errors/skips; 15 new JVM and two new Room cases |
 | `83dfa84a2` | API 35 Room | Exit 0 in 1m5s; the same 106 cases passed, including complete active-wallet restore into empty Room and repeat import |
 | `83dfa84a2` | R8 demo / current Compose gate / debt ratchet | Exit 0 in 11m21s; 1,397 tasks, 221 executed / 1,176 up-to-date; zero new unstable composables; debt ratchet passed, full fresh Compose coverage remains open |
@@ -175,4 +178,20 @@ The APK, mapping, reports, initial failed regression, full logs, archive and rep
 
 Four bounded MCP Muse sessions completed: a read-only diagnosis, metadata, the shared filter and metadata tests. Their contributions were reviewed and integrated locally. All workers are stopped. Harness reported/accounted USD 0.002635702263 with zero unsettled requests; neither prohibited GPT route was called or resumed. No personal financial database was inspected.
 
-Stages 0 and 1 remain open. The current Compose gate passed, but its incremental reports still contain only legacy 14 / loans 31 / editor 24 rows. This does not establish complete fresh coverage or improved frame times. Reviewed application recovery for physically missing references, broader financial/FX checks, a clean-checkout build, external signing and physical-device performance budgets remain unverified.
+At this checkpoint, stages 0 and 1 remained open. Its incremental reports contained only legacy 14 / loans 31 / editor 24 rows. The later full-report checkpoint below closes that coverage gap. Reviewed application recovery for physically missing references, broader financial/FX checks, a clean-checkout build, external signing and physical-device performance budgets remain unverified.
+
+## Verified full Compose reports — source 5835c771b
+
+The old gate exited successfully with 470 production CSV rows across 35 modules, including nine empty reports. Legacy contained only 14 rows despite hundreds of compiled UI functions. Three Glance modules applied Compose through `ivy.widget` without report destinations and were absent from discovery. The new shared report convention covers all 38 actual Kotlin Compose projects. Its dedicated mode forces nonincremental production compilation, bypasses compiler task/cache reuse, clears only its own output and writes source/report hashes and one compilation identity after success. The run task uses the actual Gradle plugin graph; the checker requires an exact module match, correct demo/release variants and complete matching provenance. Normal developer reports cannot replace this cohort.
+
+Full coverage now contains 969 functions: legacy 339 instead of 14, import 49 instead of zero, UI-core 10 instead of zero, navigation five instead of two, and main nine instead of zero. The balance widget contributes six; the other two widget modules legitimately have no composable functions and carry the same completion proof. All functions remain in coverage. The skippability gate checks restartable functions that cannot skip, rather than treating valid value-returning helpers as regressions. `rememberLoanSaveController` remains present with both flags false. Contradictory flags fail parsing. This follows the [Compose lifecycle rules](https://developer.android.com/develop/ui/compose/lifecycle#skipping) and [compiler metrics for the pinned Kotlin version](https://github.com/JetBrains/kotlin/blob/v2.0.20/plugins/compose/design/compiler-metrics.md); no baseline entries or suppression rules were added.
+
+All 26 analyzer tests passed without failures/errors/skips, including 17 new cases. Root/app Detekt, the debt ratchet, R8 and the actual full-scope gate passed in one source-frozen invocation. Replacing legacy's valid pair with the old 14-row pair and truncating import's CSV to its header each produced the expected CLI failure. A fresh legacy/dependency compile executed eight unchanged modules in 1m22s, retained every row count and produced a different build identity. The checker rejected the resulting mixed cohort. All original report bytes were restored; stale green summaries were removed after failures, and the final standalone gate passed in 11s.
+
+The saved logs include the original false green result and integration failures. Detekt initially rejected 20 formatting findings. The producer refused an effective incremental setting before writing a marker; the full command now explicitly passes `-Pkotlin.incremental=false`. PowerShell quoting of that property was corrected. Complete reports exposed the helper false positive. The new graph check also caught discovery incorrectly classifying the checker's own `hasPlugin` lookup as a plugin declaration; declaration recognition and a regression case now cover that error. These failures were retained and resolved rather than accepted as green checks.
+
+`outputs/compose-full-5835c771b/` preserves all production reports, hashes/input manifest, APK/mapping/signature, XML, logs, fault controls, source patch and an independent verifier. Run `python outputs/compose-full-5835c771b/verify.py` without an SDK or emulator to check the saved evidence. The development-signed, non-debuggable APK uses `com.ivy.wallet.optimized.debug`, size 11,957,888 bytes, SHA-256 `e5d82eea77798c7ef11bfe37b7c6c673ae21ab93588ca660a8f8eb2de8d7dfc4`. Runtime source files were unchanged; this tooling slice did not install or exercise the APK on a device.
+
+Ten bounded Muse sessions supported the work: six completed, three stopped at gateway/output limits, and one exhausted its finite budget after committing a useful graph patch. That partial patch was inspected, integrated and verified locally. All workers are stopped. Harness reported/accounted USD 0.008206396812, with zero unsettled requests. Neither prohibited GPT route was called or resumed.
+
+The fresh-report task is complete for the local candidate. Stages 0 and 1 remain open. A clean-checkout build, identical local/CI toolchain, remote CI execution, production signing and physical-device frame budgets remain unverified. Compiler capability flags do not establish smoother animations or faster startup.

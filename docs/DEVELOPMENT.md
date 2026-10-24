@@ -15,8 +15,7 @@ python scripts/quality.py ratchet
 ./gradlew testDebugUnitTest detekt verifyPaparazziDebug
 ./gradlew lintRelease
 python scripts/quality.py lint build/reports/lint/lint.xml
-./gradlew assembleDemo -PcomposeCompilerReports=true
-./gradlew :ci-actions:compose-stability:run
+./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true '-Pkotlin.incremental=false' --no-configuration-cache
 ./gradlew :shared:data:core:connectedDebugAndroidTest :shared:domain:connectedDebugAndroidTest
 ./gradlew assembleRelease -PivyUnsignedRelease=true
 ```
@@ -45,7 +44,21 @@ The Harness gateway applies a conservative request-body size limit as well as a 
 
 The loan-write slice is verified with `:temp:legacy-code:testDebugUnitTest`, `:feature:loans:verifyPaparazziDebug`, the shared UI/core suites, Detekt and the data-core connected tests on each API. New creator tests must use the required legacy `LoanRecord.loanRecordType`; worker patches are compiled and corrected in the primary checkout before acceptance. Failed or truncated Muse reviews are retained in the session ledger and do not count as completed reviews.
 
-Inspect report coverage as well as the Compose gate exit code: incremental Kotlin compilation can emit a header-only production report for a module that contains UI. Complete fresh candidate coverage remains unverified. The local R8 gate result alone is not a frame-time measurement or proof of a clean build.
+## Full Compose reports
+
+Use the full-mode command above in one Gradle invocation. Both properties are required. Kotlin can restore its global incremental setting after task configuration, so the producer checks the effective flag before writing a completion marker. In PowerShell, quote the dotted property:
+
+```powershell
+.\gradlew.bat :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true '-Pkotlin.incremental=false' --no-configuration-cache
+```
+
+Full mode writes to each module's `build/compose_full`, forces a nonincremental production compilation and bypasses task/build-cache reuse for those compiler tasks. App uses demo; libraries and widgets use release. Ordinary incremental reports stay in `compose_compiler` and cannot satisfy the gate. Compiler completion markers contain source/report hashes and one build identity. The fingerprint helper is shared between buildSrc and the checker; generated outputs and report archives are excluded.
+
+The run task derives its scope from actual Kotlin Compose plugins and requires the shared report convention for every such project. The checker compares that graph with discovered declarations, including widget/Paparazzi conventions. Plugin lookups and references in strings are not declarations. Missing pairs/markers, changed sources, modified reports, wrong variants and mixed build identities fail; stale green summaries are removed first. Empty modules require the same full-compilation proof. Coverage is recorded in `ivy-compose-coverage.tsv` and uploaded alongside reports in CI.
+
+The skippability check applies to restartable functions without skipping. Value-returning/inline helpers remain in coverage and are not false regressions; a skippable-but-nonrestartable row is invalid. See [Compose lifecycle rules](https://developer.android.com/develop/ui/compose/lifecycle#skipping) and [Kotlin 2.0.20 compiler metrics](https://github.com/JetBrains/kotlin/blob/v2.0.20/plugins/compose/design/compiler-metrics.md). Do not add stability annotations or regenerate a baseline merely to make valid helpers pass.
+
+Source `5835c771b` verified all 38 projects/969 functions, 26 analyzer tests, Detekt and R8. Three real fault controls and unchanged-input compiler execution passed their expected outcomes. Saved evidence is independently checkable with `python outputs/compose-full-5835c771b/verify.py`. This establishes fresh report coverage in the local checkout. It does not measure frame times or establish a clean checkout, identical CI toolchain or remote CI success.
 
 ## Offline tag-link maintenance
 
