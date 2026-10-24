@@ -33,7 +33,7 @@ jobs:
       - name: Lint with fail-closed report validation
         run: ./gradlew lintRelease && python scripts/quality.py lint build/reports/lint/lint.xml
       - name: Compose stability analysis
-        run: ./gradlew assembleDemo -PcomposeCompilerReports=true && ./gradlew :ci-actions:compose-stability:run
+        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true
       - name: Upload quality reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,6 +44,8 @@ jobs:
             build/reports/lint/**
             build/reports/detekt/**
             ci-actions/compose-stability/ivy-compose-stability-report.txt
+            ci-actions/compose-stability/ivy-compose-coverage.tsv
+            **/build/compose_full/**
       - name: Build unsigned release candidate
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: ./gradlew assembleRelease -PivyUnsignedRelease=true
