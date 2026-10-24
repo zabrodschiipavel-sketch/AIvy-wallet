@@ -14,9 +14,16 @@ kotlin.sourceSets.named("main") {
 
 if (providers.gradleProperty("ivyComposeFullReports").orNull == "true") {
     gradle.projectsEvaluated {
-        val composeProjects = rootProject.subprojects.filter { it.plugins.hasPlugin("org.jetbrains.kotlin.plugin.compose") }
+        val composeProjects = rootProject.subprojects.filter {
+            it.plugins.hasPlugin("org.jetbrains.kotlin.plugin.compose")
+        }
         val missingConvention = composeProjects.filterNot { it.plugins.hasPlugin("ivy.compose-reports") }
-        check(missingConvention.isEmpty()) { "Missing ivy.compose-reports convention in Compose modules: ${missingConvention.map { it.projectDir.relativeTo(rootDir).invariantSeparatorsPath }.sorted().joinToString(", ")}" }
+        check(missingConvention.isEmpty()) {
+            "Missing ivy.compose-reports convention in Compose modules: " +
+                missingConvention.joinToString { it.path }
+        }
+        val modulePaths = composeProjects.map { it.projectDir.relativeTo(rootDir).invariantSeparatorsPath }.sorted()
+        logger.lifecycle("Full Compose report scope: ${composeProjects.size} modules")
         tasks.named<JavaExec>("run") {
             dependsOn(
                 composeProjects.map { module ->
@@ -25,7 +32,7 @@ if (providers.gradleProperty("ivyComposeFullReports").orNull == "true") {
                 }
             )
             environment("IVY_COMPOSE_REPORT_SESSION", rootProject.extra["ivyComposeReportSession"].toString())
-            environment("IVY_COMPOSE_REPORT_MODULES", composeProjects.map { it.projectDir.relativeTo(rootDir).invariantSeparatorsPath }.sorted().joinToString("\n"))
+            environment("IVY_COMPOSE_REPORT_MODULES", modulePaths.joinToString("\n"))
         }
     }
 }

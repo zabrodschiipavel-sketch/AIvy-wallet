@@ -20,7 +20,9 @@ fun main(args: Array<String>) {
     }
     val shouldGenerateBaseline = BaselineArg in args
     val baselineComposables = readBaseline()
-    val unstableComposables = readFullComposeReports(File("../../"))
+    val expectedModules = System.getenv("IVY_COMPOSE_REPORT_MODULES")
+        ?.lineSequence()?.filter { it.isNotBlank() }?.toSet()
+    val unstableComposables = readFullComposeReports(File("../../"), expectedModules)
         .filter {
             it.isNotViewModelFunction() &&
                 (shouldGenerateBaseline || it.fullyQualifiedName !in baselineComposables)
@@ -47,10 +49,11 @@ private val ComposePluginDeclarations = setOf(
     "id(\"ivy.compose\")",
     "id(\"ivy.widget\")",
     "id(\"ivy.compose-reports\")",
+    "id(\"ivy.paparazzi\")",
     "id(\"org.jetbrains.kotlin.plugin.compose\")",
     "org.jetbrains.kotlin.plugin.compose",
 )
-private val IgnoredDirectories = setOf("build", ".git", ".gradle", ".idea")
+private val IgnoredDirectories = setOf("build", ".git", ".gradle", ".idea", "outputs", ".kotlin", ".codegraph")
 
 internal fun findComposeReportFolders(root: File): Sequence<File> {
     // The quality workflow builds assembleDemo. Derive expected reports from
@@ -66,9 +69,18 @@ internal fun findComposeReportFolders(root: File): Sequence<File> {
         .map { File(it.parentFile, "build/$ComposeReportFolderName") }
 }
 
-internal fun readFullComposeReports(root: File): List<UnstableComposable> {
+internal fun readFullComposeReports(
+    root: File,
+    expectedModules: Set<String>? = null,
+): List<UnstableComposable> {
     val folders = findComposeReportFolders(root).toList()
     check(folders.isNotEmpty()) { "No Compose modules found." }
+    val discovered = folders.map { it.parentFile.parentFile.relativeTo(root).invariantSeparatorsPath }.toSet()
+    check(expectedModules == null || expectedModules == discovered) {
+        val missing = (expectedModules.orEmpty() - discovered).sorted()
+        val extra = (discovered - expectedModules.orEmpty()).sorted()
+        "Compose discovery differs from Gradle: missing=$missing, extra=$extra"
+    }
     val fingerprint = composeReportFingerprint(root)
     val sessions = folders.map { verifyReportProvenance(it, fingerprint) }.toSet()
     check(sessions.size == 1) { "Compose reports belong to different full compilations." }

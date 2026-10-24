@@ -71,28 +71,49 @@ class ComposeReportsTest {
         module(root, "feature", "id(\"ivy.feature\")")
         module(root, "ui", "id(\"ivy.compose\")")
         module(root, "explicit", "id(\"org.jetbrains.kotlin.plugin.compose\")")
+        module(root, "widget", "id(\"ivy.widget\")")
+        module(root, "paparazzi", "id(\"ivy.paparazzi\")")
+        module(root, "reporting", "id(\"ivy.compose-reports\")")
         module(root, "plain", "id(\"org.jetbrains.kotlin.jvm\")")
         module(root, "build/generated", "id(\"ivy.feature\")")
         module(root, ".git/fixture", "org.jetbrains.kotlin.plugin.compose")
+        module(root, "outputs/fixture", "id(\"ivy.feature\")")
 
         findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
-            listOf("app", "explicit", "feature", "ui").map { "$it/build/compose_full" }
+            listOf("app", "explicit", "feature", "paparazzi", "reporting", "ui", "widget")
+                .map { "$it/build/compose_full" }
     }
 
     @Test
-    fun `missing app reports fail even when a feature has valid reports`() {
-        val root = temporary.newFolder()
-        module(root, "app", "org.jetbrains.kotlin.plugin.compose")
-        val feature = module(root, "feature", "id(\"ivy.feature\")")
-        val folder = File(feature, "build/compose_full").apply { mkdirs() }
-        File(folder, "sample-composables.csv").writeText("$Header\nexample,Screen,1,1,1,\n")
-        File(folder, "sample-composables.txt").writeText("restartable skippable fun Screen()")
-        readComposeReports(listOf(folder)).shouldBeEmpty()
+    fun `missing app or widget reports fail even when a feature has valid reports`() {
+        listOf(
+            "app" to "org.jetbrains.kotlin.plugin.compose",
+            "widget" to "id(\"ivy.widget\")"
+        ).forEach { (name, plugin) ->
+            val root = temporary.newFolder()
+            module(root, name, plugin)
+            val feature = module(root, "feature", "id(\"ivy.feature\")")
+            val folder = File(feature, "build/compose_full").apply { mkdirs() }
+            File(folder, "sample-composables.csv").writeText("$Header\nexample,Screen,1,1,1,\n")
+            File(folder, "sample-composables.txt").writeText("restartable skippable fun Screen()")
+            readComposeReports(listOf(folder)).shouldBeEmpty()
 
-        val error = shouldThrow<IllegalStateException> {
-            readComposeReports(findComposeReportFolders(root).toList())
+            val error = shouldThrow<IllegalStateException> {
+                readComposeReports(findComposeReportFolders(root).toList())
+            }
+            error.message shouldBe "No composables CSV reports in ${File(root, "$name/build/compose_full").path}"
         }
-        error.message shouldBe "No composables CSV reports in ${File(root, "app/build/compose_full").path}"
+    }
+
+    @Test
+    fun `unknown convention cannot omit modules from the actual Gradle graph`() {
+        val root = temporary.newFolder()
+        module(root, "feature", "id(\"ivy.feature\")")
+        module(root, "custom", "id(\"custom.compose\")")
+        val error = shouldThrow<IllegalStateException> {
+            readFullComposeReports(root, expectedModules = setOf("feature", "custom"))
+        }
+        error.message shouldBe "Compose discovery differs from Gradle: missing=[custom], extra=[]"
     }
 
     @Test
