@@ -7,7 +7,7 @@ import java.util.Properties
 internal fun productionReport(folder: File): File {
     val module = folder.parentFile.parentFile
     val variant = if (module.name == "app") "demo" else "release"
-    return File(folder, "${module.name}_${variant}-composables.csv")
+    return File(folder, "${module.name}_$variant-composables.csv")
 }
 
 internal fun verifyReportProvenance(folder: File, sourceFingerprint: String): String {

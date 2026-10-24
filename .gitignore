@@ -101,6 +101,7 @@ lint/reports/
 # JS
 node_modules/*
 /ci-actions/compose-stability/ivy-compose-stability-report.txt
+/ci-actions/compose-stability/ivy-compose-coverage.tsv
 
 # Kotlin Compiler
 .kotlin/sessions/*

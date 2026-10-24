@@ -1,45 +1,54 @@
 package ivy.automate.compose.stability
 
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import ivy.compose.reports.composeReportFingerprint
-import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
+import java.io.File
 
 class ComposeReportInputsTest {
-  @get:Rule val tmp = TemporaryFolder()
+    @get:Rule
+    val temporary = TemporaryFolder()
 
-  @Test fun editSourceChangesFingerprint() {
-    val root = tmp.newFolder("edit")
-    val src = File(root, "src/main/Screen.kt")
-    src.parentFile.mkdirs()
-    src.writeText("v1")
-    val before = composeReportFingerprint(root)
-    src.writeText("v2")
-    assertNotEquals(before, composeReportFingerprint(root))
-  }
+    @Test
+    fun editSourceChangesFingerprint() {
+        val root = temporary.newFolder("edit")
+        val source = File(root, "src/main/Screen.kt")
+        source.parentFile.mkdirs()
+        source.writeText("v1")
+        val before = composeReportFingerprint(root)
+        source.writeText("v2")
+        composeReportFingerprint(root) shouldNotBe before
+    }
 
-  @Test fun addSecondSourceChangesFingerprint() {
-    val root = tmp.newFolder("add")
-    val first = File(root, "src/main/Screen.kt")
-    first.parentFile.mkdirs()
-    first.writeText("v1")
-    val before = composeReportFingerprint(root)
-    File(root, "src/main/Other.kt").writeText("v2")
-    assertNotEquals(before, composeReportFingerprint(root))
-  }
+    @Test
+    fun addSecondSourceChangesFingerprint() {
+        val root = temporary.newFolder("add")
+        val first = File(root, "src/main/Screen.kt")
+        first.parentFile.mkdirs()
+        first.writeText("v1")
+        val before = composeReportFingerprint(root)
+        File(root, "src/main/Other.kt").writeText("v2")
+        composeReportFingerprint(root) shouldNotBe before
+    }
 
-  @Test fun generatedOutputsDoNotChangeFingerprint() {
-    val root = tmp.newFolder("ignored")
-    val src = File(root, "src/main/Screen.kt")
-    src.parentFile.mkdirs()
-    src.writeText("v1")
-    val before = composeReportFingerprint(root)
-    File(root, "build/generated/Screen.kt").apply { parentFile.mkdirs(); writeText("gen") }
-    File(root, "outputs/copy/Screen.kt").apply { parentFile.mkdirs(); writeText("copy") }
-    assertEquals(before, composeReportFingerprint(root))
-  }
+    @Test
+    fun generatedOutputsDoNotChangeFingerprint() {
+        val root = temporary.newFolder("ignored")
+        val source = File(root, "src/main/Screen.kt")
+        source.parentFile.mkdirs()
+        source.writeText("v1")
+        val before = composeReportFingerprint(root)
+        File(root, "build/generated/Screen.kt").apply {
+            parentFile.mkdirs()
+            writeText("gen")
+        }
+        File(root, "outputs/copy/Screen.kt").apply {
+            parentFile.mkdirs()
+            writeText("copy")
+        }
+        composeReportFingerprint(root) shouldBe before
+    }
 }
-

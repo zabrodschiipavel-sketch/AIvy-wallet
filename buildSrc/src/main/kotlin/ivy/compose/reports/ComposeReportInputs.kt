@@ -17,16 +17,18 @@ fun composeReportFingerprint(root: File): String {
         .forEach { file ->
             digest.update(file.relativeTo(root).invariantSeparatorsPath.toByteArray(Charsets.UTF_8))
             digest.update(0.toByte())
-            digest.update(file.inputStream().use { stream ->
-                val content = MessageDigest.getInstance("SHA-256")
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                var count = stream.read(buffer)
-                while (count >= 0) {
-                    content.update(buffer, 0, count)
-                    count = stream.read(buffer)
+            digest.update(
+                file.inputStream().use { stream ->
+                    val content = MessageDigest.getInstance("SHA-256")
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var count = stream.read(buffer)
+                    while (count >= 0) {
+                        content.update(buffer, 0, count)
+                        count = stream.read(buffer)
+                    }
+                    content.digest()
                 }
-                content.digest()
-            })
+            )
         }
     return digest.digest().joinToString("") { "%02x".format(it) }
 }

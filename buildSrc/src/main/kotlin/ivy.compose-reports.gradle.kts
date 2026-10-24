@@ -39,8 +39,8 @@ if (fullReports) {
             doLast {
                 check(!incremental) { "Full Compose reports require nonincremental compilation" }
                 val folder = reportDirectory.get().asFile
-                val csv = folder.resolve("${moduleName}_${variant}-composables.csv")
-                val text = folder.resolve("${moduleName}_${variant}-composables.txt")
+                val csv = folder.resolve("${moduleName}_$variant-composables.csv")
+                val text = folder.resolve("${moduleName}_$variant-composables.txt")
                 check(csv.isFile && text.isFile) { "Missing full Compose reports in $folder" }
                 val marker = Properties().apply {
                     setProperty("format", "1")

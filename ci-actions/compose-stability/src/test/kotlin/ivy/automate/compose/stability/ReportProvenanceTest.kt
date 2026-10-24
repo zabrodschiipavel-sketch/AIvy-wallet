@@ -47,8 +47,15 @@ class ReportProvenanceTest {
 
     @Test
     fun `invalid full compilation metadata fails`() {
-        listOf("format" to "2", "variant" to "debug", "incremental" to "true", "session" to " ",
-            "sourcesSha256" to "old", "csvSha256" to "", "textSha256" to "").forEach { (key, value) ->
+        listOf(
+            "format" to "2",
+            "variant" to "debug",
+            "incremental" to "true",
+            "session" to " ",
+            "sourcesSha256" to "old",
+            "csvSha256" to "",
+            "textSha256" to ""
+        ).forEach { (key, value) ->
             val root = temporary.newFolder()
             val folder = report(root)
             val marker = File(folder, "full-compilation.properties")

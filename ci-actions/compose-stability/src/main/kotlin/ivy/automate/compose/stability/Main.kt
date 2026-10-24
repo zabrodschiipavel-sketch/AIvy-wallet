@@ -14,6 +14,10 @@ const val BaselineArg = "generateBaseline"
 const val BaselineFileName = "ivy-compose-stability-baseline.txt"
 
 fun main(args: Array<String>) {
+    listOf(OutputReportFileName, CoverageFileName).forEach { path ->
+        val output = File(path)
+        check(!output.exists() || output.delete()) { "Cannot clear previous Compose result: $output" }
+    }
     val shouldGenerateBaseline = BaselineArg in args
     val baselineComposables = readBaseline()
     val unstableComposables = readFullComposeReports(File("../../"))
@@ -68,7 +72,9 @@ internal fun readFullComposeReports(root: File): List<UnstableComposable> {
     val sessions = folders.map { verifyReportProvenance(it, fingerprint) }.toSet()
     check(sessions.size == 1) { "Compose reports belong to different full compilations." }
     val expectedSession = System.getenv("IVY_COMPOSE_REPORT_SESSION")
-    check(expectedSession == null || sessions.single() == expectedSession) { "Compose reports are from an earlier build." }
+    check(expectedSession == null || sessions.single() == expectedSession) {
+        "Compose reports are from an earlier build."
+    }
     val unstable = readComposeReports(folders, productionOnly = true)
     val coverage = buildString {
         append("# session=${sessions.single()} sourcesSha256=$fingerprint\n")
