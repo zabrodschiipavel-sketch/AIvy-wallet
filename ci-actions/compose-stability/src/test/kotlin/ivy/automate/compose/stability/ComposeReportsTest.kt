@@ -63,7 +63,7 @@ class ComposeReportsTest {
         module(root, ".git/fixture", "org.jetbrains.kotlin.plugin.compose")
 
         findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
-            listOf("app", "explicit", "feature", "ui").map { "$it/build/compose_compiler" }
+            listOf("app", "explicit", "feature", "ui").map { "$it/build/compose_full" }
     }
 
     @Test
@@ -71,7 +71,7 @@ class ComposeReportsTest {
         val root = temporary.newFolder()
         module(root, "app", "org.jetbrains.kotlin.plugin.compose")
         val feature = module(root, "feature", "id(\"ivy.feature\")")
-        val folder = File(feature, "build/compose_compiler").apply { mkdirs() }
+        val folder = File(feature, "build/compose_full").apply { mkdirs() }
         File(folder, "sample-composables.csv").writeText("$Header\nexample,Screen,1,1,1,\n")
         File(folder, "sample-composables.txt").writeText("restartable skippable fun Screen()")
         readComposeReports(listOf(folder)).shouldBeEmpty()
@@ -79,7 +79,7 @@ class ComposeReportsTest {
         val error = shouldThrow<IllegalStateException> {
             readComposeReports(findComposeReportFolders(root).toList())
         }
-        error.message shouldBe "No composables CSV reports in ${File(root, "app/build/compose_compiler").path}"
+        error.message shouldBe "No composables CSV reports in ${File(root, "app/build/compose_full").path}"
     }
 
     @Test
@@ -94,7 +94,7 @@ class ComposeReportsTest {
         module(root, "noncompose", "id(\"org.jetbrains.kotlin.jvm\") // id(\"ivy.compose\")")
 
         findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
-            listOf("accessor", "inline", "trailing").map { "$it/build/compose_compiler" }
+            listOf("accessor", "inline", "trailing").map { "$it/build/compose_full" }
     }
     private fun module(root: File, name: String, plugin: String): File = File(root, name).apply {
         mkdirs()

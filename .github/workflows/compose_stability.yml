@@ -16,21 +16,25 @@ jobs:
       - name: Setup Java SDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'adopt'
-          java-version: '18'
+          distribution: 'temurin'
+          java-version: '21'
 
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Compose compiler report (Jetpack Compose)
-        run: ./gradlew assembleDemo -PcomposeCompilerReports=true
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "build-tools;34.0.0"
 
-      - name: Analyze the report (Ivy)
-        run: ./gradlew :ci-actions:compose-stability:run
+      - name: Build and verify full Compose reports
+        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true
 
       - name: Upload the Compose Stability report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: compose-stability-report
-          path: ci-actions/compose-stability/ivy-compose-stability-report.txt
+          if-no-files-found: error
+          path: |
+            ci-actions/compose-stability/ivy-compose-stability-report.txt
+            ci-actions/compose-stability/ivy-compose-coverage.tsv
+            **/build/compose_full/**

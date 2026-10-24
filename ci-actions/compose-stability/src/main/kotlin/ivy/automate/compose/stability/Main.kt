@@ -3,18 +3,20 @@ package ivy.automate.compose.stability
 import ivy.automate.compose.stability.model.ComposableArgument
 import ivy.automate.compose.stability.model.FullyQualifiedName
 import ivy.automate.compose.stability.model.UnstableComposable
+import ivy.compose.reports.composeReportFingerprint
 import java.io.File
 import kotlin.system.exitProcess
 
 const val OutputReportFileName = "ivy-compose-stability-report.txt"
-const val ComposeReportFolderName = "compose_compiler"
+const val ComposeReportFolderName = "compose_full"
+const val CoverageFileName = "ivy-compose-coverage.tsv"
 const val BaselineArg = "generateBaseline"
 const val BaselineFileName = "ivy-compose-stability-baseline.txt"
 
 fun main(args: Array<String>) {
     val shouldGenerateBaseline = BaselineArg in args
     val baselineComposables = readBaseline()
-    val unstableComposables = readComposeReports(findComposeReportFolders(File("../../")).toList())
+    val unstableComposables = readFullComposeReports(File("../../"))
         .filter {
             it.isNotViewModelFunction() &&
                 (shouldGenerateBaseline || it.fullyQualifiedName !in baselineComposables)
@@ -39,6 +41,7 @@ fun main(args: Array<String>) {
 private val ComposePluginDeclarations = setOf(
     "id(\"ivy.feature\")",
     "id(\"ivy.compose\")",
+    "id(\"ivy.compose-reports\")",
     "id(\"org.jetbrains.kotlin.plugin.compose\")",
     "org.jetbrains.kotlin.plugin.compose",
 )
@@ -58,11 +61,42 @@ internal fun findComposeReportFolders(root: File): Sequence<File> {
         .map { File(it.parentFile, "build/$ComposeReportFolderName") }
 }
 
-internal fun readComposeReports(reportFolders: List<File>): List<UnstableComposable> {
+internal fun readFullComposeReports(root: File): List<UnstableComposable> {
+    val folders = findComposeReportFolders(root).toList()
+    check(folders.isNotEmpty()) { "No Compose modules found." }
+    val fingerprint = composeReportFingerprint(root)
+    val sessions = folders.map { verifyReportProvenance(it, fingerprint) }.toSet()
+    check(sessions.size == 1) { "Compose reports belong to different full compilations." }
+    val expectedSession = System.getenv("IVY_COMPOSE_REPORT_SESSION")
+    check(expectedSession == null || sessions.single() == expectedSession) { "Compose reports are from an earlier build." }
+    val unstable = readComposeReports(folders, productionOnly = true)
+    val coverage = buildString {
+        append("# session=${sessions.single()} sourcesSha256=$fingerprint\n")
+        append("module\tvariant\tcomposables\n")
+        folders.forEach { folder ->
+            val csv = productionReport(folder)
+            val count = parseComposables(csv).size
+            append("${folder.parentFile.parentFile.relativeTo(root).invariantSeparatorsPath}\t")
+            append("${if (folder.parentFile.parentFile.name == "app") "demo" else "release"}\t$count\n")
+        }
+    }
+    File(CoverageFileName).writeText(coverage)
+    println("Verified full Compose reports for ${folders.size} modules.")
+    return unstable
+}
+
+internal fun readComposeReports(
+    reportFolders: List<File>,
+    productionOnly: Boolean = false,
+): List<UnstableComposable> {
     check(reportFolders.isNotEmpty()) { "No Compose compiler report folders found. Build the candidate first." }
     var composableCount = 0
     val unstable = reportFolders.flatMap { folder ->
-        val csvFiles = folder.listFiles()?.filter { it.name.endsWith("-composables.csv") }.orEmpty()
+        val csvFiles = if (productionOnly) {
+            listOf(productionReport(folder)).filter { it.isFile }
+        } else {
+            folder.listFiles()?.filter { it.name.endsWith("-composables.csv") }.orEmpty()
+        }
         check(csvFiles.isNotEmpty()) { "No composables CSV reports in ${folder.path}" }
         csvFiles.flatMap { csv ->
             val textFile = File(folder, csv.name.removeSuffix(".csv") + ".txt")

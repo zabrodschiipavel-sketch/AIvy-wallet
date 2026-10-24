@@ -11,5 +11,4 @@ if [ ! -f "settings.gradle.kts" ]; then
     exit 1
 fi
 
-./gradlew assembleDemo -PcomposeCompilerReports=true || exit 1
-./gradlew :ci-actions:compose-stability:run  || exit 1
+./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true || exit 1
