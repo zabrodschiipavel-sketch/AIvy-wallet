@@ -26,7 +26,7 @@ jobs:
       - run: sdkmanager "build-tools;34.0.0"
 
       - name: Build and verify full Compose reports
-        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true --no-configuration-cache
+        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true -Pkotlin.incremental=false --no-configuration-cache
 
       - name: Upload the Compose Stability report
         if: always()

@@ -33,7 +33,7 @@ jobs:
       - name: Lint with fail-closed report validation
         run: ./gradlew lintRelease && python scripts/quality.py lint build/reports/lint/lint.xml
       - name: Compose stability analysis
-        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true --no-configuration-cache
+        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true -Pkotlin.incremental=false --no-configuration-cache
       - name: Upload quality reports
         if: always()
         uses: actions/upload-artifact@v4
