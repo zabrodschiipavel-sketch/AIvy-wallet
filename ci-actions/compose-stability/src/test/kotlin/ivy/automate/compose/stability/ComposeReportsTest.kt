@@ -44,6 +44,19 @@ class ComposeReportsTest {
     }
 
     @Test
+    fun `value returning nonrestartable helper is not a skippability regression`() {
+        val folder = report("example.rememberController,rememberController,1,0,0,")
+        File(folder, "sample-composables.txt").writeText("fun rememberController(unstable id: UUID): Controller")
+        readComposeReports(listOf(folder)).shouldBeEmpty()
+    }
+
+    @Test
+    fun `skippable but nonrestartable flags are invalid`() {
+        val folder = report("example,Screen,1,1,0,")
+        shouldThrow<IllegalStateException> { readComposeReports(listOf(folder)) }
+    }
+
+    @Test
     fun `all variants are checked and unstable composable is retained`() {
         val folder = report("example,Screen,1,1,1,")
         File(folder, "release-composables.csv").writeText("$Header\nexample,Other,1,0,1,\n")

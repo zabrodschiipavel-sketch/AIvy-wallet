@@ -30,7 +30,7 @@ fun main(args: Array<String>) {
     println(ivyReportTxt)
     if (!shouldGenerateBaseline) {
         if (unstableComposables.isNotEmpty()) {
-            println("ERROR: ${unstableComposables.size} unstable composables found. Fix them!")
+            println("ERROR: ${unstableComposables.size} non-skippable restartable composables found.")
             exitProcess(1)
         } else {
             println("SUCCESS!")
@@ -111,7 +111,8 @@ internal fun readComposeReports(
             val composables = parseComposables(csv)
             check(composables.isEmpty() || "fun " in text) { "Invalid companion report ${textFile.path}" }
             composableCount += composables.size
-            // Non-restartable/inline/value-returning helpers cannot be skippable, so only restartable functions are eligible for this check.
+            // Only restartable functions are eligible for skipping. Value-returning
+            // and inline helpers remain in the coverage report without failing this check.
             composables.filter { it.restartable && !it.skippable }.map {
                 it.copy(unstableArguments = it.findUnstableArguments(text).toSet())
             }
@@ -141,11 +142,14 @@ private fun parseComposables(csv: File): List<UnstableComposable> {
             check(value == "0" || value == "1") { "Invalid $name at ${csv.path}:${index + 2}" }
             return value == "1"
         }
+        val skippable = flag("skippable")
+        val restartable = flag("restartable")
+        check(!skippable || restartable) { "A skippable composable must be restartable in ${csv.path}" }
         UnstableComposable(
             fullyQualifiedName = field("package"),
             name = field("name"),
-            skippable = flag("skippable"),
-            restartable = flag("restartable"),
+            skippable = skippable,
+            restartable = restartable,
             unstableArguments = emptySet(),
         )
     }
@@ -183,7 +187,7 @@ private fun buildIvyReport(
 ): String = buildString {
     append("-----------")
     append("\n")
-    append("UNSTABLE COMPOSABLES:")
+    append("NON-SKIPPABLE RESTARTABLE COMPOSABLES:")
     append("\n")
     unstableComposables.forEachIndexed { index, composable ->
         append("@Composable ${composable.fullyQualifiedName}")
@@ -199,7 +203,7 @@ private fun buildIvyReport(
     }
     append("-----------\n")
     append("[CONCLUSION]\n")
-    append("Unstable Composables: ${unstableComposables.size}")
+    append("Non-skippable restartable composables: ${unstableComposables.size}")
 }
 
 private fun createReportFile(report: String) {
