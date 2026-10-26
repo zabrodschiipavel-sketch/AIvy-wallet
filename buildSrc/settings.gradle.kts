@@ -1,3 +1,4 @@
+rootProject.name = "ivy-build-logic"
 pluginManagement {
     repositories {
         google()
