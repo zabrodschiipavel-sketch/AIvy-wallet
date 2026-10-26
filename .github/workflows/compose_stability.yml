@@ -17,13 +17,14 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
-
+          java-version-file: .java-version
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
       - uses: android-actions/setup-android@v3
-      - run: sdkmanager "build-tools;34.0.0"
+      - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - run: python scripts/verify_environment.py --out build/environment.json
 
       - name: Build and verify full Compose reports
         run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true -Pkotlin.incremental=false --no-configuration-cache

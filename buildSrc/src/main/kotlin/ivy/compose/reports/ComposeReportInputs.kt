@@ -12,7 +12,7 @@ fun composeReportFingerprint(root: File): String {
     val digest = MessageDigest.getInstance("SHA-256")
     root.walkTopDown()
         .onEnter { it.name !in ExcludedFolders }
-        .filter { it.isFile && it.extension in InputExtensions }
+        .filter { it.isFile && (it.extension in InputExtensions || it.name == ".java-version") }
         .sortedBy { it.relativeTo(root).invariantSeparatorsPath }
         .forEach { file ->
             digest.update(file.relativeTo(root).invariantSeparatorsPath.toByteArray(Charsets.UTF_8))

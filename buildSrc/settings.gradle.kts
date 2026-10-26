@@ -1,10 +1,11 @@
-rootProject.name = "ivy-build-logic"
 pluginManagement {
     repositories {
         google()
         gradlePluginPortal()
     }
 }
+
+rootProject.name = "ivy-build-logic"
 
 dependencyResolutionManagement {
     repositories {

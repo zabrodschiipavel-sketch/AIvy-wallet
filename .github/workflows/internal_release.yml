@@ -21,7 +21,7 @@ jobs:
         with:
           ref: ${{ inputs.head_sha }}
       - uses: actions/setup-java@v4
-        with: {distribution: temurin, java-version: '21'}
+        with: {distribution: temurin, java-version-file: .java-version}
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "build-tools;34.0.0"
