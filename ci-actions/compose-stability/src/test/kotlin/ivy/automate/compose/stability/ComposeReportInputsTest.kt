@@ -51,4 +51,13 @@ class ComposeReportInputsTest {
         }
         composeReportFingerprint(root) shouldBe before
     }
+
+    @Test
+    fun javaVersionChangeChangesFingerprint() {
+        val root = temporary.newFolder("java-version")
+        File(root, ".java-version").writeText("21.0.12.1+1")
+        val before = composeReportFingerprint(root)
+        File(root, ".java-version").writeText("21.0.13+9")
+        composeReportFingerprint(root) shouldNotBe before
+    }
 }
