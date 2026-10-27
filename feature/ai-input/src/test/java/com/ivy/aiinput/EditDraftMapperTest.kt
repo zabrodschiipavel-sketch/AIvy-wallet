@@ -58,6 +58,22 @@ class EditDraftMapperTest {
     }
 
     @Test
+    fun `archived accounts are never selected for new drafts`() {
+        val archivedCash = accounts.first().copy(archived = true)
+        parsed(account = "Наличные").toEditDraft(listOf(archivedCash), categories).accountId.shouldBeNull()
+        parsed(account = "Наличные").toEditDraft(listOf(archivedCash, account("Наличные", cardId)), categories)
+            .accountId shouldBe cardId
+    }
+
+    @Test
+    fun `ambiguous active account names require review instead of choosing the first`() {
+        val duplicate = account("Наличные", cardId).copy(asset = AssetCode.unsafe("USD"))
+        for (candidates in listOf(listOf(accounts.first(), duplicate), listOf(duplicate, accounts.first()))) {
+            parsed(account = "наличные").toEditDraft(candidates, categories).accountId.shouldBeNull()
+        }
+    }
+
+    @Test
     fun `resolves category for non-transfers`() {
         parsed(category = "продукты").toEditDraft(accounts, categories)
             .categoryId shouldBe groceriesId
@@ -76,6 +92,14 @@ class EditDraftMapperTest {
         parsed(amount = 0.0).toEditDraft(accounts, categories).amount.shouldBeNull()
         parsed(amount = -10.0).toEditDraft(accounts, categories).amount.shouldBeNull()
         parsed(amount = null).toEditDraft(accounts, categories).amount.shouldBeNull()
+    }
+
+    @Test
+    fun `drops non-finite amounts`() {
+        parsed(amount = Double.NaN).toEditDraft(accounts, categories).amount.shouldBeNull()
+        parsed(amount = Double.POSITIVE_INFINITY).toEditDraft(accounts, categories).amount.shouldBeNull()
+        parsed(amount = Double.NEGATIVE_INFINITY).toEditDraft(accounts, categories).amount.shouldBeNull()
+        parsed(amount = 1500.0).toEditDraft(accounts, categories).amount shouldBe 1500.0
     }
 
     @Test

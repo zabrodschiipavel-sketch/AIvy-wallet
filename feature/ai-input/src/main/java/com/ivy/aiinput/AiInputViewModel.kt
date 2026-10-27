@@ -52,7 +52,7 @@ class AiInputViewModel @Inject constructor(
             loadingContext = true
             runCatching {
                 categories = categoryRepo.findAll()
-                accounts = accountRepo.findAll()
+                accounts = accountRepo.findAll().filterNot { it.archived }
             }
             loadingContext = false
         }

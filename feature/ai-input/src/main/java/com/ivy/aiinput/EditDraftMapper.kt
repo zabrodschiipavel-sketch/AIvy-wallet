@@ -28,7 +28,7 @@ internal data class EditDraft(
 /**
  * Resolves a parsed draft into [EditDraft]:
  * - maps the guessed type (defaulting to EXPENSE),
- * - matches account/category by name (case-insensitive) against the real ones, unknown → null,
+ * - matches an unambiguous active account and category by name (case-insensitive), unknown → null,
  * - drops the category for transfers (the destination account is chosen in the editor),
  * - keeps the amount only when positive,
  * - parses the ISO date, ignoring an unparseable one.
@@ -44,7 +44,9 @@ internal fun ParsedTransaction.toEditDraft(
     }
 
     val accountId: UUID? = account
-        ?.let { name -> accounts.firstOrNull { it.name.value.equals(name, ignoreCase = true) } }
+        ?.let { name ->
+            accounts.singleOrNull { !it.archived && it.name.value.equals(name, ignoreCase = true) }
+        }
         ?.id?.value
 
     val categoryId: UUID? = if (type == TransactionType.TRANSFER) {
@@ -63,7 +65,7 @@ internal fun ParsedTransaction.toEditDraft(
         type = type,
         accountId = accountId,
         categoryId = categoryId,
-        amount = amount?.takeIf { it > 0.0 },
+        amount = amount?.takeIf { it.isFinite() && it > 0.0 },
         title = description,
         dateTime = dateTime,
     )
