@@ -26,7 +26,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SyncExchangeRatesUseCaseTest {
     private lateinit var useCase: SyncExchangeRatesUseCase
-    private lateinit var repository: ExchangeRatesRepository
     private lateinit var db: IvyRoomDatabase
 
     @Before
@@ -34,7 +33,7 @@ class SyncExchangeRatesUseCaseTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, IvyRoomDatabase::class.java).build()
 
-        repository = ExchangeRatesRepository(
+        val repository = ExchangeRatesRepository(
             exchangeRatesDao = db.exchangeRatesDao,
             writeExchangeRatesDao = db.writeExchangeRatesDao,
             mapper = ExchangeRateMapper(),
@@ -42,8 +41,8 @@ class SyncExchangeRatesUseCaseTest {
                 override suspend fun fetchEurExchangeRates() = Either.Right(
                     ExchangeRatesResponse(
                         date = "2026-10-27",
-                        rates = mapOf("eur" to 1.0, "usd" to 2.0, "gbp" to 0.5)
-                    )
+                        rates = mapOf("eur" to 1.0, "usd" to 2.0, "gbp" to 0.5),
+                    ),
                 )
             },
             dispatchers = TestDispatchersProvider,
@@ -64,7 +63,7 @@ class SyncExchangeRatesUseCaseTest {
         val expected = listOf(
             ExchangeRateEntity(baseCurrency = "USD", currency = "EUR", rate = 0.5),
             ExchangeRateEntity(baseCurrency = "USD", currency = "USD", rate = 1.0),
-            ExchangeRateEntity(baseCurrency = "USD", currency = "GBP", rate = 0.25)
+            ExchangeRateEntity(baseCurrency = "USD", currency = "GBP", rate = 0.25),
         )
 
         // when
