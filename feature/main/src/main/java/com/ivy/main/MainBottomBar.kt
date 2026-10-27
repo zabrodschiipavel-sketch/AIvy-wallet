@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -118,38 +119,7 @@ fun BoxWithConstraintsScope.BottomBar(
         animationSpec = springBounceFast()
     )
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.BottomCenter)
-            .background(pureBlur())
-            .graphicsLayer { alpha = (1f - buttonsShownPercent.value).coerceIn(0f, 1f) }
-            .navigationBarsPadding()
-            .clickableNoIndication(rememberInteractionSource()) {
-                // consume click
-            },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Tab(
-            icon = R.drawable.ic_home,
-            name = stringResource(R.string.home),
-            selected = tab == MainTab.HOME,
-            selectedColor = Ivy
-        ) {
-            selectTab(MainTab.HOME)
-        }
-
-        Spacer(Modifier.width(FAB_BUTTON_SIZE))
-
-        Tab(
-            icon = R.drawable.ic_accounts,
-            name = stringResource(R.string.accounts),
-            selected = tab == MainTab.ACCOUNTS,
-            selectedColor = Green
-        ) {
-            selectTab(MainTab.ACCOUNTS)
-        }
-    }
+    BottomBarTabs(tab = tab, selectTab = selectTab, buttonsShownPercent = buttonsShownPercent)
 
     val backgroundVisible by remember(screenHeightDp) {
         derivedStateOf { expandedBackgroundOffset.value < screenHeightDp }
@@ -276,7 +246,47 @@ fun BoxWithConstraintsScope.BottomBar(
 }
 
 @Composable
-private fun TransactionButtons(
+private fun BoxWithConstraintsScope.BottomBarTabs(
+    tab: MainTab,
+    selectTab: (MainTab) -> Unit,
+    buttonsShownPercent: State<Float>,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .align(Alignment.BottomCenter)
+            .background(pureBlur())
+            .graphicsLayer { alpha = (1f - buttonsShownPercent.value).coerceIn(0f, 1f) }
+            .navigationBarsPadding()
+            .clickableNoIndication(rememberInteractionSource()) {
+                // consume click
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Tab(
+            icon = R.drawable.ic_home,
+            name = stringResource(R.string.home),
+            selected = tab == MainTab.HOME,
+            selectedColor = Ivy
+        ) {
+            selectTab(MainTab.HOME)
+        }
+
+        Spacer(Modifier.width(FAB_BUTTON_SIZE))
+
+        Tab(
+            icon = R.drawable.ic_accounts,
+            name = stringResource(R.string.accounts),
+            selected = tab == MainTab.ACCOUNTS,
+            selectedColor = Green
+        ) {
+            selectTab(MainTab.ACCOUNTS)
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.TransactionButtons(
     buttonsShownPercent: State<Float>,
     aiEnabled: Boolean,
 

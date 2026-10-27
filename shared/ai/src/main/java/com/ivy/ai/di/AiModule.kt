@@ -4,6 +4,7 @@ import com.ivy.ai.data.GeminiApiKeyStore
 import com.ivy.ai.data.GeminiApiKeyStoreImpl
 import com.ivy.ai.data.GeminiClient
 import com.ivy.ai.data.GeminiClientImpl
+import com.ivy.ai.data.geminiWireJson
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -34,6 +35,9 @@ abstract class AiBindings {
 @Module
 @InstallIn(SingletonComponent::class)
 object AiModule {
+    private const val IO_TIMEOUT_MILLIS = 60_000L
+    private const val CONNECT_TIMEOUT_MILLIS = 15_000L
+
     /**
      * Dedicated HttpClient for Gemini — separate from any app-wide client so
      * timeouts/logging here don't leak into other call sites.
@@ -42,11 +46,11 @@ object AiModule {
     @Singleton
     @AiHttpClient
     fun provideGeminiHttpClient(json: Json): HttpClient = HttpClient(OkHttp) {
-        install(ContentNegotiation) { json(json) }
+        install(ContentNegotiation) { json(geminiWireJson(json)) }
         install(HttpTimeout) {
-            requestTimeoutMillis = 60_000
-            connectTimeoutMillis = 15_000
-            socketTimeoutMillis = 60_000
+            requestTimeoutMillis = IO_TIMEOUT_MILLIS
+            connectTimeoutMillis = CONNECT_TIMEOUT_MILLIS
+            socketTimeoutMillis = IO_TIMEOUT_MILLIS
         }
         install(Logging) { level = LogLevel.NONE } // flip to INFO for debugging
     }

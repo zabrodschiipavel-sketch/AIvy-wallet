@@ -108,8 +108,7 @@ class GeminiClientImpl @Inject constructor(
             )
         }
 
-        return response.candidates.firstOrNull()
-            ?.content?.parts?.firstOrNull()?.text
+        return response.textOrNull()
             ?: throw GeminiException(
                 "Gemini returned no candidates",
                 reason = GeminiException.Reason.EmptyResponse,
@@ -119,9 +118,12 @@ class GeminiClientImpl @Inject constructor(
     override suspend fun ping(model: String) {
         val schema = buildJsonObject {
             put("type", "OBJECT")
-            put("properties", buildJsonObject {
-                put("reply", buildJsonObject { put("type", "STRING") })
-            })
+            put(
+                "properties",
+                buildJsonObject {
+                    put("reply", buildJsonObject { put("type", "STRING") })
+                }
+            )
             put("required", buildJsonArray { add("reply") })
         }
         generateStructured(
@@ -166,34 +168,60 @@ internal fun buildParseSchema(
     accountNames: List<String>,
 ): JsonObject = buildJsonObject {
     put("type", "OBJECT")
-    put("properties", buildJsonObject {
-        put("amount", buildJsonObject { put("type", "NUMBER") })
-        put("currency", buildJsonObject { put("type", "STRING") })
-        put("date", buildJsonObject {
-            put("type", "STRING")
-            put("description", "ISO-8601 local date, e.g. 2026-05-23")
-        })
-        put("category", buildJsonObject {
-            put("type", "STRING")
-            put("nullable", true)
-            if (categoryNames.isNotEmpty()) {
-                put("enum", buildJsonArray { categoryNames.forEach { add(it) } })
-            }
-        })
-        put("account", buildJsonObject {
-            put("type", "STRING")
-            put("nullable", true)
-            if (accountNames.isNotEmpty()) {
-                put("enum", buildJsonArray { accountNames.forEach { add(it) } })
-            }
-        })
-        put("description", buildJsonObject { put("type", "STRING") })
-        put("transactionType", buildJsonObject {
-            put("type", "STRING")
-            put("enum", buildJsonArray {
-                add("EXPENSE"); add("INCOME"); add("TRANSFER")
-            })
-        })
-    })
-    put("required", buildJsonArray { add("amount"); add("transactionType") })
+    put(
+        "properties",
+        buildJsonObject {
+            put("amount", buildJsonObject { put("type", "NUMBER") })
+            put("currency", buildJsonObject { put("type", "STRING") })
+            put(
+                "date",
+                buildJsonObject {
+                    put("type", "STRING")
+                    put("description", "ISO-8601 local date, e.g. 2026-05-23")
+                }
+            )
+            put(
+                "category",
+                buildJsonObject {
+                    put("type", "STRING")
+                    put("nullable", true)
+                    if (categoryNames.isNotEmpty()) {
+                        put("enum", buildJsonArray { categoryNames.forEach { add(it) } })
+                    }
+                }
+            )
+            put(
+                "account",
+                buildJsonObject {
+                    put("type", "STRING")
+                    put("nullable", true)
+                    if (accountNames.isNotEmpty()) {
+                        put("enum", buildJsonArray { accountNames.forEach { add(it) } })
+                    }
+                }
+            )
+            put("description", buildJsonObject { put("type", "STRING") })
+            put(
+                "transactionType",
+                buildJsonObject {
+                    put("type", "STRING")
+                    put(
+                        "enum",
+                        buildJsonArray {
+                            add("EXPENSE")
+                            add("INCOME")
+                            add("TRANSFER")
+                        }
+                    )
+                }
+            )
+        }
+    )
+    put(
+        "required",
+        buildJsonArray {
+            add("amount")
+            add("transactionType")
+        }
+    )
 }

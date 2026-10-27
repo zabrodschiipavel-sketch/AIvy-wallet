@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
 
+private const val ConnectionSuccessArgb = 0xFF2E7D32
+
 @Composable
 fun AiSettingsScreenImpl(
     viewModel: AiSettingsViewModel = screenScopedViewModel(),
@@ -158,7 +160,7 @@ private fun TestStatusLine(status: TestStatus) {
         TestStatus.Success -> Text(
             text = "✓ Связь с Gemini работает.",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF2E7D32),
+            color = Color(ConnectionSuccessArgb),
         )
         is TestStatus.Failure -> Text(
             text = "✗ ${status.message}",

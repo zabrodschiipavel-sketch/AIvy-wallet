@@ -30,11 +30,19 @@ data class EditTransactionScreen(
     // extras — used to pre-fill a brand-new transaction (e.g. from the AI input flow)
     val accountId: UUID? = null,
     val categoryId: UUID? = null,
-    val amount: Double? = null,
-    val title: String? = null,
-    val description: String? = null,
-    val dateTime: Instant? = null,
+    val amount: Double?,
+    val title: String?,
+    val description: String?,
+    val dateTime: Instant?,
 ) : Screen {
+    // Compatibility for routes that do not carry an AI draft.
+    constructor(
+        initialTransactionId: UUID?,
+        type: TransactionType,
+        accountId: UUID? = null,
+        categoryId: UUID? = null,
+    ) : this(initialTransactionId, type, accountId, categoryId, null, null, null, null)
+
     override val isLegacy: Boolean
         get() = true
 }
