@@ -2,8 +2,6 @@ name: 'Gradle Wrapper Upgrade'
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 8 * * *'
 
 jobs:
   upgrade-gradle-wrapper:
