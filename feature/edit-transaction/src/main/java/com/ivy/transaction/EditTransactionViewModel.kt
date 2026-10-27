@@ -175,7 +175,7 @@ class EditTransactionViewModel @Inject constructor(
 
             val tagList = async { getAllTags() }
 
-            val getAccounts = accountsAct(Unit)
+            val getAccounts = availableEditorAccounts()
             if (getAccounts.isEmpty()) {
                 closeScreen()
                 return@launch
@@ -388,29 +388,18 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private suspend fun defaultAccountId(
+    private suspend fun availableEditorAccounts(): ImmutableList<Account> =
+        editorAccounts(accountsAct(Unit), editing = editMode, isArchived = Account::archived).toImmutableList()
+
+    private fun defaultAccountId(
         screen: EditTransactionScreen,
         accounts: List<Account>,
     ): UUID {
-        if (screen.accountId != null) {
-            return screen.accountId!!
-        }
-
         val lastSelectedId = sharedPrefs.getString(
             SharedPrefs.LAST_SELECTED_ACCOUNT_ID,
             null
-        )?.let { UUID.fromString(it) }
-        if (lastSelectedId != null && ioThread {
-                accounts.find {
-                    it.id == lastSelectedId
-                }
-            } != null
-        ) {
-            // use last selected account
-            return lastSelectedId
-        }
-
-        return accounts.first().id
+        )?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        return requireNotNull(initialAccountId(accounts.map(Account::id), screen.accountId, lastSelectedId))
     }
 
     private suspend fun display(transaction: Transaction) {
@@ -720,7 +709,7 @@ class EditTransactionViewModel @Inject constructor(
     }
 
     suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
-        return accountCreator.createAccount(data) { accounts = accountsAct(Unit) }
+        return accountCreator.createAccount(data) { accounts = availableEditorAccounts() }
     }
 
     private fun save(closeScreen: Boolean = true) {
