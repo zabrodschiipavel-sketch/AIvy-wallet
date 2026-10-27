@@ -12,7 +12,8 @@ runs:
           exit 1
         fi
         echo "version=$v" >> "$GITHUB_OUTPUT"
-    - uses: actions/setup-java@47b36480ae3ac5671badb6bde2dec0c1898a1cc9
+    # v6.1.0 supports exact JEP 322 patch/build requests through java-version.
+    - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
       with:
         distribution: temurin
         java-version: ${{ steps.pin.outputs.version }}

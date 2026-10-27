@@ -24,8 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - uses: actions/setup-java@v4
-        with: {distribution: temurin, java-version-file: .java-version}
+      - uses: ./.github/actions/setup-pinned-java
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"

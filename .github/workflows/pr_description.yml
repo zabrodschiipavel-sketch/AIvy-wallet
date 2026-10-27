@@ -11,10 +11,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version-file: .java-version
+        uses: ./.github/actions/setup-pinned-java
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
