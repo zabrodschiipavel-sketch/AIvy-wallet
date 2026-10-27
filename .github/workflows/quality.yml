@@ -19,6 +19,8 @@ jobs:
       - run: python scripts/quality.py ratchet
   integration:
     uses: ./.github/workflows/integration_test.yml
+  ci-actions-tests:
+    uses: ./.github/workflows/ci_actions_test.yml
   android-quality:
     runs-on: ubuntu-latest
     steps:
