@@ -1,4 +1,4 @@
-# Implementation status — 2026-10-24
+# Implementation status — 2026-10-27
 
 Base upstream commit: `710733dbe4729a437d573cdfb8429c50e617ded1`.
 
@@ -12,6 +12,11 @@ Observed verification checkpoints:
 
 | Source checkpoint | Check | Observed result |
 |---|---|---|
+| `1d5a53cea` | empty-checkout JVM / screenshots / Detekt / Python / debt ratchet | 553 JVM/screenshot cases (38 Paparazzi, 183 core, 27 analyzer), 39 Python cases; no failures/errors/skips. Gradle exit 0 in 39m30s, all 1,118 actionable tasks executed. Initial project build/.gradle directories were absent; global dependency/script caches were reused |
+| `1d5a53cea` | lint / full Compose / R8 demo and unsigned release | Lint exit 0 in 23m01s and Error/Fatal XML validation passed; 38 modules/969 functions with complete matching provenance; both non-debuggable R8 variants verified against their source, mapping and APK hashes |
+| `8640efc05` | final Detekt / fresh Compose / R8 | Exit 0 in 7m12s for Detekt/demo/full-scope gate; unsigned release exit 0 in 2m52s. All 38 modules/969 functions carry fresh matching receipts. Only CI YAML and the Android-test fixture differ from the cold source |
+| `8640efc05` | API 28 core and domain integration | All 107 cases passed, zero failures/errors/skips, in 2m24s. The original live-CDN DNS failure is preserved separately; fixed-rate integration now checks complete saved rows and repeat-sync idempotence |
+| `8640efc05` | API 35 core and domain integration | The same 107 cases passed, zero failures/errors/skips, in 1m37s; both owned AVDs stopped with userdata retained |
 | `5835c771b` | full Compose scope / analyzer JVM / root and app Detekt / R8 | Combined exit 0 in 3m51s; 1,417 tasks, 49 executed / 1,368 up-to-date; all 26 tests passed without failures/errors/skips; 38 modules/969 functions verified, zero new non-skippable restartable functions |
 | `5835c771b` | partial/header-only/mixed reports / unchanged-input compilation | Three real CLI controls failed as expected, removed stale green summaries and restored all report bytes; eight unchanged modules compiled again in 1m22s with identical row counts; the mixed cohort was rejected |
 | `5835c771b` | restored report gate / debt ratchet / saved evidence | Gate exit 0 in 11s; baselines, suppressions and legacy/DAO feature edges unchanged; independent package verification passed |
@@ -194,4 +199,22 @@ The saved logs include the original false green result and integration failures.
 
 Ten bounded Muse sessions supported the work: six completed, three stopped at gateway/output limits, and one exhausted its finite budget after committing a useful graph patch. That partial patch was inspected, integrated and verified locally. All workers are stopped. Harness reported/accounted USD 0.008206396812, with zero unsettled requests. Neither prohibited GPT route was called or resumed.
 
-The fresh-report task is complete for the local candidate. Stages 0 and 1 remain open. A clean-checkout build, identical local/CI toolchain, remote CI execution, production signing and physical-device frame budgets remain unverified. Compiler capability flags do not establish smoother animations or faster startup.
+At that checkpoint the fresh-report task was complete, while a clean-checkout build and exact local/CI toolchain were still open. The later cohort below records their local verification. Compiler capability flags do not establish smoother animations or faster startup.
+
+## Clean checkout, exact JDK and deterministic integration — 2026-10-27
+
+The first checkout at `1d5a53cea` had no project `build` or `.gradle` directories. Actual Eclipse Temurin `21.0.12.1+1`, Gradle 8.8, Android platform 34 and build-tools 34.0.0 were recorded before compilation. Global dependency/script caches were reused; task-output and configuration caches were disabled. All 553 JVM/screenshot tests, 39 Python cases, Detekt, lint and both R8 variants passed. The cohort includes 38 Paparazzi cases, 183 data-core JVM cases and 27 Compose-analyzer cases. No analyzer baseline or exception was added.
+
+An actual API-28 run passed all 106 Room cases but failed the domain test because it could not resolve the live CDN. Raw reports remain in `api28-network-red/`. The test now injects an immutable fixed-rate response at the remote-data boundary while retaining real Room, mapping, repository and use-case code. It compares the complete three-row USD result and repeats synchronization without duplicates. This tests persistence/conversion and idempotence; live network availability is no longer an assertion in the mandatory integration suite.
+
+The corrected source `8640efc05` differs only in CI YAML and that Android-test file. It was verified in the same checkout after the initial cohort finished. All 107 cases passed on each API 28/35, without failures/errors/skips. Detekt, fresh full Compose receipts for all 38 modules/969 functions and both R8 variants also passed. The initial empty-checkout proof and subsequent source identity remain separate. No personal database was inspected. Both owned AVDs are stopped with userdata retained; the APK was not installed in this tooling slice.
+
+One local action now reads `.java-version` and passes the raw value to setup-java v6.1.0 at an immutable SHA. The upstream version-file parser discards the fourth component; a regression using official source and the bundled resolver verifies exact patch/build matching and rejects wrong values. All 16 workflow YAML files, 14 routes and five real Bash controls passed after an intermediate malformed YAML result was preserved and repaired. Quality now calls the existing five-suite CI-actions workflow, so promotion cannot rely on Quality while those suites are independent. Wrong JDK and missing SDK controls fail and remove stale success output.
+
+`outputs/clean-checkout-1d5a53cea/` contains both cohorts, XML/HTML, raw logs, SDK/JDK metadata, complete source/report manifests, APKs/mappings, failures, source patches, action log and a standard-library verifier. `python outputs/clean-checkout-1d5a53cea/verify.py` passed. Separate Paparazzi HTML was not emitted; the saved JUnit XML/HTML and Gradle verification invocation retain the results. The final non-debuggable development APK is 11,957,888 bytes, SHA-256 `3100ca34cfe519fbf5fc8887333c074fc7150c5f86d7b9f08605c6a7c521f6e5`; the unsigned production candidate is 11,958,060 bytes, SHA-256 `dbaf58389d9071bd203368bbe616b8950732df3ad792d7ec2b1294aae0bfff60`. The known public development certificate remains separate from production signing.
+
+Twelve bounded MCP Muse sessions supported this slice: nine completed, three failed; all workers are stopped. Reported/accounted cost is USD 0.013209758289 with zero unsettled requests. No prohibited GPT route was called or resumed. `ub-mode` companion analyzers document no Kotlin/YAML support; no CRAP, duplication or mutation scores are claimed.
+
+Before publishing the fork, a red guard exposed inherited Telegram APK delivery and three maintenance schedules. The Telegram step was removed; release-version, stale and Gradle-upgrade workflows now require manual dispatch. The publication guard, workflow parsing and Quality dependency checks passed. These later commits change CI only and do not alter the verified application.
+
+Stages 0 and 1 remain open. Full remote Quality execution, external production signing, physical-device performance, reviewed recovery UI and the broader financial matrix remain pending. Upstream is archived and its main now includes API-36 targeting/release 207 at `eb08c930c`; those two commits were not merged into the tested `710733dbe` baseline. They require a separate compatibility review. Existing source and artifact identities are preserved.
