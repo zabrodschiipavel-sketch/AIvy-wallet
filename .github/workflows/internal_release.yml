@@ -48,7 +48,7 @@ jobs:
           python - <<'PY'
           import hashlib,json,os,pathlib,sys
           p=pathlib.Path('candidate/app-release-unsigned.apk'); m=json.loads(pathlib.Path('candidate/candidate.json').read_text())
-          assert m['commit']==os.environ['HEAD_SHA'] and m['apk']==p.name and m['package']=='com.ivy.wallet.optimized' and m['variant']=='release'
+          assert m['commit']==os.environ['HEAD_SHA'] and m['apk']==p.name and m['package']=='com.pavel.wallet' and m['variant']=='release'
           assert hashlib.sha256(p.read_bytes()).hexdigest()==m['sha256']
           assert os.environ['KEYSTORE_B64'] and os.environ['STORE_PASSWORD'] and os.environ['KEY_ALIAS'] and os.environ['KEY_PASSWORD']
           pathlib.Path('sign.jks').write_bytes(__import__('base64').b64decode(os.environ['KEYSTORE_B64'],validate=True))

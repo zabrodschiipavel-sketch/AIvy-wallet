@@ -1,8 +1,10 @@
 # Development and verification
 
-Use Eclipse Temurin from `.java-version` (currently `21.0.12.1+1`), Android SDK platform 34 and build-tools 34.0.0. The wrapper pins Gradle 8.8; Android bytecode remains Java 17. Set `JAVA_HOME` and `ANDROID_HOME` before running the wrapper. Minimum supported Android is API 28; CI instrumentation targets API 28 and 35.
+Use Eclipse Temurin from `.java-version` (currently `21.0.12.1+1`), the Android platform selected by `compile-sdk` in `gradle/libs.versions.toml` (currently 35), and build-tools 34.0.0. The wrapper pins Gradle 8.11.1 with its distribution checksum; Android bytecode remains Java 17. Set `JAVA_HOME` and `ANDROID_HOME` before running the wrapper. Minimum supported Android is API 28; CI instrumentation targets API 28 and 35.
 
-Run the environment preflight below before building. It checks the vendor, exact patch/build, actual Java executable and SDK metadata, and removes a stale success file on failure. Gradle uses `JAVA_HOME`; implicit JDK discovery/download and the configuration cache are disabled. Platform-tools are recorded separately and are not pinned.
+Run the environment preflight below before building. It checks the vendor, exact patch/build, actual Java executable and SDK metadata, and removes a stale success file on failure. Gradle uses `JAVA_HOME`; implicit JDK discovery/download and the configuration cache are disabled. The platform API is fixed; its installed revision/JAR hash and the unpinned platform-tools are recorded. Primary CI workflows upload this environment record with their reports.
+
+`python scripts/verify_environment.py --sdk-packages` lists the required platform and build-tools without an installed JDK or SDK. CI uses `.github/actions/setup-project-android` with Python 3.12 and the same package list. It supports both the native Android CLI (`sdk install`, slash-separated package IDs) and legacy `sdkmanager` (semicolon-separated IDs). A successful installer exit still requires the environment preflight to verify the installed files.
 
 CI uses `.github/actions/setup-pinned-java` to pass the raw pin to setup-java v6.1.0 at an immutable SHA. Its version-file parser discards the fourth version component, so the local action passes `java-version` directly. The upstream [Temurin resolver](https://github.com/actions/setup-java/blob/b843ebf9b913146b38da2eaa7aeddf76074ae1ad/src/distributions/temurin/installer.ts) handles the exact OpenJDK patch/build. Local parser/Bash checks do not establish remote CI success or a pristine machine build. `Quality` requires Python/ratchet, Android quality, both integration APIs and all five CI-actions JVM suites through reusable workflows.
 
@@ -39,7 +41,7 @@ The ratchet compares individual baseline entries, suppression annotations and fe
 
 ## Application identity and signing
 
-The fork uses `com.ivy.wallet.optimized`; debug/demo use `com.ivy.wallet.optimized.debug`. The earlier demo (`com.ivy.wallet.debug`) and original app retain their installations. Transfer data with a backup. Demo uses the repository's public development key and is not a production signing channel.
+The fork preserves the existing AIvy Wallet identity `com.pavel.wallet`; debug/demo use `com.pavel.wallet.debug`. Updating an existing installation also requires its signing key. Earlier optimized demos (`com.ivy.wallet.optimized.debug`), the original app and `com.ivy.wallet.debug` retain separate installations; transfer their data with a backup. Demo uses the repository's public development key and is not a production signing channel. Historical evidence below retains the package IDs and toolchains used for those artifacts.
 
 Release signing reads `IVY_SIGNING_STORE_FILE`, `IVY_SIGNING_STORE_PASSWORD`, `IVY_SIGNING_KEY_ALIAS` and `IVY_SIGNING_KEY_PASSWORD`. Keep the production key outside the checkout. `-PivyUnsignedRelease=true` produces the unsigned R8 candidate for checks. The manual promotion workflow checks a successful Quality run and its exact main SHA, verifies the candidate digest/package/debuggable flag, aligns and signs that artifact, then creates a draft release. Installation/upgrade verification of the signed artifact remains a release acceptance requirement.
 

@@ -19,6 +19,7 @@ import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.data.model.MainTab
 import com.ivy.legacy.ivyWalletCtx
 import com.ivy.legacy.utils.onScreenStart
+import com.ivy.navigation.AiInputScreen
 import com.ivy.navigation.EditPlannedScreen
 import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.MainScreen
@@ -39,11 +40,14 @@ fun BoxWithConstraintsScope.MainScreen(screen: MainScreen) {
         viewModel.start(screen)
     }
 
+    val aiEnabled = viewModel.aiTransactionEntry.asEnabledState()
+
     val ivyContext = ivyWalletCtx()
     UI(
         screen = screen,
         tab = ivyContext.mainTab,
         baseCurrency = currency,
+        aiEnabled = aiEnabled,
         selectTab = viewModel::selectTab,
         onCreateAccount = viewModel::createAccount
     )
@@ -57,6 +61,7 @@ private fun BoxWithConstraintsScope.UI(
     tab: MainTab,
 
     baseCurrency: String,
+    aiEnabled: Boolean,
 
     selectTab: (MainTab) -> Unit,
     onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
@@ -71,6 +76,7 @@ private fun BoxWithConstraintsScope.UI(
     val nav = navigation()
     BottomBar(
         tab = tab,
+        aiEnabled = aiEnabled,
         selectTab = selectTab,
 
         onAddIncome = {
@@ -105,6 +111,9 @@ private fun BoxWithConstraintsScope.UI(
                 )
             )
         },
+        onAddWithAi = {
+            nav.navigateTo(AiInputScreen)
+        },
 
         showAddAccountModal = {
             accountModalData = AccountModalData(
@@ -135,6 +144,7 @@ private fun PreviewMainScreen() {
             screen = MainScreen,
             tab = MainTab.HOME,
             baseCurrency = "BGN",
+            aiEnabled = false,
             selectTab = {},
             onCreateAccount = { AccountSaveResult.Saved }
         )

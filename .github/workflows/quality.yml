@@ -28,8 +28,7 @@ jobs:
         with: {fetch-depth: 0}
       - uses: ./.github/actions/setup-pinned-java
       - uses: gradle/actions/setup-gradle@v4
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - uses: ./.github/actions/setup-project-android
       - run: python scripts/verify_environment.py --out build/environment.json
       - name: Unit tests, Detekt and Paparazzi
         run: ./gradlew testDebugUnitTest detekt verifyPaparazziDebug
@@ -44,6 +43,7 @@ jobs:
           name: quality-reports-${{ github.sha }}
           if-no-files-found: warn
           path: |
+            build/environment.json
             build/reports/lint/**
             build/reports/detekt/**
             ci-actions/compose-stability/ivy-compose-stability-report.txt

@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.data.repository.CurrencyRepository
+import com.ivy.domain.features.BoolFeature
+import com.ivy.domain.features.Features
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
 import com.ivy.frp.test.TestIdlingResource
 import com.ivy.legacy.IvyWalletCtx
@@ -28,10 +30,15 @@ class MainViewModel @Inject constructor(
     private val accountCreator: AccountCreator,
     private val sharedPrefs: SharedPrefs,
     private val currencyRepository: CurrencyRepository,
+    private val features: Features,
 ) : ViewModel() {
 
     private val _currency = MutableLiveData<String>()
     val currency = _currency.asLiveData()
+
+    /** Exposed so the FAB menu can gate the "Add via AI" entry behind the feature flag. */
+    val aiTransactionEntry: BoolFeature
+        get() = features.aiTransactionEntry
 
     fun start(screen: MainScreen) {
         nav.onBackPressed[screen] = {

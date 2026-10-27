@@ -11,12 +11,13 @@ from quality import baseline_entries, feature_edges, inspect_badging, lint_error
 
 class CandidateGateTest(unittest.TestCase):
     def test_verified_release_package(self):
-        self.assertEqual(inspect_badging("package: name='com.ivy.wallet.optimized' versionCode='1'"),
-                         "com.ivy.wallet.optimized")
+        self.assertEqual(inspect_badging("package: name='com.pavel.wallet' versionCode='1'"),
+                         "com.pavel.wallet")
 
     def test_rejects_missing_wrong_and_debuggable_package(self):
-        for badging in ("", "package: name='com.ivy.wallet.optimized.debug'",
-                        "package: name='com.ivy.wallet.optimized'\napplication-debuggable"):
+        for badging in ("", "package: name='com.pavel.wallet.debug'",
+                        "package: name='com.ivy.wallet.optimized'",
+                        "package: name='com.pavel.wallet'\napplication-debuggable"):
             with self.subTest(badging=badging), self.assertRaises(ValueError):
                 inspect_badging(badging)
 

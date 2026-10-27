@@ -142,7 +142,7 @@ def sha256(path: Path) -> str:
 
 def inspect_badging(badging: str) -> str:
     package = re.search(r"^package: name='([^']+)'", badging, re.M)
-    if not package or package.group(1) != "com.ivy.wallet.optimized":
+    if not package or package.group(1) != "com.pavel.wallet":
         raise ValueError("Candidate APK has unexpected or missing package")
     if re.search(r"^application-debuggable(?:\s|$)", badging, re.M):
         raise ValueError("Candidate APK is debuggable")

@@ -78,12 +78,14 @@ val FAB_BUTTON_SIZE = 56.dp
 @Composable
 fun BoxWithConstraintsScope.BottomBar(
     tab: MainTab,
+    aiEnabled: Boolean,
     selectTab: (MainTab) -> Unit,
 
     onAddIncome: () -> Unit,
     onAddExpense: () -> Unit,
     onAddTransfer: () -> Unit,
     onAddPlannedPayment: () -> Unit,
+    onAddWithAi: () -> Unit,
 
     showAddAccountModal: () -> Unit,
 ) {
@@ -172,6 +174,7 @@ fun BoxWithConstraintsScope.BottomBar(
 
     TransactionButtons(
         buttonsShownPercent = buttonsShownPercent,
+        aiEnabled = aiEnabled,
 
         fabStartX = fabStartX,
         fabStartY = fabStartY,
@@ -179,7 +182,8 @@ fun BoxWithConstraintsScope.BottomBar(
         onAddIncome = onAddIncome,
         onAddExpense = onAddExpense,
         onAddTransfer = onAddTransfer,
-        onAddPlannedPayment = onAddPlannedPayment
+        onAddPlannedPayment = onAddPlannedPayment,
+        onAddWithAi = onAddWithAi,
     )
 
     var dragOffset by remember {
@@ -274,6 +278,7 @@ fun BoxWithConstraintsScope.BottomBar(
 @Composable
 private fun TransactionButtons(
     buttonsShownPercent: State<Float>,
+    aiEnabled: Boolean,
 
     fabStartX: Float,
     fabStartY: Float,
@@ -282,6 +287,7 @@ private fun TransactionButtons(
     onAddExpense: () -> Unit,
     onAddTransfer: () -> Unit,
     onAddPlannedPayment: () -> Unit,
+    onAddWithAi: () -> Unit,
 ) {
     val ivyContext = ivyWalletCtx()
 
@@ -320,6 +326,33 @@ private fun TransactionButtons(
             solidBackground = true
         ) {
             onAddPlannedPayment()
+        }
+
+        // AI input button — sits one row above the "Planned payment" button.
+        // Same horizontal centering; vertical offset stacks it visibly higher
+        // when the FAB menu is expanded. Hidden unless the AI feature flag is on.
+        if (aiEnabled) {
+            IvyOutlinedButton(
+                modifier = Modifier
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, placeable.height) {
+                            placeable.place(
+                                x = ivyContext.screenWidth / 2 - placeable.width / 2,
+                                y = buttonCenterY.roundToInt() - 48.dp.roundToPx() - placeable.height -
+                                    FAB_BUTTON_SIZE.roundToPx() - 64.dp.roundToPx(),
+                            )
+                        }
+                    }
+                    .padding(horizontal = 8.dp)
+                    .graphicsLayer { alpha = buttonsShownPercent.value.coerceIn(0f, 1f) }
+                    .zIndex(200f),
+                iconStart = R.drawable.ic_custom_atom_m,
+                text = "Добавить через AI",
+                solidBackground = true,
+            ) {
+                onAddWithAi()
+            }
         }
 
         // Add INCOME ------------------------------------------------------------------------------

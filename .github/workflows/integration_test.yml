@@ -12,8 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-pinned-java
       - uses: gradle/actions/setup-gradle@v4
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - uses: ./.github/actions/setup-project-android
       - run: python scripts/verify_environment.py --out build/environment.json
       - name: Run instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -28,4 +27,6 @@ jobs:
         with:
           name: integration-reports-api-${{ matrix.api-level }}
           if-no-files-found: warn
-          path: '**/build/reports/androidTests/**'
+          path: |
+            build/environment.json
+            **/build/reports/androidTests/**

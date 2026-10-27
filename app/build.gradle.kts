@@ -14,7 +14,7 @@ android {
     compileSdk = libs.versions.compile.sdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.ivy.wallet.optimized"
+        applicationId = "com.pavel.wallet"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
         versionName = libs.versions.version.name.get()
@@ -124,6 +124,7 @@ android {
 }
 
 dependencies {
+    implementation(projects.feature.aiInput)
     implementation(projects.feature.attributions)
     implementation(projects.feature.balance)
     implementation(projects.feature.budgets)
