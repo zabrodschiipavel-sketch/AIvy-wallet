@@ -29,9 +29,4 @@ jobs:
           path: build/reports/lint/lint.html
 
       - name: Fail if lint errors are found
-        run: |
-          # Check if the lint XML report contains any error issues
-          if grep -q 'severity="Error"' build/reports/lint/lint.xml; then
-            echo "Lint errors found. Failing the build."
-            exit 1
-          fi
+        run: python scripts/quality.py lint build/reports/lint/lint.xml
