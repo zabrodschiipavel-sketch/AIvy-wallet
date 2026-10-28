@@ -7,6 +7,9 @@ runs:
       with:
         python-version: '3.12'
     - uses: android-actions/setup-android@v3
+      with:
+        # platform/build-tools follow catalog in next step
+        packages: platform-tools
     - shell: bash
       run: |
         packages="$(python scripts/verify_environment.py --sdk-packages)"
