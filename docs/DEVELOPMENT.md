@@ -10,6 +10,10 @@ CI uses `.github/actions/setup-pinned-java` to pass the raw pin to setup-java v6
 
 On this machine, local AVD definitions are kept in `build/avd`; set `ANDROID_AVD_HOME` to that absolute directory before launching the emulator. API 28 uses `IvyWalletApi28` on port 5572, and API 35 uses `IvyWallet` on port 5570. Run one at a time for connected tests, address ADB commands by serial, and preserve the AVD data when stopping the task-owned emulator.
 
+Compatibility pins are intentionally retained from the AI fork: Kotlin 2.0.21 with KSP 2.0.21-1.0.27 plus Compose 1.7.6/Material3 1.3.1; Paparazzi stays at 1.3.4 because 1.3.5 breaks cross-module fonts on Windows, and Slack Compose lint 1.4.2 is required for the current K2/lint stack.
+
+Snapshot changes need visual review with recorded source and old/new hashes -- never threshold increases or baseline regeneration to hide failures (for example, `docs/quality/screenshot-review-2026-10-29.json`); the GitHub API 28/35 emulator workflow settles KVM udev events before checking read/write access.
+
 Run from the repository root (Windows uses `gradlew.bat`):
 
 ```sh
