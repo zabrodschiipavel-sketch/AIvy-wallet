@@ -49,6 +49,10 @@ jobs:
             ci-actions/compose-stability/ivy-compose-stability-report.txt
             ci-actions/compose-stability/ivy-compose-coverage.tsv
             **/build/compose_full/**
+            **/build/test-results/**
+            **/build/reports/tests/**
+            **/build/reports/paparazzi/**
+            **/build/paparazzi/failures/**
       - name: Build unsigned release candidate
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: ./gradlew assembleRelease -PivyUnsignedRelease=true
