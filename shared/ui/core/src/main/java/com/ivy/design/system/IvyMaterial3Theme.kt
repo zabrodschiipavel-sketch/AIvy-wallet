@@ -3,7 +3,9 @@ package com.ivy.design.system
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import com.ivy.design.system.colors.IvyColors
 
 @Composable
@@ -58,7 +60,7 @@ private fun ivyLightColorScheme(): ColorScheme = ColorScheme(
     outline = IvyColors.Gray,
     outlineVariant = IvyColors.DarkGray,
     scrim = IvyColors.ExtraDarkGray.copy(alpha = 0.8f)
-)
+).withElevatedSurfaceColor()
 
 private fun ivyDarkColorScheme(isTrueBlack: Boolean): ColorScheme {
     val backgroundColor = if (isTrueBlack) IvyColors.TrueBlack else IvyColors.Black
@@ -102,5 +104,10 @@ private fun ivyDarkColorScheme(isTrueBlack: Boolean): ColorScheme {
         outline = IvyColors.Gray,
         outlineVariant = IvyColors.LightGray,
         scrim = IvyColors.ExtraLightGray.copy(alpha = 0.8f)
-    )
+    ).withElevatedSurfaceColor()
 }
+
+/** Elevated cards retain the existing one-dp tinted surface. */
+private fun ColorScheme.withElevatedSurfaceColor(): ColorScheme = copy(
+    surfaceContainerLow = surfaceColorAtElevation(1.dp),
+)
