@@ -60,13 +60,13 @@ import java.util.UUID
 @ExperimentalFoundationApi
 @Composable
 fun BoxWithConstraintsScope.ChooseCategoryModal(
-    id: UUID = UUID.randomUUID(),
     visible: Boolean,
     initialCategory: Category?,
     categories: List<Category>,
 
     showCategoryModal: (Category?) -> Unit,
     onCategoryChanged: (Category?) -> Unit,
+    id: UUID = UUID.randomUUID(),
     dismiss: () -> Unit
 ) {
     var selectedCategory by remember(initialCategory) {

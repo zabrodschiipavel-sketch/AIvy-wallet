@@ -43,11 +43,11 @@ import java.util.UUID
 @Suppress("ParameterNaming")
 @Composable
 fun BoxWithConstraintsScope.DescriptionModal(
-    id: UUID = UUID.randomUUID(),
     visible: Boolean,
     description: String?,
 
     onDescriptionChanged: (String?) -> Unit,
+    id: UUID = UUID.randomUUID(),
     dismiss: () -> Unit,
 ) {
     var descTextFieldValue by remember(description) {

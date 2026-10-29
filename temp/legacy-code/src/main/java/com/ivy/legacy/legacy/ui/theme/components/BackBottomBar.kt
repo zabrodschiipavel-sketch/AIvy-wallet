@@ -20,8 +20,8 @@ import com.ivy.wallet.ui.theme.gradientCutBackgroundTop
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
 fun BoxWithConstraintsScope.BackBottomBar(
-    bottomInset: Dp = navigationBarInset().toDensityDp(),
     onBack: () -> Unit,
+    bottomInset: Dp = navigationBarInset().toDensityDp(),
     PrimaryAction: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current

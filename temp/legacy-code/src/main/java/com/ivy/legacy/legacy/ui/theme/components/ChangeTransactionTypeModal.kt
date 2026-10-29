@@ -43,12 +43,12 @@ import java.util.UUID
 @Suppress("ParameterNaming")
 @Composable
 fun BoxWithConstraintsScope.ChangeTransactionTypeModal(
-    title: String = stringResource(R.string.set_transaction_type),
     visible: Boolean,
     includeTransferType: Boolean,
     initialType: TransactionType,
-    id: UUID = UUID.randomUUID(),
     dismiss: () -> Unit,
+    title: String = stringResource(R.string.set_transaction_type),
+    id: UUID = UUID.randomUUID(),
     onTransactionTypeChanged: (TransactionType) -> Unit
 ) {
     var transactionType by remember(id) {
