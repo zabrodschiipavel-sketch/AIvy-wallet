@@ -31,7 +31,7 @@ jobs:
       - uses: ./.github/actions/setup-project-android
       - run: python scripts/verify_environment.py --out build/environment.json
       - name: Unit tests, Detekt and Paparazzi
-        run: ./gradlew testDebugUnitTest detekt verifyPaparazziDebug
+        run: ./gradlew testDebugUnitTest detekt verifyPaparazziDebug --continue
       - name: Lint with fail-closed report validation
         run: ./gradlew lintRelease && python scripts/quality.py lint build/reports/lint/lint.xml
       - name: Compose stability analysis

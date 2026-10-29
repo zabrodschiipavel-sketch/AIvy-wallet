@@ -36,3 +36,4 @@ jobs:
           path: |
             build/environment.json
             **/build/reports/androidTests/**
+            **/build/outputs/androidTest-results/**
