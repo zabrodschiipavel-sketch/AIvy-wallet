@@ -1,4 +1,4 @@
-# Implementation status — 2026-10-27
+# Implementation status — 2026-10-29
 
 Base upstream commit: `710733dbe4729a437d573cdfb8429c50e617ded1`.
 
@@ -8,10 +8,18 @@ Stages 0 and 1 remain in progress. The current checkpoint is not a release candi
 
 Integrated work includes atomic backup merge/export snapshots, UUID conflict and tombstone protection, durable preference recovery, bounded ZIP/raw input, repository cache invalidation, account history guards and schema 131, per-navigation-entry ViewModel ownership, and restored root settings refresh. Firebase runtime/plugins and poll/home/Play Review prompts have been removed; online exchange-rate retrieval remains. Full AndroidX navigation and the financial decimal migration remain open.
 
+The maintained branch now integrates AIvy Wallet main `eddb039b2`, retaining its AI input and `com.pavel.wallet` identity. AI input validates finite positive amounts and active, unambiguous account references. New editor drafts choose active accounts while historical edits preserve their archived account. The first cold run of this integration was interrupted; subsequent local runs reuse project outputs and do not establish a new cold-checkout gate.
+
+The current screenshot refresh is separately reviewed in [the source and hash manifest](quality/screenshot-review-2026-10-29.json). Missing Material3 card backgrounds and elevated-card tint were corrected in code first, and their original goldens pass. The remaining 21 images show reviewed color/shadow rounding with matching dimensions and no observed content or geometry changes. Thresholds and analyzer baselines were retained; the refreshed references still require a full rerun. A background coroutine exception in SettingsViewModelTest also requires test-scope cleanup despite its green JUnit result.
+
 Observed verification checkpoints:
 
 | Source checkpoint | Check | Observed result |
 |---|---|---|
+| `50da71d86` | full local JVM/screenshots/Detekt/lint and five CI-actions suites | 520 product cases with 21 screenshot failures, zero errors/skips; 75 CI-actions cases passed. Detekt and lint completed; fail-closed lint XML validation passed with zero Error/Fatal. Combined exit1 in1h8s,2790 tasks (2144 executed/646 up-to-date). Reports and exact source were preserved before accepting new goldens |
+| `d464a8913` | GitHub Quality40832206842 | Full product suite520 cases/23 screenshot failures/zero errors or skips; Python/ratchet and five CI-actions suites passed. API28 passed107; API35 stopped at KVM preflight before app tests. A udev settle follow-up still needs new-run validation |
+| `3c87b16cd` | GitHub Quality40830660029 API28 and API35 | Each API passed107 integration cases, zero failures/skips. Python/ratchet and five CI-actions suites passed. Full-source quality was still red on screenshot assertions; individual API success is not release acceptance |
+| `d464a8913` | local Material3 background fix / Detekt | Attributions light and dark passed with unchanged goldens; root/app Detekt passed. Combined exit0 in1m55s. The later50da source additionally restores elevated-card tint and passes both original OpenSourceCard goldens |
 | `1d5a53cea` | empty-checkout JVM / screenshots / Detekt / Python / debt ratchet | 553 JVM/screenshot cases (38 Paparazzi, 183 core, 27 analyzer), 39 Python cases; no failures/errors/skips. Gradle exit 0 in 39m30s, all 1,118 actionable tasks executed. Initial project build/.gradle directories were absent; global dependency/script caches were reused |
 | `1d5a53cea` | lint / full Compose / R8 demo and unsigned release | Lint exit 0 in 23m01s and Error/Fatal XML validation passed; 38 modules/969 functions with complete matching provenance; both non-debuggable R8 variants verified against their source, mapping and APK hashes |
 | `8640efc05` | final Detekt / fresh Compose / R8 | Exit 0 in 7m12s for Detekt/demo/full-scope gate; unsigned release exit 0 in 2m52s. All 38 modules/969 functions carry fresh matching receipts. Only CI YAML and the Android-test fixture differ from the cold source |
@@ -219,4 +227,4 @@ Before publishing the fork, a red guard exposed inherited Telegram APK delivery 
 
 Stages 0 and 1 remain open. Full remote Quality execution, external production signing, physical-device performance, reviewed recovery UI and the broader financial matrix remain pending. Upstream is archived and its main now includes API-36 targeting/release 207 at `eb08c930c`; those two commits were not merged into the tested `710733dbe` baseline. They require a separate compatibility review. Existing source and artifact identities are preserved.
 
-Publication found the user's existing fork `zabrodschiipavel-sketch/AIvy-wallet`, whose main at `eddb039b2` contains independent AI input/settings/preview/transfer work. It is not an ancestor of this branch. A merge-tree check identifies seven conflicts, including Gradle configuration and MainBottomBar. The verified work is published as `codex/maintained-fork` in [draft PR #3](https://github.com/zabrodschiipavel-sketch/AIvy-wallet/pull/3); existing main was preserved. Combined-source verification and mainline integration remain open.
+Publication found the user's existing fork `zabrodschiipavel-sketch/AIvy-wallet`, whose main at `eddb039b2` contains independent AI input/settings/preview/transfer work. It initially diverged with seven merge conflicts. The later maintained branch resolves those conflicts and includes `eddb039b2` as an ancestor, preserving its identity and AI features. Work is published in [draft PR #3](https://github.com/zabrodschiipavel-sketch/AIvy-wallet/pull/3); remote main remains unchanged. Current combined-source verification is recorded at the top of this document; mainline integration remains open.
