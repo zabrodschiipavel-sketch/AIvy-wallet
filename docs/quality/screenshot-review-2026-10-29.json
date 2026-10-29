@@ -1,0 +1,392 @@
+{
+  "source": "50da71d86f395257045d6325ab9acb51d7330f1a",
+  "recorded_at": "2026-10-29T08:14:37.378981+00:00",
+  "decision": "Accept only the 21 visually reviewed renderer and color-rounding differences; identical dimensions and no observed content or geometry changes.",
+  "context": "Retained AI-fork Compose 1.7.6 / Material3 1.3.1 upgrade and pinned Paparazzi 1.3.4. Missing surface-container colors and elevated-card tint were corrected in code first; their original goldens pass without refresh.",
+  "unchanged_controls": [
+    "Screenshot assertions and thresholds",
+    "Lint, Detekt and Compose baselines",
+    "Test inputs and assertions"
+  ],
+  "review_limits": "Pixel statistics supplement manual side-by-side review. This is not a functional, device, accessibility or performance acceptance result. A complete verification rerun is required.",
+  "screenshots": [
+    {
+      "module": "feature/categories",
+      "image": "com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories nonCompact Screen[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "c37e574c7cd6c6026da01702c27e664d31bc9df96f7c0839347abd8f4e3bb4c2",
+      "actual_sha256": "1567fd744a40146e752fe4e00738f2d0fa7aad06a706f56cbb3c9db0260b133f",
+      "max_channel_delta": 8,
+      "mean_absolute_channel_delta": 0.015452819956616052,
+      "changed_pixels": 13532,
+      "pixels_above_4": 11,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.008048%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\categories\\build\\paparazzi\\failures\\delta-com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories nonCompact Screen[Dar",
+      "path": "feature/categories/src/test/snapshots/images/com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories nonCompact Screen[Dark].png"
+    },
+    {
+      "module": "feature/categories",
+      "image": "com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories compact Screen[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "8b94d04e9b880089dd007abae658370e672644ce88d1d62cf5fc9e9366f7ea66",
+      "actual_sha256": "22f39eea114711bb024cc8c976e16d883321309ebb8c3b541d0aff93b6d866ff",
+      "max_channel_delta": 9,
+      "mean_absolute_channel_delta": 0.017431670281995663,
+      "changed_pixels": 13935,
+      "pixels_above_4": 13,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.009079%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\categories\\build\\paparazzi\\failures\\delta-com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories compact Screen[Dark].",
+      "path": "feature/categories/src/test/snapshots/images/com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories compact Screen[Dark].png"
+    },
+    {
+      "module": "feature/categories",
+      "image": "com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories compact Screen with search bar[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "a5cbeb9b379a3f3507e6b1bb139115d636f4f24e8e15d6849dfa349fd7e020be",
+      "actual_sha256": "bcd9d9ced9afa6eae0583274075f872c4f47433b6521e023a7c548fb6f7d4f67",
+      "max_channel_delta": 9,
+      "mean_absolute_channel_delta": 0.017831344902386116,
+      "changed_pixels": 14485,
+      "pixels_above_4": 20,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.009287%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\categories\\build\\paparazzi\\failures\\delta-com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories compact Screen with s",
+      "path": "feature/categories/src/test/snapshots/images/com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories compact Screen with search bar[Dark].png"
+    },
+    {
+      "module": "feature/categories",
+      "image": "com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories nonCompact Screen with search bar[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "0f12295a53b1be10960023a96f5ac457cb2362b2194faab8f74611bf3bdcdde4",
+      "actual_sha256": "c4531c68243d32fc7e621bde9e687cc41977d1e66a8d5e695b4acd0310af1ba0",
+      "max_channel_delta": 9,
+      "mean_absolute_channel_delta": 0.01820715835140998,
+      "changed_pixels": 15475,
+      "pixels_above_4": 12,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.009483%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\categories\\build\\paparazzi\\failures\\delta-com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories nonCompact Screen wit",
+      "path": "feature/categories/src/test/snapshots/images/com.ivy.categories_CategoriesScreenPaparazziTest_snapshot Categories nonCompact Screen with search bar[Dark].png"
+    },
+    {
+      "module": "feature/contributors",
+      "image": "com.ivy.contributors_ContributorsScreenPaparazziTest_snapshot Contributor Screen[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "3b74ede4d47dd06ba2707f3a1cf9e36dbdf3ef50db3c0f7872e800cfb3cf4b7a",
+      "actual_sha256": "80917591f10c22528db3a38445308f364d403ff5c70f0173ec87870264861812",
+      "max_channel_delta": 31,
+      "mean_absolute_channel_delta": 0.017317245119305855,
+      "changed_pixels": 4588,
+      "pixels_above_4": 698,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.009019%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\contributors\\build\\paparazzi\\failures\\delta-com.ivy.contributors_ContributorsScreenPaparazziTest_snapshot Contributor Screen[Light].",
+      "path": "feature/contributors/src/test/snapshots/images/com.ivy.contributors_ContributorsScreenPaparazziTest_snapshot Contributor Screen[Light].png"
+    },
+    {
+      "module": "feature/disclaimer",
+      "image": "com.ivy.disclaimer_DisclaimerScreenPaparazziTest_all checked[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "12b925a1844a32520e4d5b4250d4f9a5f12463e42a536ba0dd10060ca538854a",
+      "actual_sha256": "af978097294dd38ac3d463ec310bf93beff54c1d071e39f06c764de926c1c308",
+      "max_channel_delta": 42,
+      "mean_absolute_channel_delta": 0.06194034707158352,
+      "changed_pixels": 24084,
+      "pixels_above_4": 1343,
+      "pixels_above_32": 6,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.032261%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\disclaimer\\build\\paparazzi\\failures\\delta-com.ivy.disclaimer_DisclaimerScreenPaparazziTest_all checked[Light].png\nThumbnail for curr",
+      "path": "feature/disclaimer/src/test/snapshots/images/com.ivy.disclaimer_DisclaimerScreenPaparazziTest_all checked[Light].png"
+    },
+    {
+      "module": "feature/disclaimer",
+      "image": "com.ivy.disclaimer_DisclaimerScreenPaparazziTest_all checked[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "e389b7bad2a6743ed0303069e61c49cfe77026f1459098385f5d2b4e8d277317",
+      "actual_sha256": "81af3c04b567b594208cc7ed2e38a292389d9778cfdecbf3e55b26de04eb0aa4",
+      "max_channel_delta": 26,
+      "mean_absolute_channel_delta": 0.05431616052060737,
+      "changed_pixels": 23907,
+      "pixels_above_4": 932,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.028290%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\disclaimer\\build\\paparazzi\\failures\\delta-com.ivy.disclaimer_DisclaimerScreenPaparazziTest_all checked[Dark].png\nThumbnail for curre",
+      "path": "feature/disclaimer/src/test/snapshots/images/com.ivy.disclaimer_DisclaimerScreenPaparazziTest_all checked[Dark].png"
+    },
+    {
+      "module": "feature/disclaimer",
+      "image": "com.ivy.disclaimer_DisclaimerScreenPaparazziTest_none checked[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "ac238d9b939ced07c3053430fb30073fd5a90b89ac67cc4990d23817c5df76e0",
+      "actual_sha256": "6da39fce3d0708bb41bdaf5f072b655892ceddf6e91e894789b7be93b016b1b5",
+      "max_channel_delta": 42,
+      "mean_absolute_channel_delta": 0.07238991323210413,
+      "changed_pixels": 42872,
+      "pixels_above_4": 1343,
+      "pixels_above_32": 6,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.037703%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\disclaimer\\build\\paparazzi\\failures\\delta-com.ivy.disclaimer_DisclaimerScreenPaparazziTest_none checked[Light].png\nThumbnail for cur",
+      "path": "feature/disclaimer/src/test/snapshots/images/com.ivy.disclaimer_DisclaimerScreenPaparazziTest_none checked[Light].png"
+    },
+    {
+      "module": "feature/disclaimer",
+      "image": "com.ivy.disclaimer_DisclaimerScreenPaparazziTest_none checked[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "82c89d7a66fb8ca9aa1616326b31b4b274a7bb80ba083284cec06776f27173c0",
+      "actual_sha256": "cb7dacef32433525aa98ae1f2aded4aa28e7d25477c942196c4659e362e5a951",
+      "max_channel_delta": 26,
+      "mean_absolute_channel_delta": 0.08286876355748374,
+      "changed_pixels": 41328,
+      "pixels_above_4": 932,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.043161%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\disclaimer\\build\\paparazzi\\failures\\delta-com.ivy.disclaimer_DisclaimerScreenPaparazziTest_none checked[Dark].png\nThumbnail for curr",
+      "path": "feature/disclaimer/src/test/snapshots/images/com.ivy.disclaimer_DisclaimerScreenPaparazziTest_none checked[Dark].png"
+    },
+    {
+      "module": "feature/exchange-rates",
+      "image": "com.ivy.exchangerates_ExchangeRatesScreenPaparazziTest_snapshot Exchange Rates Screen[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "be0b7f9e5c8a294a57a3adef6ac22ccf35073e8af6b5be09f338f7bcd3cc483e",
+      "actual_sha256": "1b12db16e1cb8ca14139c451c82485a44ffe895cbfe1e56131e99ea96e1ff4b0",
+      "max_channel_delta": 2,
+      "mean_absolute_channel_delta": 0.03613232104121475,
+      "changed_pixels": 27925,
+      "pixels_above_4": 0,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.018819%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\exchange-rates\\build\\paparazzi\\failures\\delta-com.ivy.exchangerates_ExchangeRatesScreenPaparazziTest_snapshot Exchange Rates Screen[",
+      "path": "feature/exchange-rates/src/test/snapshots/images/com.ivy.exchangerates_ExchangeRatesScreenPaparazziTest_snapshot Exchange Rates Screen[Dark].png"
+    },
+    {
+      "module": "feature/home",
+      "image": "com.ivy.home_HomePaparazziTest_snapshot Home Screen[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "3a0085f220d40b658820597b91c8baaac30ea9e62f2c6cab1fedfbc94c1d75bc",
+      "actual_sha256": "23d71a02d27325ab81bb4be4151f660f336dc3d1d38f2fc0df0d8217eda8a8a8",
+      "max_channel_delta": 6,
+      "mean_absolute_channel_delta": 0.016669197396963122,
+      "changed_pixels": 17311,
+      "pixels_above_4": 1,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.008682%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\home\\build\\paparazzi\\failures\\delta-com.ivy.home_HomePaparazziTest_snapshot Home Screen[Light].png\nThumbnail for current rendering s",
+      "path": "feature/home/src/test/snapshots/images/com.ivy.home_HomePaparazziTest_snapshot Home Screen[Light].png"
+    },
+    {
+      "module": "feature/home",
+      "image": "com.ivy.home_HomePaparazziTest_snapshot Home Screen[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "78e201bd25b0d3faa3cb89bdd7509fc5c1b4bbe60e2faaa84984d8b30ebe7d4d",
+      "actual_sha256": "00c2b15c5bf4324f4b8468455542703961f8fbc2eaef1540adf188dc23bc47a5",
+      "max_channel_delta": 7,
+      "mean_absolute_channel_delta": 0.052560737527114966,
+      "changed_pixels": 34916,
+      "pixels_above_4": 4,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.027375%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\home\\build\\paparazzi\\failures\\delta-com.ivy.home_HomePaparazziTest_snapshot Home Screen[Dark].png\nThumbnail for current rendering st",
+      "path": "feature/home/src/test/snapshots/images/com.ivy.home_HomePaparazziTest_snapshot Home Screen[Dark].png"
+    },
+    {
+      "module": "feature/loans",
+      "image": "com.ivy.loans_LoanScreenPaparazziTest_snapshot loanScreen composable[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "bcd9be54c501e1db0279fba5a19875cf4d16166db85348d4c2e2b74c9e365863",
+      "actual_sha256": "c485abb95b39dfe43713fb0cf86f9aa77fcedae7411b6894fdeb51cc796db219",
+      "max_channel_delta": 2,
+      "mean_absolute_channel_delta": 0.034106290672451196,
+      "changed_pixels": 32650,
+      "pixels_above_4": 0,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.017764%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\loans\\build\\paparazzi\\failures\\delta-com.ivy.loans_LoanScreenPaparazziTest_snapshot loanScreen composable[Dark].png\nThumbnail for cu",
+      "path": "feature/loans/src/test/snapshots/images/com.ivy.loans_LoanScreenPaparazziTest_snapshot loanScreen composable[Dark].png"
+    },
+    {
+      "module": "feature/poll/impl",
+      "image": "com.ivy.poll.impl.ui_PollScreenshotTest_poll state[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "20f5d8a933fa937decbbb2b36f064712ac7a4c38d5aadd15e63cced0ff3736c5",
+      "actual_sha256": "4a02fcc810f29038b1e842a42998e6ddbf558b86181a1247716722eaf24a1c7e",
+      "max_channel_delta": 36,
+      "mean_absolute_channel_delta": 0.015262472885032538,
+      "changed_pixels": 6563,
+      "pixels_above_4": 308,
+      "pixels_above_32": 1,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.007949%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\poll\\impl\\build\\paparazzi\\failures\\delta-com.ivy.poll.impl.ui_PollScreenshotTest_poll state[Light].png\nThumbnail for current renderi",
+      "path": "feature/poll/impl/src/test/snapshots/images/com.ivy.poll.impl.ui_PollScreenshotTest_poll state[Light].png"
+    },
+    {
+      "module": "feature/poll/impl",
+      "image": "com.ivy.poll.impl.ui_PollScreenshotTest_poll state[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "eb2a7685243ce4f7b93b3bde36c80fcfd78600009d9c02664653c2c91254accc",
+      "actual_sha256": "344cc3f79b53ffef38957b9df92460dd253c6135f97e465f2f92894016451299",
+      "max_channel_delta": 17,
+      "mean_absolute_channel_delta": 0.013316160520607375,
+      "changed_pixels": 6355,
+      "pixels_above_4": 199,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.006936%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\poll\\impl\\build\\paparazzi\\failures\\delta-com.ivy.poll.impl.ui_PollScreenshotTest_poll state[Dark].png\nThumbnail for current renderin",
+      "path": "feature/poll/impl/src/test/snapshots/images/com.ivy.poll.impl.ui_PollScreenshotTest_poll state[Dark].png"
+    },
+    {
+      "module": "feature/reports",
+      "image": "com.ivy.report_ReportPaparazziTest_snapshot Report Screen no filter[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "792c4af1473e17f8067bf3a6f7957a59d1257ddefaf78eb5478f7bb6b7c96388",
+      "actual_sha256": "67ec0c9dda21e9f44febae2e87fe05d6533522c519417786c93e9b6cb6dd2928",
+      "max_channel_delta": 2,
+      "mean_absolute_channel_delta": 0.1405639913232104,
+      "changed_pixels": 97725,
+      "pixels_above_4": 0,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.073210%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\reports\\build\\paparazzi\\failures\\delta-com.ivy.report_ReportPaparazziTest_snapshot Report Screen no filter[Light].png\nThumbnail for ",
+      "path": "feature/reports/src/test/snapshots/images/com.ivy.report_ReportPaparazziTest_snapshot Report Screen no filter[Light].png"
+    },
+    {
+      "module": "feature/reports",
+      "image": "com.ivy.report_ReportPaparazziTest_snapshot Report Screen no filter[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "bd39cecb987297503535acd79bc39afea48a7354078c7f6ffc32bcc5542cf494",
+      "actual_sha256": "fef1607588feff6ac6510d7ef540f46f8ed676bee67dce999052fd29024d8a29",
+      "max_channel_delta": 3,
+      "mean_absolute_channel_delta": 0.20688394793926249,
+      "changed_pixels": 132029,
+      "pixels_above_4": 0,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.107752%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\reports\\build\\paparazzi\\failures\\delta-com.ivy.report_ReportPaparazziTest_snapshot Report Screen no filter[Dark].png\nThumbnail for c",
+      "path": "feature/reports/src/test/snapshots/images/com.ivy.report_ReportPaparazziTest_snapshot Report Screen no filter[Dark].png"
+    },
+    {
+      "module": "feature/reports",
+      "image": "com.ivy.report_ReportPaparazziTest_snapshot Report Screen[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "393fb895f385f060f611b89814c1cd4fea9c35744d8e155ba849f6235566654e",
+      "actual_sha256": "9db42b359fe86c15b84436b313b9dd71ff4e6e0445f26b5d878054f6630dd8ad",
+      "max_channel_delta": 5,
+      "mean_absolute_channel_delta": 0.13671475054229934,
+      "changed_pixels": 92716,
+      "pixels_above_4": 1,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.071206%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\reports\\build\\paparazzi\\failures\\delta-com.ivy.report_ReportPaparazziTest_snapshot Report Screen[Light].png\nThumbnail for current re",
+      "path": "feature/reports/src/test/snapshots/images/com.ivy.report_ReportPaparazziTest_snapshot Report Screen[Light].png"
+    },
+    {
+      "module": "feature/reports",
+      "image": "com.ivy.report_ReportPaparazziTest_snapshot Report Screen[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "041ef502aa3016eddc7aaccec2e274c6b75578ed666e2fdf256ce224ee6ccba3",
+      "actual_sha256": "4206d4653c12ba30d23b7c221a976eedeb1a45dd0503dbacf4ed9acda61b96f0",
+      "max_channel_delta": 7,
+      "mean_absolute_channel_delta": 0.19002440347071584,
+      "changed_pixels": 119125,
+      "pixels_above_4": 3,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.098971%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\reports\\build\\paparazzi\\failures\\delta-com.ivy.report_ReportPaparazziTest_snapshot Report Screen[Dark].png\nThumbnail for current ren",
+      "path": "feature/reports/src/test/snapshots/images/com.ivy.report_ReportPaparazziTest_snapshot Report Screen[Dark].png"
+    },
+    {
+      "module": "feature/transactions",
+      "image": "com.ivy.transactions_TransactionsPaparazziTest_snapshot Transactions Screen[Light].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "6ef4d685e092e4632c6452538c435056a90d90f56c506dab6b4f5abdcc5cf3f8",
+      "actual_sha256": "f95e2f0b23db335e23b1317efabbf81680e7ef0e0b729719623bb74639c010a9",
+      "max_channel_delta": 4,
+      "mean_absolute_channel_delta": 0.18576030368763558,
+      "changed_pixels": 131727,
+      "pixels_above_4": 0,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.096750%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\transactions\\build\\paparazzi\\failures\\delta-com.ivy.transactions_TransactionsPaparazziTest_snapshot Transactions Screen[Light].png\nT",
+      "path": "feature/transactions/src/test/snapshots/images/com.ivy.transactions_TransactionsPaparazziTest_snapshot Transactions Screen[Light].png"
+    },
+    {
+      "module": "feature/transactions",
+      "image": "com.ivy.transactions_TransactionsPaparazziTest_snapshot Transactions Screen[Dark].png",
+      "dimensions": [
+        1000,
+        461,
+        4
+      ],
+      "expected_sha256": "0aff999fe190cc988fa56940d40e678565d41e1702c9f1bebd7a083750b51c9f",
+      "actual_sha256": "c05f5d920f862d4d69554b8de5ce3f1c6fe8ad69a5e834fabebc972c5a055a7c",
+      "max_channel_delta": 4,
+      "mean_absolute_channel_delta": 0.18593546637744035,
+      "changed_pixels": 131983,
+      "pixels_above_4": 0,
+      "pixels_above_32": 0,
+      "failure_message": "java.lang.AssertionError: Images differ (by 0.096841%) - see details in file://C:\\Users\\pavel\\.codex\\worktrees\\ai-fork-acceptance\\https-github-com-ivy-apps-ivy\\feature\\transactions\\build\\paparazzi\\failures\\delta-com.ivy.transactions_TransactionsPaparazziTest_snapshot Transactions Screen[Dark].png\nTh",
+      "path": "feature/transactions/src/test/snapshots/images/com.ivy.transactions_TransactionsPaparazziTest_snapshot Transactions Screen[Dark].png"
+    }
+  ]
+}
