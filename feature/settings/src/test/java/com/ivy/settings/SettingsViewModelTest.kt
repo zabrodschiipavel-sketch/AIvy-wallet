@@ -1,6 +1,7 @@
 package com.ivy.settings
 
 import androidx.compose.runtime.MutableState
+import androidx.lifecycle.viewModelScope
 import com.ivy.base.Toaster
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
@@ -16,6 +17,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -69,6 +72,7 @@ class SettingsViewModelTest {
                 observer.post(DataWriteEvent.AllDataChange)
             }
         } finally {
+            if (::vm.isInitialized) vm.viewModelScope.coroutineContext.job.cancelAndJoin()
             Dispatchers.resetMain()
         }
     }
@@ -93,6 +97,7 @@ class SettingsViewModelTest {
             coVerify(exactly = 0) { observer.post(any()) }
             coVerify(exactly = 0) { settings.refreshAccountCache() }
         } finally {
+            if (::vm.isInitialized) vm.viewModelScope.coroutineContext.job.cancelAndJoin()
             Dispatchers.resetMain()
         }
     }
