@@ -8,10 +8,12 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.lifecycle.HasDefaultViewModelProviderFactory
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -50,28 +52,48 @@ fun NavigationRoot(
         if (entry == null) {
             navGraph(null)
         } else {
-            key(entry.id) {
-                val owner = stores.owner(entry)
-                owner.attach(hostFactory, hostLifecycle.currentState)
-                DisposableEffect(owner, hostLifecycle) {
-                    val observer = LifecycleEventObserver { _, _ ->
-                        owner.updateHostState(hostLifecycle.currentState)
-                    }
-                    hostLifecycle.addObserver(observer)
-                    onDispose {
-                        hostLifecycle.removeObserver(observer)
-                        owner.detach()
-                    }
-                }
-                saveableStateHolder.SaveableStateProvider(entry.id) {
-                    CompositionLocalProvider(
-                        LocalViewModelStoreOwner provides owner,
-                        LocalLifecycleOwner provides owner,
-                        LocalSavedStateRegistryOwner provides owner,
-                    ) {
-                        navGraph(entry.screen)
-                    }
-                }
+            NavigationEntryContent(
+                entry = entry,
+                stores = stores,
+                hostFactory = hostFactory,
+                hostLifecycle = hostLifecycle,
+                saveableStateHolder = saveableStateHolder,
+                navGraph = navGraph,
+            )
+        }
+    }
+}
+
+/** Each nonempty route owns its lifecycle and state independently of the empty graph. */
+@Composable
+private fun NavigationEntryContent(
+    entry: NavigationEntry,
+    stores: NavigationEntryStores,
+    hostFactory: HasDefaultViewModelProviderFactory,
+    hostLifecycle: Lifecycle,
+    saveableStateHolder: SaveableStateHolder,
+    navGraph: @Composable (screen: Screen?) -> Unit,
+) {
+    key(entry.id) {
+        val owner = stores.owner(entry)
+        owner.attach(hostFactory, hostLifecycle.currentState)
+        DisposableEffect(owner, hostLifecycle) {
+            val observer = LifecycleEventObserver { _, _ ->
+                owner.updateHostState(hostLifecycle.currentState)
+            }
+            hostLifecycle.addObserver(observer)
+            onDispose {
+                hostLifecycle.removeObserver(observer)
+                owner.detach()
+            }
+        }
+        saveableStateHolder.SaveableStateProvider(entry.id) {
+            CompositionLocalProvider(
+                LocalViewModelStoreOwner provides owner,
+                LocalLifecycleOwner provides owner,
+                LocalSavedStateRegistryOwner provides owner,
+            ) {
+                navGraph(entry.screen)
             }
         }
     }
