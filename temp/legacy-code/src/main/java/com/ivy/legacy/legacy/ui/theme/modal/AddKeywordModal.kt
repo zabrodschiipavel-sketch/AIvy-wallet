@@ -30,10 +30,10 @@ import java.util.UUID
 @Suppress("ParameterNaming")
 @Composable
 fun BoxWithConstraintsScope.AddKeywordModal(
-    id: UUID = UUID.randomUUID(),
     keyword: String,
     visible: Boolean,
     dismiss: () -> Unit,
+    id: UUID = UUID.randomUUID(),
     onKeywordChanged: (String) -> Unit
 ) {
     var modalKeyword by remember { mutableStateOf(selectEndTextFieldValue(keyword)) }
