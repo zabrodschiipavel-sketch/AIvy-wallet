@@ -38,6 +38,8 @@ import java.util.*
 @Composable
 fun <T : Reorderable> BoxScope.ReorderModalSingleType(
     visible: Boolean,
+    initialItems: List<T>,
+    dismiss: () -> Unit,
     id: UUID = UUID.randomUUID(),
     TitleContent: @Composable ColumnScope.() -> Unit = {
         Text(
@@ -49,8 +51,6 @@ fun <T : Reorderable> BoxScope.ReorderModalSingleType(
             )
         )
     },
-    initialItems: List<T>,
-    dismiss: () -> Unit,
     onUpdateItemOrderNum: (item: T, newOrderNum: Double) -> Unit = { _, _ -> },
     onReordered: ((List<T>) -> Unit)? = null,
     ItemContent: @Composable (Int, T) -> Unit
@@ -80,6 +80,8 @@ fun <T : Reorderable> BoxScope.ReorderModalSingleType(
 @Composable
 fun <T : Reorderable> BoxScope.ReorderModal(
     visible: Boolean,
+    initialItems: List<Any>,
+    dismiss: () -> Unit,
     id: UUID = UUID.randomUUID(),
     TitleContent: @Composable ColumnScope.() -> Unit = {
         Text(
@@ -91,8 +93,6 @@ fun <T : Reorderable> BoxScope.ReorderModal(
             )
         )
     },
-    initialItems: List<Any>,
-    dismiss: () -> Unit,
     onUpdateItemOrderNum: (
         itemsInNewOrder: List<Any>,
         item: T,
