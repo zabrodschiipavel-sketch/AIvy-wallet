@@ -36,6 +36,10 @@ jobs:
         run: ./gradlew lintRelease && python scripts/quality.py lint build/reports/lint/lint.xml
       - name: Compose stability analysis
         run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true -Pkotlin.incremental=false --no-configuration-cache
+      - name: Build unsigned release candidate
+        run: ./gradlew assembleRelease -PivyUnsignedRelease=true
+      - name: Candidate metadata
+        run: python scripts/quality.py candidate app/build/outputs/apk/release/app-release-unsigned.apk --out candidate.json --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt"
       - name: Upload quality reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,6 +48,7 @@ jobs:
           if-no-files-found: warn
           path: |
             build/environment.json
+            candidate.json
             build/reports/lint/**
             build/reports/detekt/**
             ci-actions/compose-stability/ivy-compose-stability-report.txt
@@ -53,12 +58,6 @@ jobs:
             **/build/reports/tests/**
             **/build/reports/paparazzi/**
             **/build/paparazzi/failures/**
-      - name: Build unsigned release candidate
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: ./gradlew assembleRelease -PivyUnsignedRelease=true
-      - name: Candidate metadata
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: python scripts/quality.py candidate app/build/outputs/apk/release/app-release-unsigned.apk --out candidate.json --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt"
       - uses: actions/upload-artifact@v4
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
