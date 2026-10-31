@@ -7,6 +7,8 @@ import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.db.entity.SettingsEntity
 import com.ivy.data.model.primitive.AssetCode
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.UUID
@@ -18,17 +20,18 @@ class CurrencyRepository @Inject constructor(
     private val settingsDao: SettingsDao,
     private val writeSettingsDao: WriteSettingsDao,
     private val dispatchersProvider: DispatchersProvider,
+    private val memoFactory: RepositoryMemoFactory,
 ) {
     companion object {
         const val FALLBACK_DEFAULT_CURRENCY = "USD"
     }
 
-    private var baseCurrencyMemo: AssetCode? = null
+    private val setterMutex = Mutex()
 
+    // Settings also have legacy/restore writers. Read the source of truth rather than
+    // keep a separate memo they cannot invalidate. Frozen accounts avoid this lookup
+    // in AccountMapper; the remaining lookup runs on IO.
     suspend fun getBaseCurrency(): AssetCode = withContext(dispatchersProvider.io) {
-        val baseCurrency = baseCurrencyMemo
-        if (baseCurrency != null) return@withContext baseCurrency
-
         val currencyCode = settingsDao.findFirstOrNull()?.currency
             ?: getDefaultFIATCurrency()?.currencyCode
         currencyCode?.let(AssetCode::from)?.getOrNull()
@@ -40,23 +43,28 @@ class CurrencyRepository @Inject constructor(
     }
 
     suspend fun setBaseBaseCurrency(newCurrency: AssetCode) {
-        withContext(dispatchersProvider.io) {
-            val currentEntity = settingsDao.findFirstOrNull()
-                ?: SettingsEntity(
-                    theme = Theme.AUTO,
-                    currency = FALLBACK_DEFAULT_CURRENCY,
-                    bufferAmount = 0.0,
-                    name = "",
-                    isSynced = true,
-                    isDeleted = false,
-                    id = UUID.randomUUID()
-                )
-            baseCurrencyMemo = newCurrency
-            writeSettingsDao.save(
-                currentEntity.copy(
-                    currency = newCurrency.code
-                )
-            )
+        setterMutex.withLock {
+            try {
+                withContext(dispatchersProvider.io) {
+                    val currentEntity = settingsDao.findFirstOrNull()
+                        ?: SettingsEntity(
+                            theme = Theme.AUTO,
+                            currency = FALLBACK_DEFAULT_CURRENCY,
+                            bufferAmount = 0.0,
+                            name = "",
+                            isSynced = true,
+                            isDeleted = false,
+                            id = UUID.randomUUID()
+                        )
+                    writeSettingsDao.save(currentEntity.copy(currency = newCurrency.code))
+                    // SQL also freezes inherited account currencies; discard mapped accounts.
+                    memoFactory.invalidateAll()
+                }
+            } catch (error: Throwable) {
+                // A cancelled Room call may already have committed.
+                memoFactory.invalidateAll()
+                throw error
+            }
         }
     }
 }

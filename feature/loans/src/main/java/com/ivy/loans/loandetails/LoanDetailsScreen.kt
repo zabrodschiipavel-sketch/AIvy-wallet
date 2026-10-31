@@ -34,7 +34,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivy.base.legacy.Theme
+import com.ivy.base.model.AccountSaveResult
 import com.ivy.base.model.LoanRecordType
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.base.model.TransactionType
 import com.ivy.base.model.processByType
 import com.ivy.data.model.LoanType
@@ -66,6 +68,8 @@ import com.ivy.navigation.navigation
 import com.ivy.ui.R
 import com.ivy.ui.time.TimeFormatter
 import com.ivy.wallet.domain.data.IvyCurrency
+import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanRecordData
+import com.ivy.wallet.domain.deprecated.logic.model.EditLoanRecordData
 import com.ivy.wallet.ui.theme.Gradient
 import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.MediumBlack
@@ -98,6 +102,10 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
 
     UI(
         state = state,
+        onCreateAccount = viewModel::createAccount,
+        onEditLoan = viewModel::editLoan,
+        onCreateRecord = viewModel::createLoanRecord,
+        onEditRecord = viewModel::editLoanRecord,
         onEventHandler = viewModel::onEvent
     )
 }
@@ -105,6 +113,11 @@ fun BoxWithConstraintsScope.LoanDetailsScreen(screen: LoanDetailsScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanDetailsScreenState,
+    onEditLoan: suspend (Loan, Loan, Boolean) -> LoanSaveResult = { _, _, _ -> LoanSaveResult.Saved },
+    onCreateRecord: suspend (Loan, CreateLoanRecordData) -> LoanSaveResult = { _, _ -> LoanSaveResult.Saved },
+    onEditRecord: suspend (EditLoanRecordData) -> LoanSaveResult = { LoanSaveResult.Saved },
+    onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
+    AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanDetailsScreenEvent) -> Unit = {}
 ) {
     val itemColor = state.loan?.color?.toComposeColor() ?: Gray
@@ -202,17 +215,12 @@ private fun BoxWithConstraintsScope.UI(
     }
 
     LoanModal(
-        modal = state.loanModalData, onCreateLoan = {
-        // do nothing
-    }, onEditLoan = { loan, createLoanTransaction ->
-        onEventHandler.invoke(LoanModalEvent.OnEditLoanModal(loan, createLoanTransaction))
-    }, dismiss = {
-        onEventHandler.invoke(LoanModalEvent.OnDismissLoanModal)
-    }, onCreateAccount = { createAccountData ->
-        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData))
-    }, accounts = state.accounts, onPerformCalculations = {
-        onEventHandler.invoke(LoanModalEvent.PerformCalculation)
-    }, dateTime = state.dateTime,
+        modal = state.loanModalData, onCreateLoan = { LoanSaveResult.Saved },
+        onEditLoan = onEditLoan, dismiss = {
+            onEventHandler.invoke(LoanModalEvent.OnDismissLoanModal)
+        }, onCreateAccount = onCreateAccount, accounts = state.accounts, onPerformCalculations = {
+            onEventHandler.invoke(LoanModalEvent.PerformCalculation)
+        }, dateTime = state.dateTime,
         onSetDate = {
             onEventHandler.invoke(LoanModalEvent.OnChangeDate)
         },
@@ -222,17 +230,12 @@ private fun BoxWithConstraintsScope.UI(
     )
 
     LoanRecordModal(
-        modal = state.loanRecordModalData, onCreate = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnCreateLoanRecord(it))
-    }, onEdit = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnEditLoanRecord(it))
-    }, onDelete = { loanRecord ->
-        onEventHandler.invoke(LoanRecordModalEvent.OnDeleteLoanRecord(loanRecord))
-    }, accounts = state.accounts, dismiss = {
-        onEventHandler.invoke(LoanRecordModalEvent.OnDismissLoanRecord)
-    }, onCreateAccount = { createAccountData ->
-        onEventHandler.invoke(LoanDetailsScreenEvent.OnCreateAccount(createAccountData))
-    },
+        modal = state.loanRecordModalData, onCreate = onCreateRecord,
+        onEdit = onEditRecord, onDelete = { loanRecord ->
+            onEventHandler.invoke(LoanRecordModalEvent.OnDeleteLoanRecord(loanRecord))
+        }, accounts = state.accounts, dismiss = {
+            onEventHandler.invoke(LoanRecordModalEvent.OnDismissLoanRecord)
+        }, onCreateAccount = onCreateAccount,
         dateTime = state.dateTime,
         onSetDate = {
             onEventHandler.invoke(LoanRecordModalEvent.OnChangeDate)

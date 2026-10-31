@@ -1,5 +1,7 @@
 package com.ivy.onboarding.steps
 
+import android.widget.Toast
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,12 +21,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -44,6 +49,9 @@ import com.ivy.onboarding.components.OnboardingProgressSlider
 import com.ivy.onboarding.components.OnboardingToolbar
 import com.ivy.onboarding.components.Suggestions
 import com.ivy.ui.R
+import com.ivy.ui.account.AccountSaveController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.ui.theme.GradientIvy
 import com.ivy.wallet.ui.theme.Green
@@ -69,13 +77,32 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
     suggestions: List<CreateAccountData>,
     accounts: List<AccountBalance>,
 
-    onCreateAccount: (CreateAccountData) -> Unit = { },
-    onEditAccount: (Account, Double) -> Unit = { _, _ -> },
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult = { AccountSaveResult.Saved },
+    onEditAccount: suspend (Account, Double) -> AccountSaveResult = { _, _ -> AccountSaveResult.Saved },
 
     onSkip: () -> Unit = {},
     onDoneClick: () -> Unit = {}
 ) {
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
+    var savedSuggestions by remember { mutableStateOf(emptySet<CreateAccountData>()) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current.applicationContext
+    val refreshError = stringResource(R.string.account_saved_refresh_failed)
+    val suggestionSave = remember {
+        AccountSaveController(
+            scope = CoroutineScope(scope.coroutineContext + Job(scope.coroutineContext[Job])),
+            isCurrent = { true },
+            onSaved = { result ->
+                if (result == AccountSaveResult.RefreshFailed) {
+                    Toast.makeText(context, refreshError, Toast.LENGTH_LONG).show()
+                }
+            },
+            singleSave = false,
+        )
+    }
+    DisposableEffect(suggestionSave) {
+        onDispose { suggestionSave.dispose() }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -87,8 +114,8 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
             val nav = navigation()
             OnboardingToolbar(
                 hasSkip = accounts.isEmpty(),
-                onBack = { nav.onBackPressed() },
-                onSkip = onSkip
+                onBack = { if (!suggestionSave.isSaving) nav.onBackPressed() },
+                onSkip = { if (!suggestionSave.isSaving) onSkip() }
             )
         }
 
@@ -135,12 +162,14 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
                     baseCurrency = baseCurrency,
                     accounts = accounts,
                     onClick = {
-                        accountModalData = AccountModalData(
-                            account = it.account,
-                            baseCurrency = baseCurrency,
-                            balance = it.balance,
-                            autoFocusKeyboard = false
-                        )
+                        if (!suggestionSave.isSaving) {
+                            accountModalData = AccountModalData(
+                                account = it.account,
+                                baseCurrency = baseCurrency,
+                                balance = it.balance,
+                                autoFocusKeyboard = false
+                            )
+                        }
                     }
                 )
 
@@ -160,20 +189,36 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
 
                 Suggestions(
                     suggestions = suggestions.filter { suggestion ->
-                        accounts.map { it.account.name.toLowerCaseLocal() }
+                        suggestion !in savedSuggestions && accounts.map { it.account.name.toLowerCaseLocal() }
                             .contains(suggestion.name.toLowerCaseLocal()).not()
                     },
                     onAddSuggestion = {
-                        onCreateAccount(it as CreateAccountData)
+                        val data = it as CreateAccountData
+                        if (data !in savedSuggestions) {
+                            suggestionSave.submit {
+                                onCreateAccount(data).also { savedSuggestions = savedSuggestions + data }
+                            }
+                        }
                     },
                     onAddNew = {
-                        accountModalData = AccountModalData(
-                            account = null,
-                            baseCurrency = baseCurrency,
-                            balance = 0.0
-                        )
+                        if (!suggestionSave.isSaving) {
+                            accountModalData = AccountModalData(
+                                account = null,
+                                baseCurrency = baseCurrency,
+                                balance = 0.0
+                            )
+                        }
                     }
                 )
+
+                if (suggestionSave.isSaving || suggestionSave.failed) {
+                    Text(
+                        text = stringResource(
+                            if (suggestionSave.failed) R.string.account_save_failed else R.string.saving_account
+                        ),
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    )
+                }
 
                 Spacer(Modifier.height(96.dp))
             }
@@ -197,9 +242,9 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
             textColor = White,
             backgroundGradient = GradientIvy,
             hasNext = true,
-            enabled = true
+            enabled = !suggestionSave.isSaving
         ) {
-            onDoneClick()
+            if (!suggestionSave.isSaving) onDoneClick()
         }
     }
 
@@ -207,9 +252,7 @@ fun BoxWithConstraintsScope.OnboardingAccounts(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
         onEditAccount = onEditAccount,
-        dismiss = {
-            accountModalData = null
-        }
+        dismiss = { accountModalData = null }
     )
 }
 
@@ -358,7 +401,8 @@ private fun Preview_Accounts() {
                     account = Account(
                         name = "Cash",
                         color = Green.toArgb(),
-                        icon = "cash"
+                        icon = "cash",
+                        archived = false,
                     ),
                     balance = 0.0
                 )
@@ -403,7 +447,8 @@ private fun Preview_Premium() {
                     account = Account(
                         name = "Cash",
                         color = Green.toArgb(),
-                        icon = "cash"
+                        icon = "cash",
+                        archived = false,
                     ),
                     balance = 0.0
                 ),
@@ -411,7 +456,8 @@ private fun Preview_Premium() {
                     account = Account(
                         name = "Revolut",
                         color = IvyDark.toArgb(),
-                        icon = "cash"
+                        icon = "cash",
+                        archived = false,
                     ),
                     balance = 0.0
                 ),
@@ -419,7 +465,8 @@ private fun Preview_Premium() {
                     account = Account(
                         name = "Revolut",
                         color = Color(0xFF4DCAFF).toArgb(),
-                        icon = "revolut"
+                        icon = "revolut",
+                        archived = false,
                     ),
                     balance = 0.0
                 ),

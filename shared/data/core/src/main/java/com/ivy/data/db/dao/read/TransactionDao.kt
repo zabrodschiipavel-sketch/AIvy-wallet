@@ -9,8 +9,20 @@ import java.util.UUID
 
 @Dao
 interface TransactionDao {
+    @Query(
+        "SELECT id FROM transactions WHERE loanId = :loanId OR " +
+            "loanRecordId IN (SELECT id FROM loan_records WHERE loanId = :loanId)"
+    )
+    suspend fun findIdsForLoanDeletion(loanId: UUID): List<UUID>
+
+    @Query("SELECT id FROM transactions WHERE loanRecordId = :loanRecordId")
+    suspend fun findIdsForLoanRecordDeletion(loanRecordId: UUID): List<UUID>
+
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY dateTime DESC, dueDate ASC")
     suspend fun findAll(): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions")
+    suspend fun findAllForRestore(): List<TransactionEntity>
 
     @Suppress("FunctionNaming")
     @Deprecated("legacy remove")

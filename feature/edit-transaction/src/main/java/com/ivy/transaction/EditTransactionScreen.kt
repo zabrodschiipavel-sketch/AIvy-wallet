@@ -1,5 +1,6 @@
 package com.ivy.transaction
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
@@ -116,6 +117,7 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
         amount = uiState.amount,
         loanData = uiState.displayLoanHelper,
         backgroundProcessing = uiState.backgroundProcessingStarted,
+        saveFailed = uiState.saveFailed,
         customExchangeRateState = uiState.customExchangeRateState,
 
         categories = uiState.categories,
@@ -166,18 +168,13 @@ fun BoxWithConstraintsScope.EditTransactionScreen(screen: EditTransactionScreen)
             view.hideKeyboard()
             viewModel.onEvent(EditTransactionViewEvent.Save(it))
         },
-        onSetHasChanges = {
-            viewModel.onEvent(EditTransactionViewEvent.SetHasChanges(it))
-        },
         onDelete = {
             viewModel.onEvent(EditTransactionViewEvent.Delete)
         },
         onDuplicate = {
             viewModel.onEvent(EditTransactionViewEvent.Duplicate)
         },
-        onCreateAccount = {
-            viewModel.onEvent(EditTransactionViewEvent.CreateAccount(it))
-        },
+        onCreateAccount = viewModel::createAccount,
         onExchangeRateChange = {
             viewModel.onEvent(EditTransactionViewEvent.UpdateExchangeRate(it))
         },
@@ -224,17 +221,17 @@ private fun BoxWithConstraintsScope.UI(
     onEditCategory: (Category) -> Unit,
     onPayPlannedPayment: () -> Unit,
     onSave: (closeScreen: Boolean) -> Unit,
-    onSetHasChanges: (hasChanges: Boolean) -> Unit,
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
-    onCreateAccount: (CreateAccountData) -> Unit,
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
     onExchangeRateChange: (Double?) -> Unit = { },
     onTagOperation: (EditTransactionViewEvent.TagEvent) -> Unit = {},
     loanData: EditTransactionDisplayLoan = EditTransactionDisplayLoan(),
     backgroundProcessing: Boolean = false,
+    saveFailed: Boolean = false,
     hasChanges: Boolean = false,
 
-    ) {
+) {
     var chooseCategoryModalVisible by remember { mutableStateOf(false) }
     var tagModelVisible by remember { mutableStateOf(false) }
     var categoryModalData: CategoryModalData? by remember { mutableStateOf(null) }
@@ -295,11 +292,18 @@ private fun BoxWithConstraintsScope.UI(
             onChangeTransactionTypeModal = {
                 changeTransactionTypeModalVisible = true
             },
-            showDuplicateButton = true,
+            showDuplicateButton = !loanData.isLoan && !loanData.isLoanRecord,
             onDuplicate = onDuplicate
         )
 
         Spacer(Modifier.height(32.dp))
+
+        if (saveFailed) {
+            Text(
+                text = stringResource(R.string.loan_save_failed),
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
 
         Title(
             type = transactionType,
@@ -455,7 +459,6 @@ private fun BoxWithConstraintsScope.UI(
                         // has changes
                         ModalSave {
                             onSave(false)
-                            onSetHasChanges(false)
                         }
                     } else {
                         // no changes, pay
@@ -543,7 +546,7 @@ private fun BoxWithConstraintsScope.UI(
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             accountModalData = null
         }
@@ -672,7 +675,7 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             dateTime = testDateTime,
             description = null,
             category = null,
-            account = Account(name = "phyre", Orange.toArgb()),
+            account = Account(name = "phyre", Orange.toArgb(), archived = false),
             toAccount = null,
             amount = 0.0,
             dueDate = null,
@@ -694,10 +697,9 @@ private fun BoxWithConstraintsScope.Preview(isDark: Boolean = false) {
             onEditCategory = {},
             onPayPlannedPayment = {},
             onSave = {},
-            onSetHasChanges = {},
             onDelete = {},
             onDuplicate = {},
-            onCreateAccount = { },
+            onCreateAccount = { AccountSaveResult.Saved },
             onSetDate = {},
             onSetTime = {},
             onSetTransactionType = {}

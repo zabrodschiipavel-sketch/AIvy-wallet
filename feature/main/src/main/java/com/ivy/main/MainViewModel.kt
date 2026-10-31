@@ -1,5 +1,6 @@
 package com.ivy.main
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -72,12 +73,11 @@ class MainViewModel @Inject constructor(
         ivyContext.selectMainTab(tab)
     }
 
-    fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        TestIdlingResource.increment()
+        return try {
             accountCreator.createAccount(data) {}
-
+        } finally {
             TestIdlingResource.decrement()
         }
     }

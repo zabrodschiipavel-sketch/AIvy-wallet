@@ -10,6 +10,8 @@ import java.util.UUID
 class FakeLoanDao : LoanDao, WriteLoanDao {
     private val items = mutableListOf<LoanEntity>()
 
+    override suspend fun findAllForRestore(): List<LoanEntity> = items.toList()
+
     override suspend fun findAll(): List<LoanEntity> {
         return items
     }

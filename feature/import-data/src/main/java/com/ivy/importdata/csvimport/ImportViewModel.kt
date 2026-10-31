@@ -5,19 +5,19 @@ import android.net.Uri
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ivy.base.legacy.getFileName
+import com.ivy.data.backup.BackupDataUseCase
+import com.ivy.data.backup.ImportResult
+import com.ivy.data.file.FileSystem
 import com.ivy.frp.test.TestIdlingResource
 import com.ivy.legacy.domain.deprecated.logic.csv.CSVImporter
 import com.ivy.legacy.domain.deprecated.logic.csv.model.ImportType
-import com.ivy.data.backup.BackupDataUseCase
 import com.ivy.legacy.utils.asLiveData
-import com.ivy.base.legacy.getFileName
 import com.ivy.navigation.ImportScreen
 import com.ivy.navigation.Navigation
 import com.ivy.onboarding.viewmodel.OnboardingViewModel
 import com.ivy.wallet.domain.deprecated.logic.csv.CSVMapper
 import com.ivy.wallet.domain.deprecated.logic.csv.CSVNormalizer
-import com.ivy.data.file.FileSystem
-import com.ivy.data.backup.ImportResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
@@ -81,22 +81,39 @@ class ImportViewModel @Inject constructor(
 
                 _importStep.value = ImportStep.LOADING
 
-                _importResult.value = if (hasCSVExtension(context, fileUri)) {
-                    restoreCSVFile(fileUri = fileUri, importType = importType)
-                } else {
-                    backupDataUseCase.importBackupFile(
-                        backupFileUri = fileUri
-                    ) { progressPercent ->
-                        com.ivy.legacy.utils.uiThread {
-                            _importProgressPercent.value =
-                                (progressPercent * 100).roundToInt()
+                try {
+                    _importResult.value = if (hasCSVExtension(context, fileUri)) {
+                        restoreCSVFile(fileUri = fileUri, importType = importType)
+                    } else {
+                        backupDataUseCase.importBackupFile(
+                            backupFileUri = fileUri
+                        ) { progressPercent ->
+                            com.ivy.legacy.utils.uiThread {
+                                _importProgressPercent.value =
+                                    (progressPercent * 100).roundToInt()
+                            }
                         }
                     }
+
+                    _importStep.value = ImportStep.RESULT
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    _importResult.value = ImportResult(
+                        rowsFound = 0,
+                        transactionsImported = 0,
+                        accountsImported = 0,
+                        categoriesImported = 0,
+                        failedRows = persistentListOf(),
+                        error = failure.message ?: "Could not restore backup",
+                        transactionsSkipped = 0,
+                        warnings = persistentListOf(),
+                        preferencesPending = false,
+                    )
+                    _importStep.value = ImportStep.RESULT
+                } finally {
+                    TestIdlingResource.decrement()
                 }
-
-                _importStep.value = ImportStep.RESULT
-
-                TestIdlingResource.decrement()
             }
         }
     }
@@ -117,7 +134,11 @@ class ImportViewModel @Inject constructor(
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    transactionsSkipped = 0,
+                    error = null,
+                    warnings = persistentListOf(),
+                    preferencesPending = false,
                 )
             }
 
@@ -155,7 +176,11 @@ class ImportViewModel @Inject constructor(
                     transactionsImported = 0,
                     accountsImported = 0,
                     categoriesImported = 0,
-                    failedRows = persistentListOf()
+                    failedRows = persistentListOf(),
+                    transactionsSkipped = 0,
+                    error = null,
+                    warnings = persistentListOf(),
+                    preferencesPending = false,
                 )
             }
         }

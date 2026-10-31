@@ -1,5 +1,6 @@
 package com.ivy.transactions
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -7,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewModelScope
 import arrow.core.toOption
+import com.ivy.base.Toaster
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
@@ -15,7 +17,7 @@ import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.AccountDao
-import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
+import com.ivy.data.model.AccountHistoryException
 import com.ivy.data.model.AccountId
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
@@ -25,7 +27,6 @@ import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.CategoryRepository
 import com.ivy.data.repository.TagRepository
-import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.design.l0_system.RedLight
 import com.ivy.domain.features.Features
@@ -90,13 +91,12 @@ class TransactionsViewModel @Inject constructor(
     private val calcAccIncomeExpenseAct: CalcAccIncomeExpenseAct,
     private val calcTrnsIncomeExpenseAct: LegacyCalcTrnsIncomeExpenseAct,
     private val exchangeAct: ExchangeAct,
-    private val transactionRepository: TransactionRepository,
-    private val plannedPaymentRuleWriter: WritePlannedPaymentRuleDao,
     private val transactionMapper: TransactionMapper,
     private val tagRepository: TagRepository,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val toaster: Toaster,
 ) : ComposeViewModel<TransactionsState, TransactionsEvent>() {
 
     private val period = mutableStateOf(ivyContext.selectedPeriod)
@@ -306,11 +306,6 @@ class TransactionsViewModel @Inject constructor(
     override fun onEvent(event: TransactionsEvent) {
         when (event) {
             is TransactionsEvent.Delete -> delete(event.screen)
-            is TransactionsEvent.EditAccount -> editAccount(
-                event.screen,
-                event.account,
-                event.newBalance
-            )
 
             is TransactionsEvent.EditCategory -> editCategory(event.updatedCategory)
             is TransactionsEvent.NextMonth -> nextMonth(event.screen)
@@ -380,21 +375,21 @@ class TransactionsViewModel @Inject constructor(
         expenses.doubleValue = incomeExpensePair.expense.toDouble()
 
         history.value = (
-                accTrnsAct then {
-                    trnsWithDateDivsAct(
-                        LegacyTrnsWithDateDivsAct.Input(
-                            baseCurrency = baseCurrency.value,
-                            transactions = with(transactionMapper) {
-                                it.map {
-                                    val tags =
-                                        tagRepository.findByIds(it.tags).toImmutableLegacyTags()
-                                    it.toEntity().toLegacyDomain(tags = tags)
-                                }
+            accTrnsAct then {
+                trnsWithDateDivsAct(
+                    LegacyTrnsWithDateDivsAct.Input(
+                        baseCurrency = baseCurrency.value,
+                        transactions = with(transactionMapper) {
+                            it.map {
+                                val tags =
+                                    tagRepository.findByIds(it.tags).toImmutableLegacyTags()
+                                it.toEntity().toLegacyDomain(tags = tags)
                             }
-                        )
+                        }
                     )
-                }
-                )(
+                )
+            }
+            )(
             AccTrnsAct.Input(
                 accountId = initialAccount.id,
                 range = range.toCloseTimeRange()
@@ -643,10 +638,10 @@ class TransactionsViewModel @Inject constructor(
         val accountFilterIdSet = accountFilterList.toHashSet()
         val trans = transactions.filter {
             it.categoryId == null && (
-                    accountFilterIdSet.contains(it.accountId) || accountFilterIdSet.contains(
-                        it.toAccountId
-                    )
-                    ) && it.type == TransactionType.TRANSFER
+                accountFilterIdSet.contains(it.accountId) || accountFilterIdSet.contains(
+                    it.toAccountId
+                )
+                ) && it.type == TransactionType.TRANSFER
         }
 
         val historyIncomeExpense = calcTrnsIncomeExpenseAct(
@@ -735,12 +730,11 @@ class TransactionsViewModel @Inject constructor(
     }
 
     private suspend fun deleteAccount(accountId: UUID) {
-        ioThread {
-            transactionRepository.deleteAllByAccountId(accountId = AccountId(accountId))
-            plannedPaymentRuleWriter.deletedByAccountId(accountId = accountId)
-            accountRepository.deleteById(AccountId(accountId))
-
+        try {
+            accountRepository.removeOrArchive(AccountId(accountId))
             nav.back()
+        } catch (error: AccountHistoryException) {
+            toaster.show(error.message ?: "Account could not be archived")
         }
     }
 
@@ -768,19 +762,13 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
-    private fun editAccount(
+    suspend fun editAccount(
         screen: TransactionsScreen,
         account: LegacyAccount,
         newBalance: Double,
-    ) {
-        viewModelScope.launch {
-            accountCreator.editAccount(account, newBalance) {
-                start(
-                    screen = screen,
-                    timePeriod = period.value,
-                    reset = false
-                )
-            }
+    ): AccountSaveResult {
+        return accountCreator.editAccount(account, newBalance) {
+            start(screen = screen, timePeriod = period.value, reset = false)
         }
     }
 
@@ -826,7 +814,7 @@ class TransactionsViewModel @Inject constructor(
     private fun updateAccountDeletionState(confirmationText: String) {
         accountNameConfirmation.value = selectEndTextFieldValue(confirmationText)
         enableDeletionButton.value = account.value?.name == confirmationText ||
-                category.value?.name?.value == confirmationText
+            category.value?.name?.value == confirmationText
     }
 
     fun start(
@@ -862,7 +850,7 @@ class TransactionsViewModel @Inject constructor(
                 // unspecifiedCategory==false is explicitly checked to accommodate for a temp
                 // AccountTransfers Category during Reports Screen
                 screen.categoryId != null && screen.transactions.isNotEmpty() &&
-                        screen.unspecifiedCategory == false -> {
+                    screen.unspecifiedCategory == false -> {
                     initForCategoryWithTransactions(
                         screen.categoryId!!,
                         screen.accountIdFilterList,

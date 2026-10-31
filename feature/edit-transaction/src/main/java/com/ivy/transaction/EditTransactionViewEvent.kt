@@ -8,7 +8,6 @@ import com.ivy.data.model.TagId
 import com.ivy.legacy.data.EditTransactionDisplayLoan
 import com.ivy.legacy.datamodel.Account
 import com.ivy.wallet.domain.data.CustomExchangeRateState
-import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateCategoryData
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -35,7 +34,8 @@ data class EditTransactionViewState(
     val backgroundProcessingStarted: Boolean,
     val customExchangeRateState: CustomExchangeRateState,
     val tags: ImmutableList<Tag>,
-    val transactionAssociatedTags: ImmutableList<TagId>
+    val transactionAssociatedTags: ImmutableList<TagId>,
+    val saveFailed: Boolean,
 )
 
 sealed interface EditTransactionViewEvent {
@@ -56,9 +56,7 @@ sealed interface EditTransactionViewEvent {
     data object Duplicate : EditTransactionViewEvent
     data class CreateCategory(val data: CreateCategoryData) : EditTransactionViewEvent
     data class EditCategory(val updatedCategory: Category) : EditTransactionViewEvent
-    data class CreateAccount(val data: CreateAccountData) : EditTransactionViewEvent
     data class Save(val closeScreen: Boolean) : EditTransactionViewEvent
-    data class SetHasChanges(val hasChangesValue: Boolean) : EditTransactionViewEvent
     data class UpdateExchangeRate(val exRate: Double?) : EditTransactionViewEvent
 
     sealed interface TagEvent : EditTransactionViewEvent {

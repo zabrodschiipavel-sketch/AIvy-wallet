@@ -8,6 +8,9 @@ import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
+import com.ivy.data.DataObserver
+import com.ivy.data.DataWriteEvent
+import com.ivy.data.backup.RestorePreferencesRecovery
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.repository.LegalRepository
 import com.ivy.frp.test.TestIdlingResource
@@ -23,12 +26,16 @@ import com.ivy.ui.R
 import com.ivy.wallet.domain.deprecated.logic.notification.TransactionReminderLogic
 import com.ivy.wallet.migrations.MigrationsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -43,6 +50,8 @@ class RootViewModel @Inject constructor(
     private val transactionReminderLogic: TransactionReminderLogic,
     private val migrationsManager: MigrationsManager,
     private val legalRepo: LegalRepository,
+    private val restorePreferencesRecovery: RestorePreferencesRecovery,
+    private val dataObserver: DataObserver,
 ) : ViewModel() {
 
     companion object {
@@ -56,44 +65,89 @@ class RootViewModel @Inject constructor(
     private val _appLocked = MutableStateFlow<Boolean?>(null)
     val appLocked = _appLocked.readOnly()
 
+    private val _startupError = MutableStateFlow(false)
+    val startupError = _startupError.readOnly()
+
+    private var initializationJob: Job? = null
+    private var initialized = false
+    private var latestSystemDarkMode = false
+
+    private val preparationMutex = Mutex()
+    private val _settingsPrepared = MutableStateFlow(0L)
+    val settingsPrepared = _settingsPrepared.readOnly()
+
     fun start(systemDarkMode: Boolean, intent: Intent) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
+        latestSystemDarkMode = systemDarkMode
+        if (initializationJob?.isActive == true) return
 
-            ioThread {
-                val theme = settingsDao.findAll().firstOrNull()?.theme
-                    ?: if (systemDarkMode) Theme.DARK else Theme.LIGHT
-                ivyContext.switchTheme(theme)
-
-                ivyContext.initStartDayOfMonthInMemory(sharedPrefs = sharedPrefs)
+        initializationJob = viewModelScope.launch {
+            prepare {
+                refreshSettings()
+                if (!initialized) initialize(intent)
             }
-
-            TestIdlingResource.decrement()
         }
+    }
 
-        viewModelScope.launch {
+    private suspend fun prepare(block: suspend () -> Unit) {
+        preparationMutex.withLock {
             TestIdlingResource.increment()
-
-            ioThread {
-                appLockEnabled = sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false)
-                // initial app locked state
-                _appLocked.value = appLockEnabled
-
-                if (isOnboardingCompleted()) {
-                    navigateOnboardedUser(intent)
-                } else {
-                    nav.navigateTo(OnboardingScreen)
-                }
-                if (!legalRepo.isDisclaimerAccepted()) {
-                    nav.navigateTo(DisclaimerScreen)
-                }
+            try {
+                block()
+                _startupError.value = false
+                _settingsPrepared.value += 1
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Keep the existing blocking error and retry path for failed recovery.
+                _startupError.value = true
+            } finally {
+                TestIdlingResource.decrement()
             }
-
-            TestIdlingResource.decrement()
         }
+    }
 
+    private suspend fun refreshSettings() {
+        // No settings reads or widget refreshes may precede journal recovery.
+        restorePreferencesRecovery.recoverPending()
+        val savedTheme = ioThread { settingsDao.findAll().firstOrNull()?.theme }
+        val startDay = ioThread { sharedPrefs.getInt(SharedPrefs.START_DATE_OF_MONTH, 1) }
+        val lockEnabled = ioThread {
+            sharedPrefs.getBoolean(SharedPrefs.APP_LOCK_ENABLED, false)
+        }
+        ivyContext.switchTheme(savedTheme ?: if (latestSystemDarkMode) Theme.DARK else Theme.LIGHT)
+        ivyContext.setStartDayOfMonth(startDay)
+        if (initialized && lockEnabled && !appLockEnabled) {
+            _appLocked.value = lockEnabled
+        }
+        appLockEnabled = lockEnabled
+    }
+
+    private suspend fun initialize(intent: Intent) {
+        val onboarded = ioThread { isOnboardingCompleted() }
+        val disclaimerAccepted = legalRepo.isDisclaimerAccepted()
+        // viewModelScope runs on Main; never mutate navigation on IO.
+        if (onboarded) {
+            navigateOnboardedUser(intent)
+        } else {
+            nav.navigateTo(OnboardingScreen)
+        }
+        if (!disclaimerAccepted) nav.navigateTo(DisclaimerScreen)
+        initialized = true
+        _appLocked.value = appLockEnabled
+        observeRestoredSettings()
         viewModelScope.launch {
+            // executeMigrations retains its existing two-second delay.
             migrationsManager.executeMigrations()
+        }
+    }
+
+    private fun observeRestoredSettings() {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            dataObserver.writeEvents.collect { event ->
+                if (event == DataWriteEvent.AllDataChange) {
+                    prepare { refreshSettings() }
+                }
+            }
         }
     }
 

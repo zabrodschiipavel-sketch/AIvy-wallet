@@ -5,6 +5,8 @@ pluginManagement {
     }
 }
 
+rootProject.name = "ivy-build-logic"
+
 dependencyResolutionManagement {
     repositories {
         google()

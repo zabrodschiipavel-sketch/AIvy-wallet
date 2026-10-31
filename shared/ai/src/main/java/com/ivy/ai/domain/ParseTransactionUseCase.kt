@@ -36,16 +36,24 @@ class ParseTransactionUseCase @Inject constructor(
         accountNames: List<String>,
         today: LocalDate,
     ): String = buildString {
-        appendLine("Ты помощник для учёта личных финансов. Извлеки из текста пользователя одну транзакцию и верни её строго по схеме JSON.")
+        appendLine(
+            "Ты помощник для учёта личных финансов. Извлеки из текста пользователя " +
+                "одну транзакцию и верни её строго по схеме JSON."
+        )
         appendLine()
         appendLine("Правила:")
         appendLine("- amount — положительное число (даже для расхода).")
-        appendLine("- transactionType — EXPENSE если потратил, INCOME если получил, TRANSFER если перевод между своими счетами.")
+        appendLine(
+            "- transactionType — EXPENSE если потратил, INCOME если получил, " +
+                "TRANSFER если перевод между своими счетами."
+        )
         appendLine("- date — ISO-формат (YYYY-MM-DD). Сегодня: $today.")
         appendLine("  «сегодня» = $today, «вчера» = ${today.minusDays(1)}, «позавчера» = ${today.minusDays(2)}.")
         appendLine("  Если дата не указана — ставь сегодняшнюю.")
         appendLine("- category — выбери ОДНО значение строго из списка ниже, либо null если не подходит ничего.")
-        appendLine("- account — выбери ОДНО значение строго из списка ниже, либо null если пользователь не упомянул счёт.")
+        appendLine(
+            "- account — выбери ОДНО значение строго из списка ниже, либо null если пользователь не упомянул счёт."
+        )
         appendLine("- currency — трёхбуквенный код (RUB по умолчанию для русскоязычного ввода, если не указано иное).")
         appendLine("- description — короткое описание (что/где куплено), без суммы и без даты.")
         appendLine()

@@ -1,6 +1,7 @@
 package com.ivy.data.db.dao.fake
 
 import com.ivy.base.model.TransactionType
+import com.ivy.data.db.dao.read.LoanRecordDao
 import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
 import com.ivy.data.db.entity.TransactionEntity
@@ -9,8 +10,24 @@ import java.time.Instant
 import java.util.UUID
 
 @VisibleForTesting
-class FakeTransactionDao : TransactionDao, WriteTransactionDao {
+class FakeTransactionDao(
+    private val loanRecords: LoanRecordDao = FakeLoanRecordDao(),
+    private val tagAssociations: FakeTagAssociationDao = FakeTagAssociationDao(),
+) : TransactionDao, WriteTransactionDao {
     private val items = mutableListOf<TransactionEntity>()
+
+    override suspend fun findIdsForLoanDeletion(loanId: UUID): List<UUID> {
+        val recordIds = loanRecords.findAllForRestore()
+            .filter { it.loanId == loanId }
+            .map { it.id }
+            .toSet()
+        return items.filter { it.loanId == loanId || it.loanRecordId in recordIds }.map { it.id }
+    }
+
+    override suspend fun findIdsForLoanRecordDeletion(loanRecordId: UUID): List<UUID> =
+        items.filter { it.loanRecordId == loanRecordId }.map { it.id }
+
+    override suspend fun findAllForRestore(): List<TransactionEntity> = items.toList()
 
     override suspend fun findAll(): List<TransactionEntity> {
         return items
@@ -68,9 +85,9 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             it.type == TransactionType.TRANSFER &&
-                    it.toAccountId == toAccountId &&
-                    isBetween(dateTime, startDate, endDate) &&
-                    !it.isDeleted
+                it.toAccountId == toAccountId &&
+                isBetween(dateTime, startDate, endDate) &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -125,9 +142,9 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             isBetween(dateTime, startDate, endDate) &&
-                    it.type == type &&
-                    it.categoryId == categoryId &&
-                    !it.isDeleted
+                it.type == type &&
+                it.categoryId == categoryId &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -150,8 +167,8 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             isBetween(dateTime, startDate, endDate) &&
-                    it.toAccountId == toAccountId &&
-                    !it.isDeleted
+                it.toAccountId == toAccountId &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -221,8 +238,8 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         return items.filter {
             val dateTime = it.dateTime ?: return@filter false
             isBetween(dateTime, startDate, endDate) &&
-                    it.recurringRuleId == recurringRuleId &&
-                    !it.isDeleted
+                it.recurringRuleId == recurringRuleId &&
+                !it.isDeleted
         }.sortedByDescending { it.dateTime }
     }
 
@@ -309,20 +326,49 @@ class FakeTransactionDao : TransactionDao, WriteTransactionDao {
         values.forEach { save(it) }
     }
 
-    override suspend fun deletedByRecurringRuleIdAndNoDateTime(recurringRuleId: UUID) {
-        items.removeIf { it.recurringRuleId == recurringRuleId }
+    override suspend fun deletedByRecurringRuleIdAndNoDateTimeRaw(recurringRuleId: UUID) {
+        items.removeIf { it.recurringRuleId == recurringRuleId && it.dateTime == null }
     }
 
-    override suspend fun deleteById(id: UUID) {
+    override suspend fun deleteByIdRaw(id: UUID) {
         items.removeIf { it.id == id }
     }
 
-    override suspend fun deleteAllByAccountId(accountId: UUID) {
+    override suspend fun deleteAllByAccountIdRaw(accountId: UUID) {
         items.removeIf { it.accountId == accountId }
     }
 
-    override suspend fun deleteAll() {
+    override suspend fun deleteAllForLoan(loanId: UUID) {
+        val ids = findIdsForLoanDeletion(loanId).toSet()
+        items.removeIf { it.id in ids }
+    }
+
+    override suspend fun deleteAllForLoanRecord(loanRecordId: UUID) {
+        items.removeIf { it.loanRecordId == loanRecordId }
+    }
+
+    override suspend fun deleteAllRaw() {
         items.clear()
+    }
+
+    override suspend fun deleteTagsByRecurringRuleIdAndNoDateTime(recurringRuleId: UUID) {
+        deleteTagLinks { it.recurringRuleId == recurringRuleId && it.dateTime == null }
+    }
+
+    override suspend fun deleteTagsById(id: UUID) {
+        deleteTagLinks { it.id == id }
+    }
+
+    override suspend fun deleteTagsAllByAccountId(accountId: UUID) {
+        deleteTagLinks { it.accountId == accountId }
+    }
+
+    override suspend fun deleteTagsForAll() {
+        deleteTagLinks { true }
+    }
+
+    private suspend fun deleteTagLinks(predicate: (TransactionEntity) -> Boolean) {
+        tagAssociations.deleteAssociationsByAssociateIds(items.filter(predicate).map { it.id })
     }
 
     private fun isBetween(

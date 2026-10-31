@@ -12,73 +12,103 @@ import javax.inject.Singleton
 @Stable
 @Singleton
 class Navigation @Inject constructor() {
-  var currentScreen: Screen? by mutableStateOf(null)
-    private set
+    internal var entries: List<NavigationEntry> by mutableStateOf(emptyList())
+        private set
 
-  @Deprecated("Legacy code. Don't use it, please.")
-  val modalBackHandling: Stack<ModalBackHandler> = Stack()
+    val currentScreen: Screen?
+        get() = entries.lastOrNull()?.screen
 
-  @Deprecated("Legacy code. Use Compose `BackHandler {}` instead.")
-  val onBackPressed: MutableMap<Screen, () -> Boolean> = mutableMapOf()
+    internal val currentEntry: NavigationEntry?
+        get() = entries.lastOrNull()
 
-  private val backStack: Stack<Screen> = Stack()
-  var lastScreen: Screen? = null
-    private set
+    @Deprecated("Legacy code. Don't use it, please.")
+    val modalBackHandling: Stack<ModalBackHandler> = Stack()
 
-  @Deprecated("Legacy code. Don't use it, please.")
-  data class ModalBackHandler(
-    val id: UUID,
-    val onBackPressed: () -> Boolean
-  )
+    @Deprecated("Legacy code. Use Compose `BackHandler {}` instead.")
+    val onBackPressed: MutableMap<Screen, () -> Boolean> = mutableMapOf()
 
-  @Deprecated("Legacy code. Don't use it, please.")
-  fun lastModalBackHandlerId(): UUID? {
-    return if (modalBackHandling.isEmpty()) {
-      null
-    } else {
-      modalBackHandling.peek().id
+    private var replaceOnNextNavigation = false
+    val lastScreen: Screen?
+        get() = currentScreen.takeUnless { replaceOnNextNavigation }
+
+    @Deprecated("Legacy code. Don't use it, please.")
+    data class ModalBackHandler(
+        val id: UUID,
+        val onBackPressed: () -> Boolean
+    )
+
+    @Deprecated("Legacy code. Don't use it, please.")
+    fun lastModalBackHandlerId(): UUID? {
+        return if (modalBackHandling.isEmpty()) {
+            null
+        } else {
+            modalBackHandling.peek().id
+        }
     }
-  }
 
-  fun navigateTo(screen: Screen) {
-    if (lastScreen != null) {
-      backStack.push(lastScreen)
+    fun navigateTo(screen: Screen) {
+        saveCurrentBackHandler()
+        val retained = if (replaceOnNextNavigation) emptyList() else entries
+        entries = retained + NavigationEntry(screen = screen)
+        replaceOnNextNavigation = false
+        restoreCurrentBackHandler()
     }
-    switchScreen(screen)
-  }
 
-  fun backStackEmpty() = backStack.empty()
+    fun backStackEmpty() = entries.size <= 1
 
-  private fun popBackStack() {
-    backStack.pop()
-  }
-
-  @Deprecated("Legacy code. Don't use it, please.")
-  fun onBackPressed(): Boolean {
-    if (modalBackHandling.isNotEmpty()) {
-      return modalBackHandling.peek().onBackPressed()
+    @Deprecated("Legacy code. Don't use it, please.")
+    fun onBackPressed(): Boolean {
+        if (modalBackHandling.isNotEmpty()) {
+            return modalBackHandling.peek().onBackPressed()
+        }
+        val specialHandling = onBackPressed.getOrDefault(currentScreen) { false }.invoke()
+        return specialHandling || back()
     }
-    val specialHandling = onBackPressed.getOrDefault(currentScreen) { false }.invoke()
-    return specialHandling || back()
-  }
 
-  fun back(): Boolean {
-    if (!backStack.empty()) {
-      switchScreen(backStack.pop())
-      return true
+    fun back(): Boolean {
+        if (!backStackEmpty()) {
+            entries = entries.dropLast(1)
+            replaceOnNextNavigation = false
+            restoreCurrentBackHandler()
+            return true
+        }
+        return false
     }
-    return false
-  }
 
-  private fun switchScreen(screen: Screen) {
-    this.currentScreen = screen
-    lastScreen = screen
-  }
-
-  fun resetBackStack() {
-    while (!backStackEmpty()) {
-      popBackStack()
+    private fun saveCurrentBackHandler() {
+        currentEntry?.let { entry ->
+            entry.backHandler = onBackPressed[entry.screen]
+        }
     }
-    lastScreen = null
-  }
+
+    private fun restoreCurrentBackHandler() {
+        // The public map is a compatibility bridge for legacy screens. Keep the
+        // actual callbacks on entries so two equal routes do not share handlers.
+        onBackPressed.clear()
+        currentEntry?.let { entry ->
+            entry.backHandler?.let { onBackPressed[entry.screen] = it }
+        }
+    }
+
+    fun resetBackStack() {
+        saveCurrentBackHandler()
+        entries = entries.takeLast(1)
+        replaceOnNextNavigation = true
+        restoreCurrentBackHandler()
+    }
+
+    /** Release callbacks and routes when the host Activity is permanently finished. */
+    fun clear() {
+        entries = emptyList()
+        onBackPressed.clear()
+        modalBackHandling.clear()
+        replaceOnNextNavigation = false
+    }
+}
+
+internal class NavigationEntry(
+    val screen: Screen,
+    val id: String = UUID.randomUUID().toString(),
+) {
+    var backHandler: (() -> Boolean)? = null
 }

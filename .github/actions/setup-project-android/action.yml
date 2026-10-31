@@ -1,0 +1,28 @@
+name: Setup project Android SDK
+description: Install the SDK selected by the version catalog with native or legacy tools
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: android-actions/setup-android@v3
+      with:
+        # platform/build-tools follow catalog in next step
+        packages: platform-tools
+    - shell: bash
+      run: |
+        packages="$(python scripts/verify_environment.py --sdk-packages)"
+        packages="${packages//$'\r'/}"
+        readarray -t sdk_packages <<< "$packages"
+        native="$ANDROID_HOME/cmdline-tools/latest/bin/android"
+        if [[ -f "${native}.exe" ]]; then
+          native="${native}.exe"
+        fi
+        if [[ -x "$native" ]]; then
+          for package in "${sdk_packages[@]}"; do
+            "$native" --no-metrics "--sdk=$ANDROID_HOME" sdk install "${package//;/\/}"
+          done
+        else
+          sdkmanager "${sdk_packages[@]}"
+        fi

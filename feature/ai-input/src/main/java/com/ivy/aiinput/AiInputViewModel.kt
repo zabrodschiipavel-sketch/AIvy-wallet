@@ -52,7 +52,7 @@ class AiInputViewModel @Inject constructor(
             loadingContext = true
             runCatching {
                 categories = categoryRepo.findAll()
-                accounts = accountRepo.findAll()
+                accounts = accountRepo.findAll().filterNot { it.archived }
             }
             loadingContext = false
         }
@@ -107,8 +107,8 @@ class AiInputViewModel @Inject constructor(
             EditTransactionScreen(
                 initialTransactionId = null,
                 type = draft.type,
-                accountId = draft.accountId,
-                categoryId = draft.categoryId,
+                accountId = draft.account?.value,
+                categoryId = draft.category?.value,
                 amount = draft.amount,
                 title = draft.title,
                 description = null,

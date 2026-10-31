@@ -11,15 +11,14 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -316,17 +315,11 @@ fun HomeLazyColumn(
 ) {
     val ivyContext = ivyWalletCtx()
 
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                onSetExpand(listState.firstVisibleItemScrollOffset == 0)
-                return super.onPostScroll(consumed, available, source)
-            }
-        }
+    val latestOnSetExpand by rememberUpdatedState(onSetExpand)
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        }.collect { atTop -> latestOnSetExpand(atTop) }
     }
 
     val timeProvider = LocalTimeProvider.current
@@ -335,7 +328,6 @@ fun HomeLazyColumn(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
             .testTag("home_lazy_column"),
         state = listState
     ) {

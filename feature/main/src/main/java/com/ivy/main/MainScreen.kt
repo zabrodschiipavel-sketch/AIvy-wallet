@@ -1,5 +1,6 @@
 package com.ivy.main
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -63,7 +64,7 @@ private fun BoxWithConstraintsScope.UI(
     aiEnabled: Boolean,
 
     selectTab: (MainTab) -> Unit,
-    onCreateAccount: (CreateAccountData) -> Unit,
+    onCreateAccount: suspend (CreateAccountData) -> AccountSaveResult,
 ) {
     when (tab) {
         MainTab.HOME -> HomeTab()
@@ -126,7 +127,7 @@ private fun BoxWithConstraintsScope.UI(
     AccountModal(
         modal = accountModalData,
         onCreateAccount = onCreateAccount,
-        onEditAccount = { _, _ -> },
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             accountModalData = null
         }
@@ -145,7 +146,7 @@ private fun PreviewMainScreen() {
             baseCurrency = "BGN",
             aiEnabled = false,
             selectTab = {},
-            onCreateAccount = { }
+            onCreateAccount = { AccountSaveResult.Saved }
         )
     }
 }

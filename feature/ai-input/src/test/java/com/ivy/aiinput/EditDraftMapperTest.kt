@@ -48,26 +48,42 @@ class EditDraftMapperTest {
     @Test
     fun `resolves account by name case-insensitively`() {
         parsed(account = "наличные").toEditDraft(accounts, categories)
-            .accountId shouldBe cashId
+            .account shouldBe AccountId(cashId)
     }
 
     @Test
     fun `unknown or missing account resolves to null`() {
-        parsed(account = "Сбербанк").toEditDraft(accounts, categories).accountId.shouldBeNull()
-        parsed(account = null).toEditDraft(accounts, categories).accountId.shouldBeNull()
+        parsed(account = "Сбербанк").toEditDraft(accounts, categories).account.shouldBeNull()
+        parsed(account = null).toEditDraft(accounts, categories).account.shouldBeNull()
+    }
+
+    @Test
+    fun `archived accounts are never selected for new drafts`() {
+        val archivedCash = accounts.first().copy(archived = true)
+        parsed(account = "Наличные").toEditDraft(listOf(archivedCash), categories).account.shouldBeNull()
+        parsed(account = "Наличные").toEditDraft(listOf(archivedCash, account("Наличные", cardId)), categories)
+            .account shouldBe AccountId(cardId)
+    }
+
+    @Test
+    fun `ambiguous active account names require review instead of choosing the first`() {
+        val duplicate = account("Наличные", cardId).copy(asset = AssetCode.unsafe("USD"))
+        for (candidates in listOf(listOf(accounts.first(), duplicate), listOf(duplicate, accounts.first()))) {
+            parsed(account = "наличные").toEditDraft(candidates, categories).account.shouldBeNull()
+        }
     }
 
     @Test
     fun `resolves category for non-transfers`() {
         parsed(category = "продукты").toEditDraft(accounts, categories)
-            .categoryId shouldBe groceriesId
+            .category shouldBe CategoryId(groceriesId)
     }
 
     @Test
     fun `transfers carry no category even if the model picked one`() {
         parsed(type = TransactionTypeGuess.TRANSFER, category = "Продукты")
             .toEditDraft(accounts, categories)
-            .categoryId.shouldBeNull()
+            .category.shouldBeNull()
     }
 
     @Test
@@ -76,6 +92,14 @@ class EditDraftMapperTest {
         parsed(amount = 0.0).toEditDraft(accounts, categories).amount.shouldBeNull()
         parsed(amount = -10.0).toEditDraft(accounts, categories).amount.shouldBeNull()
         parsed(amount = null).toEditDraft(accounts, categories).amount.shouldBeNull()
+    }
+
+    @Test
+    fun `drops non-finite amounts`() {
+        parsed(amount = Double.NaN).toEditDraft(accounts, categories).amount.shouldBeNull()
+        parsed(amount = Double.POSITIVE_INFINITY).toEditDraft(accounts, categories).amount.shouldBeNull()
+        parsed(amount = Double.NEGATIVE_INFINITY).toEditDraft(accounts, categories).amount.shouldBeNull()
+        parsed(amount = 1500.0).toEditDraft(accounts, categories).amount shouldBe 1500.0
     }
 
     @Test
@@ -122,6 +146,7 @@ class EditDraftMapperTest {
         icon = null,
         includeInBalance = true,
         orderNum = 0.0,
+        archived = false,
     )
 
     private fun category(name: String, id: UUID) = Category(

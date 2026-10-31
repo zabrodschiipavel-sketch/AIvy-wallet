@@ -12,6 +12,7 @@ if [ ! -f "settings.gradle.kts" ]; then
 fi
 
 
-./gradlew lintR
+./gradlew lintRelease || exit 1
+python scripts/quality.py lint build/reports/lint/lint.xml || exit 1
 open build/reports/lint/lint.html
 echo "[FINISHED] Lint report opened in your default browser."

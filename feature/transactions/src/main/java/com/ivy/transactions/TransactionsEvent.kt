@@ -3,7 +3,6 @@ package com.ivy.transactions
 import com.ivy.base.legacy.Transaction
 import com.ivy.data.model.Category
 import com.ivy.legacy.data.model.TimePeriod
-import com.ivy.legacy.datamodel.Account
 import com.ivy.navigation.TransactionsScreen
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
 
@@ -20,11 +19,6 @@ sealed interface TransactionsEvent {
     data class PreviousMonth(val screen: TransactionsScreen) : TransactionsEvent
     data class Delete(val screen: TransactionsScreen) : TransactionsEvent
     data class EditCategory(val updatedCategory: Category) : TransactionsEvent
-    data class EditAccount(
-        val screen: TransactionsScreen,
-        val account: Account,
-        val newBalance: Double
-    ) : TransactionsEvent
 
     data class PayOrGet(
         val screen: TransactionsScreen,

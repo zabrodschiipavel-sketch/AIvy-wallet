@@ -155,7 +155,11 @@ class CSVImporter @Inject constructor(
             transactionsImported = transactions.size,
             accountsImported = accounts.size - initialAccountsCount,
             categoriesImported = categories.size - initialCategoriesCount,
-            failedRows = failedRows
+            failedRows = failedRows,
+            transactionsSkipped = 0,
+            error = null,
+            warnings = persistentListOf(),
+            preferencesPending = false,
         )
     }
 
@@ -474,7 +478,8 @@ class CSVImporter @Inject constructor(
             ),
             color = colorArgb,
             icon = icon,
-            orderNum = orderNum ?: accountDao.findMaxOrderNum().nextOrderNum()
+            orderNum = orderNum ?: accountDao.findMaxOrderNum().nextOrderNum(),
+            archived = false,
         )
         val domainAccount = newAccount.toDomainAccount(currencyRepository).getOrNull()
             ?: return null

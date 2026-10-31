@@ -1,90 +1,73 @@
 package com.ivy.wallet.domain.deprecated.logic
 
 import androidx.compose.ui.graphics.toArgb
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.data.db.dao.read.LoanDao
-import com.ivy.data.db.dao.write.WriteLoanDao
+import com.ivy.data.loan.LoanDeletionCommand
+import com.ivy.data.loan.LoanWriteCommand
 import com.ivy.legacy.datamodel.Loan
 import com.ivy.legacy.utils.ioThread
 import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import com.ivy.wallet.domain.pure.util.nextOrderNum
-import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 class LoanCreator @Inject constructor(
     private val dao: LoanDao,
-    private val loanWriter: WriteLoanDao,
+    private val loanWrite: LoanWriteCommand,
+    private val loanDeletionCommand: LoanDeletionCommand,
 ) {
     suspend fun create(
         data: CreateLoanData,
+        writeAssociatedData: suspend (Loan) -> Unit,
         onRefreshUI: suspend (Loan) -> Unit
-    ): UUID? {
-        val name = data.name
-        if (name.isBlank()) return null
-        if (data.amount <= 0) return null
-
-        var loanId: UUID? = null
-
-        try {
-            val newItem = ioThread {
-                val item = Loan(
-                    name = name.trim(),
-                    amount = data.amount,
-                    type = data.type,
-                    color = data.color.toArgb(),
-                    icon = data.icon,
-                    note = data.note,
-                    orderNum = dao.findMaxOrderNum().nextOrderNum(),
-                    isSynced = false,
-                    accountId = data.account?.id,
-                    dateTime = data.dateTime
-                )
-                loanId = item.id
-                loanWriter.save(item.toEntity())
-                item
-            }
-
-            onRefreshUI(newItem)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    ): LoanSaveResult {
+        val item = ioThread {
+            Loan(
+                name = data.name.trim(),
+                amount = data.amount,
+                type = data.type,
+                color = data.color.toArgb(),
+                icon = data.icon,
+                note = data.note,
+                orderNum = dao.findMaxOrderNum().nextOrderNum(),
+                isSynced = false,
+                accountId = data.account?.id,
+                dateTime = data.dateTime
+            )
         }
-
-        return loanId
+        return save(item, expected = null, writeAssociatedData, onRefreshUI)
     }
 
     suspend fun edit(
+        originalItem: Loan,
         updatedItem: Loan,
+        writeAssociatedData: suspend (Loan) -> Unit,
         onRefreshUI: suspend (Loan) -> Unit
-    ) {
-        if (updatedItem.name.isBlank()) return
-        if (updatedItem.amount <= 0.0) return
+    ): LoanSaveResult = save(updatedItem, expected = originalItem, writeAssociatedData, onRefreshUI)
 
+    private suspend fun save(
+        item: Loan,
+        expected: Loan?,
+        writeAssociatedData: suspend (Loan) -> Unit,
+        onRefreshUI: suspend (Loan) -> Unit,
+    ): LoanSaveResult {
+        val result = loanWrite.saveLoan(item.toEntity(), expected?.toEntity()) { writeAssociatedData(item) }
         try {
-            ioThread {
-                loanWriter.save(
-                    updatedItem.toEntity().copy(
-                        isSynced = false
-                    )
-                )
-            }
-
-            onRefreshUI(updatedItem)
-        } catch (e: Exception) {
-            e.printStackTrace()
+            onRefreshUI(item)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return LoanSaveResult.RefreshFailed
         }
+        return result
     }
 
     suspend fun delete(
         item: Loan,
         onRefreshUI: suspend () -> Unit
     ) {
-        try {
-            ioThread {
-                loanWriter.deleteById(item.id)
-            }
-
-            onRefreshUI()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        loanDeletionCommand.deleteLoan(item.id)
+        onRefreshUI()
     }
 }

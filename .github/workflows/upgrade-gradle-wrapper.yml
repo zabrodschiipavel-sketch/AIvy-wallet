@@ -2,8 +2,6 @@ name: 'Gradle Wrapper Upgrade'
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 8 * * *'
 
 jobs:
   upgrade-gradle-wrapper:
@@ -21,10 +19,6 @@ jobs:
           git config --global url."https://unused-username:${WRAPPER_UPGRADE_GIT_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Setup Java SDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'adopt'
-          java-version: '18'
-
+        uses: ./.github/actions/setup-pinned-java
       - name: Upgrade Gradle Wrapper
         run: ./gradlew upgradeGradleWrapperIvyWallet

@@ -21,10 +21,10 @@ import java.util.UUID
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 @Composable
 fun BoxWithConstraintsScope.ProgressModal(
-    id: UUID = UUID.randomUUID(),
     title: String,
     description: String,
     visible: Boolean,
+    id: UUID = UUID.randomUUID(),
     color: Color = UI.colors.orange,
     dismiss: () -> Unit = {},
 ) {

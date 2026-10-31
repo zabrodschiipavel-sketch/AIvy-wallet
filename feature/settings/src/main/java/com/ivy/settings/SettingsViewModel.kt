@@ -12,13 +12,17 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
+import com.ivy.base.Toaster
 import com.ivy.base.legacy.SharedPrefs
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.refreshWidget
+import com.ivy.data.DataObserver
+import com.ivy.data.DataWriteEvent
 import com.ivy.data.backup.BackupDataUseCase
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.db.dao.write.WriteSettingsDao
 import com.ivy.data.model.primitive.AssetCode
+import com.ivy.data.repository.CurrencyRepository
 import com.ivy.domain.RootScreen
 import com.ivy.domain.usecase.csv.ExportCsvUseCase
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
@@ -37,8 +41,11 @@ import com.ivy.wallet.domain.action.settings.SettingsAct
 import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @Stable
@@ -56,9 +63,14 @@ class SettingsViewModel @Inject constructor(
     private val settingsAct: SettingsAct,
     private val updateSettingsAct: UpdateSettingsAct,
     private val settingsWriter: WriteSettingsDao,
+    private val currencyRepository: CurrencyRepository,
+    private val dataObserver: DataObserver,
+    private val toaster: Toaster,
     private val exportCsvUseCase: ExportCsvUseCase,
     @ApplicationContext private val context: Context
 ) : ComposeViewModel<SettingsState, SettingsEvent>() {
+
+    private val currencyChangeMutex = Mutex()
 
     private val currencyCode = mutableStateOf("")
     private val name = mutableStateOf("")
@@ -237,18 +249,23 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun setCurrency(newCurrency: String) {
-        currencyCode.value = newCurrency
-
         viewModelScope.launch {
-            ioThread {
-                settingsWriter.save(
-                    settingsDao.findFirst().copy(
-                        currency = newCurrency
-                    )
-                )
-                AssetCode.from(newCurrency).onRight {
-                    syncExchangeRatesUseCase.sync(it)
+            try {
+                val currency = AssetCode.from(newCurrency).getOrNull()
+                    ?: throw IllegalArgumentException("Invalid currency: $newCurrency")
+                currencyChangeMutex.withLock {
+                    currencyRepository.setBaseBaseCurrency(currency)
+                    // Reload SQL-frozen NULL currencies before rendering the new base or
+                    // notifying other screens. Clearing the legacy cache is not sufficient.
+                    updateSettingsAct.refreshAccountCache()
+                    currencyCode.value = currency.code
+                    dataObserver.post(DataWriteEvent.AllDataChange)
                 }
+                ioThread { syncExchangeRatesUseCase.sync(currency) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                toaster.show(error.message ?: "Currency could not be updated")
             }
         }
     }

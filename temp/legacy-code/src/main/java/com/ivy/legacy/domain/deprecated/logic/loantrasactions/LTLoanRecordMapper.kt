@@ -57,23 +57,15 @@ class LTLoanRecordMapper @Inject constructor(
         }
     }
 
-    suspend fun deleteAssociatedLoanRecordTransaction(loanRecordId: UUID) {
-        ltCore.deleteAssociatedTransactions(loanRecordId = loanRecordId)
-    }
-
     suspend fun updateAssociatedLoanRecord(
-        transaction: Transaction?,
-        onBackgroundProcessingStart: suspend () -> Unit = {},
-        onBackgroundProcessingEnd: suspend () -> Unit = {},
+        transaction: Transaction,
     ) {
-        transaction?.loanId ?: return
-        transaction.loanRecordId ?: return
+        val loanId = requireNotNull(transaction.loanId)
+        val recordId = requireNotNull(transaction.loanRecordId)
         computationThread {
-            onBackgroundProcessingStart()
-
-            val loanRecord =
-                ltCore.fetchLoanRecord(transaction.loanRecordId!!) ?: return@computationThread
-            val loan = ltCore.fetchLoan(transaction.loanId!!) ?: return@computationThread
+            val loanRecord = requireNotNull(ltCore.fetchLoanRecord(recordId))
+            val loan = requireNotNull(ltCore.fetchLoan(loanId))
+            require(loanRecord.loanId == loan.id)
 
             val convertedAmount = ltCore.computeConvertedAmount(
                 oldLoanRecordAccountId = loanRecord.accountId,
@@ -94,7 +86,6 @@ class LTLoanRecordMapper @Inject constructor(
             )
             ltCore.saveLoanRecords(modifiedLoanRecord.toLegacyDomain())
         }
-        onBackgroundProcessingEnd()
     }
 
     suspend fun calculateConvertedAmount(

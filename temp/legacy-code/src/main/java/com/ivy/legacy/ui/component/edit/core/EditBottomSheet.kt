@@ -44,28 +44,27 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ivy.legacy.datamodel.Account
+import com.ivy.base.model.TransactionType
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.utils.thenIf
 import com.ivy.frp.test.TestingContext
 import com.ivy.legacy.IvyWalletPreview
+import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.addKeyboardListener
 import com.ivy.legacy.utils.clickableNoIndication
 import com.ivy.legacy.utils.consumeClicks
 import com.ivy.legacy.utils.densityScope
 import com.ivy.legacy.utils.format
 import com.ivy.legacy.utils.hideKeyboard
 import com.ivy.legacy.utils.keyboardOnlyWindowInsets
+import com.ivy.legacy.utils.keyboardVisibleState
 import com.ivy.legacy.utils.lerp
 import com.ivy.legacy.utils.navigationBarInsets
-import com.ivy.legacy.utils.onScreenStart
-import com.ivy.legacy.utils.springBounce
-import com.ivy.design.utils.thenIf
-import com.ivy.legacy.utils.verticalSwipeListener
-import com.ivy.base.model.TransactionType
 import com.ivy.legacy.utils.rememberInteractionSource
 import com.ivy.legacy.utils.rememberSwipeListenerState
+import com.ivy.legacy.utils.springBounce
+import com.ivy.legacy.utils.verticalSwipeListener
 import com.ivy.ui.R
 import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.ui.theme.Gradient
@@ -117,13 +116,7 @@ fun BoxWithConstraintsScope.EditBottomSheet(
     convertedAmountCurrencyCode: String? = null,
 ) {
     val rootView = LocalView.current
-    var keyboardShown by remember { mutableStateOf(false) }
-
-    onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardShown = it
-        }
-    }
+    val keyboardShown by keyboardVisibleState()
 
     val keyboardShownInsetDp by animateDpAsState(
         targetValue = densityScope {
@@ -795,7 +788,7 @@ private fun LabelAccountMini(
 @Composable
 private fun Preview() {
     IvyWalletPreview {
-        val acc1 = Account("Cash", color = Green.toArgb())
+        val acc1 = Account("Cash", color = Green.toArgb(), archived = false)
 
         BoxWithConstraints(
             modifier = Modifier
@@ -812,9 +805,9 @@ private fun Preview() {
                 },
                 accounts = listOf(
                     acc1,
-                    Account("DSK", color = GreenDark.toArgb()),
-                    Account("phyre", color = GreenLight.toArgb()),
-                    Account("Revolut", color = IvyDark.toArgb()),
+                    Account("DSK", color = GreenDark.toArgb(), archived = false),
+                    Account("phyre", color = GreenLight.toArgb(), archived = false),
+                    Account("Revolut", color = IvyDark.toArgb(), archived = false),
                 ),
                 selectedAccount = acc1,
                 toAccount = null,
@@ -833,8 +826,8 @@ private fun Preview() {
 @Composable
 private fun Preview_Transfer() {
     IvyWalletPreview {
-        val acc1 = Account("Cash", color = Green.toArgb())
-        val acc2 = Account("DSK", color = GreenDark.toArgb())
+        val acc1 = Account("Cash", color = Green.toArgb(), archived = false)
+        val acc2 = Account("DSK", color = GreenDark.toArgb(), archived = false)
 
         BoxWithConstraints(
             modifier = Modifier
@@ -852,8 +845,8 @@ private fun Preview_Transfer() {
                 accounts = listOf(
                     acc1,
                     acc2,
-                    Account("phyre", color = GreenLight.toArgb(), icon = "cash"),
-                    Account("Revolut", color = IvyDark.toArgb()),
+                    Account("phyre", color = GreenLight.toArgb(), icon = "cash", archived = false),
+                    Account("Revolut", color = IvyDark.toArgb(), archived = false),
                 ),
                 selectedAccount = acc1,
                 toAccount = acc2,

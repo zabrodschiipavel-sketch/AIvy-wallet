@@ -1,6 +1,6 @@
 plugins {
     id("ivy.module")
-    org.jetbrains.kotlin.plugin.compose
+    id("ivy.compose-reports")
 }
 
 android {

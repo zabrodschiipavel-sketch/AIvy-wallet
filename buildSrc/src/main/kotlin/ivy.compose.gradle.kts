@@ -1,5 +1,5 @@
 plugins {
-    org.jetbrains.kotlin.plugin.compose
+    id("ivy.compose-reports")
     id("ivy.module")
     id("app.cash.molecule")
 }
@@ -21,11 +21,6 @@ android {
             isReturnDefaultValues = true
         }
     }
-}
-
-composeCompiler {
-    reportsDestination = layout.buildDirectory.dir("compose_compiler")
-    metricsDestination = layout.buildDirectory.dir("compose_compiler")
 }
 
 dependencies {

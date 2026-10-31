@@ -22,15 +22,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -44,13 +45,12 @@ import com.ivy.design.l0_system.UI
 import com.ivy.design.utils.rememberInteractionSource
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.addKeyboardListener
+import com.ivy.legacy.utils.keyboardVisibleState
 import com.ivy.legacy.utils.consumeClicks
 import com.ivy.legacy.utils.densityScope
 import com.ivy.legacy.utils.hideKeyboard
 import com.ivy.legacy.utils.keyboardOnlyWindowInsets
 import com.ivy.legacy.utils.navigationBarInsets
-import com.ivy.legacy.utils.onScreenStart
 import com.ivy.design.utils.thenIf
 import com.ivy.navigation.Navigation
 import com.ivy.navigation.navigation
@@ -73,21 +73,15 @@ fun BoxScope.IvyModal(
     id: UUID?,
     visible: Boolean,
     dismiss: () -> Unit,
-    SecondaryActions: (@Composable () -> Unit)? = null,
     PrimaryAction: @Composable () -> Unit,
+    SecondaryActions: (@Composable () -> Unit)? = null,
     scrollState: ScrollState? = rememberScrollState(),
     shiftIfKeyboardShown: Boolean = true,
     includeActionsRowPadding: Boolean = true,
     Content: @Composable ColumnScope.() -> Unit
 ) {
     val rootView = LocalView.current
-    var keyboardShown by remember { mutableStateOf(false) }
-
-    onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardShown = it
-        }
-    }
+    val keyboardShown by keyboardVisibleState()
 
     val keyboardShownInsetDp by animateDpAsState(
         targetValue = densityScope {
@@ -101,22 +95,28 @@ fun BoxScope.IvyModal(
         },
         animationSpec = tween(DURATION_MODAL_ANIM)
     )
-    val blurAlpha by animateFloatAsState(
+    val blurAlpha = animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(DURATION_BACKGROUND_BLUR_ANIM),
         visibilityThreshold = 0.01f
     )
-    val modalPercentVisible by animateFloatAsState(
+    val modalPercentVisible = animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(DURATION_MODAL_ANIM),
         visibilityThreshold = 0.01f
     )
 
-    if (visible || blurAlpha > 0.01f) {
+    val scrimVisible by remember(visible) {
+        derivedStateOf { visible || blurAlpha.value > 0.01f }
+    }
+    val sheetVisible by remember(visible) {
+        derivedStateOf { visible || modalPercentVisible.value > 0.01f }
+    }
+    if (scrimVisible) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(blurAlpha)
+                .graphicsLayer { alpha = blurAlpha.value.coerceIn(0f, 1f) }
                 .background(mediumBlur())
                 .testTag("modal_outside_blur")
                 .clickable(
@@ -130,7 +130,7 @@ fun BoxScope.IvyModal(
         )
     }
 
-    if (visible || modalPercentVisible > 0.01f) {
+    if (sheetVisible) {
         var actionsRowHeight by remember { mutableIntStateOf(0) }
 
         Column(
@@ -140,9 +140,9 @@ fun BoxScope.IvyModal(
                     val placeable = measurable.measure(constraints)
 
                     val height = placeable.height
-                    val y = height * (1 - modalPercentVisible)
 
                     layout(placeable.width, height) {
+                        val y = height * (1 - modalPercentVisible.value)
                         placeable.placeRelative(
                             0,
                             y.roundToInt()
@@ -261,7 +261,7 @@ private fun removeLastBackHandlerSafe(nav: Navigation) {
 @Composable
 fun ModalActionsRow(
     visible: Boolean,
-    modalPercentVisible: Float,
+    modalPercentVisible: State<Float>,
     keyboardShownInsetDp: Dp,
     navBarPadding: Dp,
 
@@ -271,7 +271,10 @@ fun ModalActionsRow(
     SecondaryActions: (@Composable () -> Unit)? = null,
     PrimaryAction: @Composable () -> Unit
 ) {
-    if (visible || modalPercentVisible > 0.01f) {
+    val sheetVisible by remember(visible) {
+        derivedStateOf { visible || modalPercentVisible.value > 0.01f }
+    }
+    if (sheetVisible) {
         val ivyContext = ivyWalletCtx()
         ActionsRow(
             modifier = Modifier
@@ -281,11 +284,10 @@ fun ModalActionsRow(
                 .layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints)
 
-                    val systemOffsetBottom = keyboardShownInsetDp.toPx()
-                    val visibleHeight = placeable.height * modalPercentVisible
-                    val y = ivyContext.screenHeight - visibleHeight - systemOffsetBottom
-
                     layout(placeable.width, placeable.height) {
+                        val systemOffsetBottom = keyboardShownInsetDp.toPx()
+                        val visibleHeight = placeable.height * modalPercentVisible.value
+                        val y = ivyContext.screenHeight - visibleHeight - systemOffsetBottom
                         placeable.place(
                             0,
                             y.roundToInt()

@@ -26,12 +26,15 @@ class FakeSettingsDao : SettingsDao, WriteSettingsDao {
         return items.firstOrNull { it.id == id }
     }
 
-    override suspend fun save(value: SettingsEntity) {
-        items.add(value)
+    override suspend fun upsert(value: SettingsEntity) {
+        val index = items.indexOfFirst { it.id == value.id }
+        if (index >= 0) items[index] = value else items.add(value)
     }
 
-    override suspend fun saveMany(value: List<SettingsEntity>) {
-        items.addAll(value)
+    override suspend fun baseCurrencyForWrite(): String? = items.firstOrNull()?.currency
+
+    override suspend fun freezeInheritedAccountCurrencies(currency: String) {
+        // This fake stores settings only; it has no account table.
     }
 
     override suspend fun deleteById(id: UUID) {

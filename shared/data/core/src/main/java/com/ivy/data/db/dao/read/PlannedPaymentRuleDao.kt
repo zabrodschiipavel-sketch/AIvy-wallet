@@ -10,6 +10,9 @@ interface PlannedPaymentRuleDao {
     @Query("SELECT * FROM planned_payment_rules WHERE isDeleted = 0 ORDER BY amount DESC, startDate ASC")
     suspend fun findAll(): List<PlannedPaymentRuleEntity>
 
+    @Query("SELECT * FROM planned_payment_rules")
+    suspend fun findAllForRestore(): List<PlannedPaymentRuleEntity>
+
     @Query("SELECT * FROM planned_payment_rules WHERE isSynced = :synced AND isDeleted = :deleted")
     suspend fun findByIsSyncedAndIsDeleted(
         synced: Boolean,

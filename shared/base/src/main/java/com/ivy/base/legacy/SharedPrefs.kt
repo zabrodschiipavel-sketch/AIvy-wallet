@@ -81,6 +81,13 @@ class SharedPrefs @Inject constructor(
         editor.apply()
     }
 
+    /** Durable, single-file update used by the replayable restore journal. */
+    fun commitBooleans(values: Map<String, Boolean>): Boolean {
+        val editor = preferences.edit()
+        values.forEach { (key, value) -> editor.putBoolean(key, value) }
+        return editor.commit()
+    }
+
     fun getLong(key: String, defValue: Long): Long {
         return preferences.getLong(key, defValue)
     }

@@ -31,7 +31,9 @@ import com.ivy.wallet.domain.data.IvyCurrency
 import com.ivy.wallet.domain.pure.util.nextOrderNum
 import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.IvyDark
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.absoluteValue
@@ -77,53 +79,69 @@ class CSVImporterV2 @Inject constructor(
 
         val failedRows = mutableListOf<CSVRow>()
 
+        var importedCount = 0
+        var error: String? = null
+
+        fun fail(index: Int, row: CSVRowNew, reason: String) {
+            failedRows.add(CSVRow(index = index + 2, content = row.values))
+            if (error == null) error = "CSV line ${index + 2}: $reason"
+        }
+
+        // Keep source indices: filtering parse failures must not renumber write failures.
         val transactions = rows.mapIndexedNotNull { index, row ->
-            val progressPercent = if (rowsCount > 0) {
-                index / rowsCount.toDouble()
-            } else {
-                0.0
-            }
-            onProgress(progressPercent / 2)
-
-            val transaction = mapToTransaction(
-                baseCurrency = baseCurrency,
-                importantFields = importantFields,
-                transferFields = transferFields,
-                optionalFields = optionalFields,
-                row = row,
-            )
-
-            if (transaction == null) {
-                failedRows.add(
-                    CSVRow(
-                        index = index + 2, // + 1 because we skip Header and +1 because they don't start from zero
-                        content = row.values
-                    )
+            onProgress(index / rowsCount.toDouble() / 2)
+            try {
+                val transaction = mapToTransaction(
+                    baseCurrency = baseCurrency,
+                    importantFields = importantFields,
+                    transferFields = transferFields,
+                    optionalFields = optionalFields,
+                    row = row,
                 )
-            }
-            transaction
-        }
-
-        for ((index, transaction) in transactions.withIndex()) {
-            val progressPercent = if (rowsCount > 0) {
-                index / transactions.size.toDouble()
-            } else {
-                0.0
-            }
-            onProgress(0.5 + progressPercent / 2)
-            with(transactionMapper) {
-                transaction.toEntity().toDomain().getOrNull()?.let {
-                    transactionRepository.save(it)
+                if (transaction == null) {
+                    fail(index, row, "Unable to parse transaction")
+                    null
+                } else {
+                    Triple(index, row, transaction)
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                fail(index, row, "Unable to parse transaction")
+                null
             }
         }
 
+        for ((writeIndex, source) in transactions.withIndex()) {
+            val (index, row, transaction) = source
+            onProgress(0.5 + writeIndex / transactions.size.toDouble() / 2)
+            try {
+                val domain = with(transactionMapper) {
+                    transaction.toEntity().toDomain().getOrNull()
+                }
+                if (domain == null) {
+                    fail(index, row, "Unable to map transaction to domain")
+                } else {
+                    transactionRepository.save(domain)
+                    importedCount++
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                fail(index, row, "Unable to save transaction")
+            }
+        }
+        onProgress(1.0)
         return ImportResult(
             rowsFound = rowsCount,
-            transactionsImported = transactions.size,
+            transactionsImported = importedCount,
             accountsImported = accounts.size - initialAccountsCount,
             categoriesImported = categories.size - initialCategoriesCount,
-            failedRows = failedRows.toImmutableList()
+            failedRows = failedRows.toImmutableList(),
+            transactionsSkipped = 0,
+            error = error,
+            warnings = persistentListOf(),
+            preferencesPending = false,
         )
     }
 
@@ -282,7 +300,8 @@ class CSVImporterV2 @Inject constructor(
             ),
             color = colorArgb,
             icon = icon,
-            orderNum = orderNum ?: accountDao.findMaxOrderNum().nextOrderNum()
+            orderNum = orderNum ?: accountDao.findMaxOrderNum().nextOrderNum(),
+            archived = false,
         )
         val domainAccount = newAccount.toDomainAccount(currencyRepository).getOrNull()
             ?: return null

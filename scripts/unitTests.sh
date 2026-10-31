@@ -12,4 +12,4 @@ if [ ! -f "settings.gradle.kts" ]; then
 fi
 
 
-./gradlew testDebugUnitTest || exit 0
+./gradlew testDebugUnitTest || exit 1

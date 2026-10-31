@@ -9,4 +9,4 @@ if [ -z "$CHANGED_FILES" ]; then
 fi
 
 # Run detektFormat only on those files
-./gradlew detektFormat -Ddetekt.filesToCheck=$CHANGED_FILES
+./gradlew :detektFormat -Ddetekt.filesToCheck=$CHANGED_FILES

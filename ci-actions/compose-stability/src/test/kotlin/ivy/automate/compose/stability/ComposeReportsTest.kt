@@ -1,0 +1,161 @@
+package ivy.automate.compose.stability
+
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.shouldBe
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+
+class ComposeReportsTest {
+    @get:Rule
+    val temporary = TemporaryFolder()
+
+    @Test
+    fun `missing report folders fail`() {
+        shouldThrow<IllegalStateException> { readComposeReports(emptyList()) }
+    }
+
+    @Test
+    fun `empty report folder fails`() {
+        shouldThrow<IllegalStateException> { readComposeReports(listOf(temporary.newFolder())) }
+    }
+
+    @Test
+    fun `missing companion fails`() {
+        val folder = report("example,Screen,1,1,1,")
+        File(folder, "sample-composables.txt").delete()
+        shouldThrow<IllegalStateException> { readComposeReports(listOf(folder)) }
+    }
+
+    @Test
+    fun `malformed and empty CSV fail`() {
+        listOf("", "bad,header", Header, "$Header\nshort,row", "$Header\nexample,Screen,1,2,1,").forEach { csv ->
+            val folder = report("example,Screen,1,1,1,")
+            File(folder, "sample-composables.csv").writeText(csv)
+            shouldThrow<IllegalStateException> { readComposeReports(listOf(folder)) }
+        }
+    }
+
+    @Test
+    fun `stable report passes`() {
+        readComposeReports(listOf(report("example,Screen,1,1,1,"))).shouldBeEmpty()
+    }
+
+    @Test
+    fun `value returning nonrestartable helper is not a skippability regression`() {
+        val folder = report("example.rememberController,rememberController,1,0,0,")
+        File(folder, "sample-composables.txt").writeText("fun rememberController(unstable id: UUID): Controller")
+        readComposeReports(listOf(folder)).shouldBeEmpty()
+    }
+
+    @Test
+    fun `skippable but nonrestartable flags are invalid`() {
+        val folder = report("example,Screen,1,1,0,")
+        shouldThrow<IllegalStateException> { readComposeReports(listOf(folder)) }
+    }
+
+    @Test
+    fun `all variants are checked and unstable composable is retained`() {
+        val folder = report("example,Screen,1,1,1,")
+        File(folder, "release-composables.csv").writeText("$Header\nexample,Other,1,0,1,\n")
+        File(folder, "release-composables.txt").writeText("restartable fun Other()")
+        readComposeReports(listOf(folder)).single().name shouldBe "Other"
+    }
+
+    @Test
+    fun `discovery includes explicit and convention Compose modules only`() {
+        val root = temporary.newFolder()
+        module(root, "app", "org.jetbrains.kotlin.plugin.compose")
+        module(root, "feature", "id(\"ivy.feature\")")
+        module(root, "ui", "id(\"ivy.compose\")")
+        module(root, "explicit", "id(\"org.jetbrains.kotlin.plugin.compose\")")
+        module(root, "widget", "id(\"ivy.widget\")")
+        module(root, "paparazzi", "id(\"ivy.paparazzi\")")
+        module(root, "reporting", "id(\"ivy.compose-reports\")")
+        module(root, "plain", "id(\"org.jetbrains.kotlin.jvm\")")
+        module(root, "build/generated", "id(\"ivy.feature\")")
+        module(root, ".git/fixture", "org.jetbrains.kotlin.plugin.compose")
+        module(root, "outputs/fixture", "id(\"ivy.feature\")")
+
+        findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
+            listOf("app", "explicit", "feature", "paparazzi", "reporting", "ui", "widget")
+                .map { "$it/build/compose_full" }
+    }
+
+    @Test
+    fun `missing app or widget reports fail even when a feature has valid reports`() {
+        listOf(
+            "app" to "org.jetbrains.kotlin.plugin.compose",
+            "widget" to "id(\"ivy.widget\")"
+        ).forEach { (name, plugin) ->
+            val root = temporary.newFolder()
+            module(root, name, plugin)
+            val feature = module(root, "feature", "id(\"ivy.feature\")")
+            val folder = File(feature, "build/compose_full").apply { mkdirs() }
+            File(folder, "sample-composables.csv").writeText("$Header\nexample,Screen,1,1,1,\n")
+            File(folder, "sample-composables.txt").writeText("restartable skippable fun Screen()")
+            readComposeReports(listOf(folder)).shouldBeEmpty()
+
+            val error = shouldThrow<IllegalStateException> {
+                readComposeReports(findComposeReportFolders(root).toList())
+            }
+            error.message shouldBe "No composables CSV reports in ${File(root, "$name/build/compose_full").path}"
+        }
+    }
+
+    @Test
+    fun `unknown convention cannot omit modules from the actual Gradle graph`() {
+        val root = temporary.newFolder()
+        module(root, "feature", "id(\"ivy.feature\")")
+        module(root, "custom", "id(\"custom.compose\")")
+        val error = shouldThrow<IllegalStateException> {
+            readFullComposeReports(root, expectedModules = setOf("feature", "custom"))
+        }
+        error.message shouldBe "Compose discovery differs from Gradle: missing=[custom], extra=[]"
+    }
+
+    @Test
+    fun `plugin lookups and string references are not plugin declarations`() {
+        val root = temporary.newFolder()
+        module(root, "actual", "id(\"ivy.compose\")")
+        val observer = module(root, "observer", "id(\"ivy.script\")")
+        val query = """
+            val composeProjects = rootProject.subprojects.filter {
+                it.plugins.hasPlugin("org.jetbrains.kotlin.plugin.compose")
+            }
+            val pluginName = "org.jetbrains.kotlin.plugin.compose"
+        """.trimIndent()
+        File(observer, "build.gradle.kts").appendText("\n$query\n")
+        findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
+            listOf("actual/build/compose_full")
+    }
+
+    @Test
+    fun `inline and trailing comment declarations count but standalone comments do not`() {
+        val root = temporary.newFolder()
+        val inline = module(root, "inline", "")
+        File(inline, "build.gradle.kts").writeText("plugins { id(\"ivy.feature\") }")
+        module(root, "trailing", "id(\"ivy.compose\") // UI convention")
+        module(root, "accessor", "org.jetbrains.kotlin.plugin.compose // app plugin")
+        module(root, "comment", "// id(\"ivy.feature\")")
+        module(root, "accessorComment", "// org.jetbrains.kotlin.plugin.compose")
+        module(root, "noncompose", "id(\"org.jetbrains.kotlin.jvm\") // id(\"ivy.compose\")")
+
+        findComposeReportFolders(root).map { it.relativeTo(root).invariantSeparatorsPath }.toList() shouldBe
+            listOf("accessor", "inline", "trailing").map { "$it/build/compose_full" }
+    }
+    private fun module(root: File, name: String, plugin: String): File = File(root, name).apply {
+        mkdirs()
+        File(this, "build.gradle.kts").writeText("plugins {\n    $plugin\n}\n")
+    }
+    private fun report(row: String): File = temporary.newFolder().apply {
+        File(this, "sample-composables.csv").writeText("$Header\n$row\n")
+        File(this, "sample-composables.txt").writeText("restartable skippable fun Screen()")
+    }
+
+    private companion object {
+        const val Header = "package,name,composable,skippable,restartable,"
+    }
+}

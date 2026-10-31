@@ -5,11 +5,12 @@ import com.ivy.ai.domain.ParsedTransaction
 import com.ivy.ai.domain.TransactionTypeGuess
 import com.ivy.base.model.TransactionType
 import com.ivy.data.model.Account
+import com.ivy.data.model.AccountId
 import com.ivy.data.model.Category
+import com.ivy.data.model.CategoryId
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
-import java.util.UUID
 
 /**
  * The fields needed to pre-fill the edit-transaction screen, resolved from a [ParsedTransaction]
@@ -18,8 +19,8 @@ import java.util.UUID
  */
 internal data class EditDraft(
     val type: TransactionType,
-    val accountId: UUID?,
-    val categoryId: UUID?,
+    val account: AccountId?,
+    val category: CategoryId?,
     val amount: Double?,
     val title: String?,
     val dateTime: Instant?,
@@ -28,7 +29,7 @@ internal data class EditDraft(
 /**
  * Resolves a parsed draft into [EditDraft]:
  * - maps the guessed type (defaulting to EXPENSE),
- * - matches account/category by name (case-insensitive) against the real ones, unknown → null,
+ * - matches an unambiguous active account and category by name (case-insensitive), unknown → null,
  * - drops the category for transfers (the destination account is chosen in the editor),
  * - keeps the amount only when positive,
  * - parses the ISO date, ignoring an unparseable one.
@@ -43,16 +44,18 @@ internal fun ParsedTransaction.toEditDraft(
         else -> TransactionType.EXPENSE
     }
 
-    val accountId: UUID? = account
-        ?.let { name -> accounts.firstOrNull { it.name.value.equals(name, ignoreCase = true) } }
-        ?.id?.value
+    val accountId: AccountId? = account
+        ?.let { name ->
+            accounts.singleOrNull { !it.archived && it.name.value.equals(name, ignoreCase = true) }
+        }
+        ?.id
 
-    val categoryId: UUID? = if (type == TransactionType.TRANSFER) {
+    val categoryId: CategoryId? = if (type == TransactionType.TRANSFER) {
         null
     } else {
         category
             ?.let { name -> categories.firstOrNull { it.name.value.equals(name, ignoreCase = true) } }
-            ?.id?.value
+            ?.id
     }
 
     val dateTime: Instant? = date
@@ -61,9 +64,9 @@ internal fun ParsedTransaction.toEditDraft(
 
     return EditDraft(
         type = type,
-        accountId = accountId,
-        categoryId = categoryId,
-        amount = amount?.takeIf { it > 0.0 },
+        account = accountId,
+        category = categoryId,
+        amount = amount?.takeIf { it.isFinite() && it > 0.0 },
         title = description,
         dateTime = dateTime,
     )

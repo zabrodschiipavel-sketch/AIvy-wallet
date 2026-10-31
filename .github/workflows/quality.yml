@@ -1,0 +1,67 @@
+name: Quality
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  python-and-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m unittest discover -s scripts -p 'quality_tests.py' -v
+      - run: python -m unittest discover -s scripts -p '*audit*tests.py' -v
+      - run: python -m unittest discover -s scripts -p 'environment_tests.py' -v
+      - run: python scripts/quality.py ratchet
+  integration:
+    uses: ./.github/workflows/integration_test.yml
+  ci-actions-tests:
+    uses: ./.github/workflows/ci_actions_test.yml
+  android-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: ./.github/actions/setup-pinned-java
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: ./.github/actions/setup-project-android
+      - run: python scripts/verify_environment.py --out build/environment.json
+      - name: Unit tests, Detekt and Paparazzi
+        run: ./gradlew testDebugUnitTest detekt verifyPaparazziDebug --continue
+      - name: Lint with fail-closed report validation
+        run: ./gradlew lintRelease && python scripts/quality.py lint build/reports/lint/lint.xml
+      - name: Compose stability analysis
+        run: ./gradlew :app:assembleDemo :ci-actions:compose-stability:run -PivyComposeFullReports=true -Pkotlin.incremental=false --no-configuration-cache
+      - name: Build unsigned release candidate
+        run: ./gradlew assembleRelease -PivyUnsignedRelease=true
+      - name: Candidate metadata
+        run: python scripts/quality.py candidate app/build/outputs/apk/release/app-release-unsigned.apk --out candidate.json --aapt "$ANDROID_HOME/build-tools/34.0.0/aapt"
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            build/environment.json
+            candidate.json
+            build/reports/lint/**
+            build/reports/detekt/**
+            ci-actions/compose-stability/ivy-compose-stability-report.txt
+            ci-actions/compose-stability/ivy-compose-coverage.tsv
+            **/build/compose_full/**
+            **/build/test-results/**
+            **/build/reports/tests/**
+            **/build/reports/paparazzi/**
+            **/build/paparazzi/failures/**
+      - uses: actions/upload-artifact@v4
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: unsigned-release-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/release/app-release-unsigned.apk
+            candidate.json

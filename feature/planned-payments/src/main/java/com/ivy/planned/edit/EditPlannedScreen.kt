@@ -1,5 +1,6 @@
 package com.ivy.planned.edit
 
+import com.ivy.base.model.AccountSaveResult
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
@@ -29,12 +30,12 @@ import com.ivy.data.model.Category
 import com.ivy.data.model.IntervalType
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
+import com.ivy.legacy.ui.component.edit.core.Description
 import com.ivy.legacy.utils.onScreenStart
 import com.ivy.navigation.EditPlannedScreen
 import com.ivy.navigation.screenScopedViewModel
 import com.ivy.ui.R
 import com.ivy.wallet.ui.edit.core.Category
-import com.ivy.legacy.ui.component.edit.core.Description
 import com.ivy.wallet.ui.edit.core.EditBottomSheet
 import com.ivy.wallet.ui.edit.core.Title
 import com.ivy.wallet.ui.edit.core.Toolbar
@@ -65,6 +66,7 @@ fun BoxWithConstraintsScope.EditPlannedScreen(screen: EditPlannedScreen) {
     UI(
         screen = screen,
         state = uiState,
+        onCreateAccount = viewModel::createAccount,
         onEvent = viewModel::onEvent
     )
 }
@@ -79,6 +81,8 @@ fun BoxWithConstraintsScope.EditPlannedScreen(screen: EditPlannedScreen) {
 private fun BoxWithConstraintsScope.UI(
     screen: EditPlannedScreen,
     state: EditPlannedScreenState,
+    onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
+        AccountSaveResult = { AccountSaveResult.Saved },
     onEvent: (EditPlannedScreenEvent) -> Unit,
 ) {
     var titleTextFieldValue by remember(state.initialTitle) {
@@ -327,8 +331,8 @@ private fun BoxWithConstraintsScope.UI(
 
     AccountModal(
         modal = state.accountModalData,
-        onCreateAccount = { onEvent(EditPlannedScreenEvent.OnCreateAccount(it)) },
-        onEditAccount = { _, _ -> },
+        onCreateAccount = onCreateAccount,
+        onEditAccount = { _, _ -> AccountSaveResult.Saved },
         dismiss = {
             onEvent(EditPlannedScreenEvent.OnAccountModalDataChanged(null))
         }
@@ -437,7 +441,7 @@ private fun Preview() {
                 currency = "BGN",
                 description = null,
                 category = null,
-                account = Account(name = "phyre", Orange.toArgb()),
+                account = Account(name = "phyre", Orange.toArgb(), archived = false),
                 amount = 0.0,
                 transactionType = TransactionType.INCOME,
                 categories = persistentListOf(),

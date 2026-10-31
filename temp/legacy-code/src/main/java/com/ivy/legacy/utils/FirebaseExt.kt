@@ -5,17 +5,20 @@ import timber.log.Timber
 fun sendToCrashlytics(
     msg: String
 ) {
-    Timber.e(DeveloperException(msg), msg)
+    DeveloperException(msg).sendToCrashlytics(msg)
 }
 
 fun Exception.sendToCrashlytics(
     clarification: String? = null
 ) {
-    Timber.e(this, clarification ?: message)
+    clarification?.let {
+        logToCrashlytics("Log: $it")
+    }
+    Timber.e(this)
 }
 
 fun logToCrashlytics(msg: String) {
-    Timber.i(msg)
+    Timber.tag("Crashlytics").d(msg)
 }
 
 class DeveloperException(msg: String) : Exception(msg)

@@ -1,5 +1,7 @@
 package com.ivy.transaction
 
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -18,6 +20,7 @@ import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.read.LoanDao
 import com.ivy.data.db.dao.read.SettingsDao
+import com.ivy.data.db.entity.TransactionEntity
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.Tag
@@ -43,6 +46,7 @@ import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.MainScreen
 import com.ivy.navigation.Navigation
 import com.ivy.ui.ComposeViewModel
+import com.ivy.ui.SaveController
 import com.ivy.ui.R
 import com.ivy.ui.time.impl.DateTimePicker
 import com.ivy.wallet.domain.action.account.AccountByIdAct
@@ -66,6 +70,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
@@ -129,17 +134,33 @@ class EditTransactionViewModel @Inject constructor(
 
     private var paidHistory: Instant? = null
 
-    // This is used to when the transaction is associated with a loan/loan record,
-    // used to indicate the background updating of loan/loanRecord data
-    private var backgroundProcessingStarted by mutableStateOf(false)
+    private var expectedLoanTransaction: TransactionEntity? = null
+    private var closeAfterLoanSave = false
+    private val loanSaveController = SaveController<Pair<TransactionEntity, LoanSaveResult>>(
+        scope = viewModelScope,
+        isCurrent = { expectedLoanTransaction?.id == loadedTransaction?.id },
+        onSaved = { (saved, result) ->
+            expectedLoanTransaction = saved
+            hasChanges = false
+            viewModelScope.launch {
+                if (result == LoanSaveResult.RefreshFailed) toaster.show(R.string.loan_saved_refresh_failed)
+                try {
+                    refreshWidget(WalletBalanceWidgetReceiver::class.java)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    toaster.show(R.string.loan_saved_refresh_failed)
+                }
+            }
+            if (closeAfterLoanSave) closeScreen()
+        },
+        singleSave = false,
+    )
 
     private var customExchangeRateState by mutableStateOf(CustomExchangeRateState())
 
     private var loadedTransaction: Transaction? = null
     private var editMode = false
-
-    // Used for optimising in updating all loan/loanRecords
-    private var accountsChanged = false
 
     private var title: String? = null
     private lateinit var baseUserCurrency: String
@@ -154,7 +175,7 @@ class EditTransactionViewModel @Inject constructor(
 
             val tagList = async { getAllTags() }
 
-            val getAccounts = accountsAct(Unit)
+            val getAccounts = availableEditorAccounts()
             if (getAccounts.isEmpty()) {
                 closeScreen()
                 return@launch
@@ -186,6 +207,14 @@ class EditTransactionViewModel @Inject constructor(
                 )
             }
 
+            if (loadedTransaction().loanId != null) {
+                val (snapshot, transaction) = requireNotNull(
+                    loanTransactionsLogic.transactionSnapshot(loadedTransaction().id)
+                )
+                expectedLoanTransaction = snapshot
+                loadedTransaction = transaction
+            }
+
             tags = tagList.await()
             transactionAssociatedTags =
                 tagRepository.findByAssociatedId(AssociationId(loadedTransaction().id)).map(Tag::id)
@@ -213,6 +242,7 @@ class EditTransactionViewModel @Inject constructor(
             hasChanges = getHasChanges(),
             displayLoanHelper = getDisplayLoanHelper(),
             backgroundProcessingStarted = getBackgroundProcessingStarted(),
+            saveFailed = loanSaveController.failed,
             customExchangeRateState = getCustomExchangeRateState(),
             tags = getTags(),
             transactionAssociatedTags = getTransactionAssociatedTags()
@@ -300,7 +330,7 @@ class EditTransactionViewModel @Inject constructor(
 
     @Composable
     private fun getBackgroundProcessingStarted(): Boolean {
-        return backgroundProcessingStarted
+        return loanSaveController.isSaving
     }
 
     @Composable
@@ -320,8 +350,8 @@ class EditTransactionViewModel @Inject constructor(
 
     @Suppress("CyclomaticComplexMethod")
     override fun onEvent(event: EditTransactionViewEvent) {
+        if (loanSaveController.isSaving) return
         when (event) {
-            is EditTransactionViewEvent.CreateAccount -> createAccount(event.data)
             is EditTransactionViewEvent.CreateCategory -> createCategory(event.data)
             EditTransactionViewEvent.Delete -> delete()
             EditTransactionViewEvent.Duplicate -> duplicate()
@@ -342,7 +372,6 @@ class EditTransactionViewModel @Inject constructor(
             is EditTransactionViewEvent.OnTitleChanged -> onTitleChanged(event.newTitle)
             is EditTransactionViewEvent.OnToAccountChanged -> onToAccountChanged(event.newAccount)
             is EditTransactionViewEvent.Save -> save(event.closeScreen)
-            is EditTransactionViewEvent.SetHasChanges -> setHasChanges(event.hasChangesValue)
             is EditTransactionViewEvent.UpdateExchangeRate -> updateExchangeRate(event.exRate)
             is EditTransactionViewEvent.TagEvent -> handleTagEvent(event)
         }
@@ -359,29 +388,18 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private suspend fun defaultAccountId(
+    private suspend fun availableEditorAccounts(): ImmutableList<Account> =
+        editorAccounts(accountsAct(Unit), editing = editMode, isArchived = Account::archived).toImmutableList()
+
+    private fun defaultAccountId(
         screen: EditTransactionScreen,
         accounts: List<Account>,
     ): UUID {
-        if (screen.accountId != null) {
-            return screen.accountId!!
-        }
-
         val lastSelectedId = sharedPrefs.getString(
             SharedPrefs.LAST_SELECTED_ACCOUNT_ID,
             null
-        )?.let { UUID.fromString(it) }
-        if (lastSelectedId != null && ioThread {
-                accounts.find {
-                    it.id == lastSelectedId
-                }
-            } != null
-        ) {
-            // use last selected account
-            return lastSelectedId
-        }
-
-        return accounts.first().id
+        )?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        return requireNotNull(initialAccountId(accounts.map(Account::id), screen.accountId, lastSelectedId))
     }
 
     private suspend fun display(transaction: Transaction) {
@@ -509,9 +527,6 @@ class EditTransactionViewModel @Inject constructor(
             viewModelScope.launch {
                 updateCurrency(account = newAccount)
             }
-
-            accountsChanged = true
-
             // update last selected account
             sharedPrefs.putString(SharedPrefs.LAST_SELECTED_ACCOUNT_ID, newAccount.id.toString())
 
@@ -693,16 +708,17 @@ class EditTransactionViewModel @Inject constructor(
         }
     }
 
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
-            }
-        }
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        return accountCreator.createAccount(data) { accounts = availableEditorAccounts() }
     }
 
     private fun save(closeScreen: Boolean = true) {
         if (!validTransaction()) {
+            return
+        }
+
+        if (loadedTransaction().loanId != null) {
+            saveLoanTransaction(closeScreen)
             return
         }
 
@@ -739,25 +755,7 @@ class EditTransactionViewModel @Inject constructor(
                     isSynced = false
                 )
 
-                if (loadedTransaction?.loanId != null) {
-                    loanTransactionsLogic.updateAssociatedLoanData(
-                        loadedTransaction!!.copy(),
-                        onBackgroundProcessingStart = {
-                            backgroundProcessingStarted = true
-                        },
-                        onBackgroundProcessingEnd = {
-                            backgroundProcessingStarted = false
-                        },
-                        accountsChanged = accountsChanged
-                    )
-
-                    // Reset Counter
-                    accountsChanged = false
-                }
-
-                loadedTransaction().toDomain(transactionMapper)?.let {
-                    transactionRepo.save(it)
-                }
+                transactionRepo.save(requireNotNull(loadedTransaction().toDomain(transactionMapper)))
 
                 refreshWidget(WalletBalanceWidgetReceiver::class.java)
             }
@@ -765,14 +763,32 @@ class EditTransactionViewModel @Inject constructor(
             if (closeScreen) {
                 closeScreen()
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             e.printStackTrace()
+            toaster.show(R.string.loan_save_failed)
         }
     }
 
-    @JvmName("setHasChangesMethod")
-    private fun setHasChanges(hasChangesValue: Boolean) {
-        hasChanges = hasChangesValue
+    private fun saveLoanTransaction(closeScreen: Boolean) {
+        if (loanSaveController.isSaving) return
+        val expected = requireNotNull(expectedLoanTransaction)
+        val pending = loadedTransaction().copy(
+            accountId = account?.id ?: expected.accountId,
+            amount = amount.toBigDecimal(),
+            title = title?.trim(),
+            description = description?.trim(),
+            type = transactionType,
+            dateTime = dateTime,
+            dueDate = dueDate,
+            categoryId = category?.id?.value,
+            isSynced = false,
+        )
+        closeAfterLoanSave = closeScreen
+        loanSaveController.submit {
+            loanTransactionsLogic.saveTransaction(expected, pending)
+        }
     }
 
     private suspend fun transferToAmount(
@@ -834,6 +850,7 @@ class EditTransactionViewModel @Inject constructor(
 
     private fun reset() {
         loadedTransaction = null
+        expectedLoanTransaction = null
 
         initialTitle = null
         description = null
@@ -914,8 +931,7 @@ class EditTransactionViewModel @Inject constructor(
     private fun saveIfEditMode(closeScreen: Boolean = false) {
         if (editMode) {
             hasChanges = true
-
-            save(closeScreen)
+            if (loadedTransaction?.loanId == null) save(closeScreen)
         }
     }
 

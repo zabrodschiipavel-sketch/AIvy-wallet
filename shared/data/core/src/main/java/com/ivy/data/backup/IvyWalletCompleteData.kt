@@ -4,6 +4,7 @@ import androidx.annotation.Keep
 import com.ivy.data.db.entity.AccountEntity
 import com.ivy.data.db.entity.BudgetEntity
 import com.ivy.data.db.entity.CategoryEntity
+import com.ivy.data.db.entity.ExchangeRateEntity
 import com.ivy.data.db.entity.LoanEntity
 import com.ivy.data.db.entity.LoanRecordEntity
 import com.ivy.data.db.entity.PlannedPaymentRuleEntity
@@ -18,6 +19,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Suppress("DataClassDefaultValues")
 data class IvyWalletCompleteData(
+    // Version 1 is the unversioned legacy format. New exports explicitly use version 2.
+    @SerialName("formatVersion")
+    val formatVersion: Int = 1,
     @SerialName("accounts")
     val accounts: List<AccountEntity> = emptyList(),
     @SerialName("budgets")
@@ -39,5 +43,10 @@ data class IvyWalletCompleteData(
     @SerialName("tags")
     val tags: List<TagEntity> = emptyList(),
     @SerialName("tagAssociations")
-    val tagAssociations: List<TagAssociationEntity> = emptyList()
+    val tagAssociations: List<TagAssociationEntity> = emptyList(),
+    @SerialName("manualExchangeRates")
+    val manualExchangeRates: List<ExchangeRateEntity> = emptyList(),
+    // Active links omitted because their tag or transaction was explicitly deleted.
+    @SerialName("omittedDeletedTagAssociations")
+    val omittedDeletedTagAssociations: Int = 0,
 )

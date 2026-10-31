@@ -2,11 +2,11 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("org.jetbrains.kotlin.android")
-    org.jetbrains.kotlin.plugin.compose
+    id("ivy.compose-reports")
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
-    id("io.gitlab.arturbosch.detekt")
+    id("ivy.detekt")
 }
 
 android {
@@ -34,10 +34,10 @@ android {
         }
 
         create("release") {
-            storeFile = file("../sign.jks")
-            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            storeFile = System.getenv("IVY_SIGNING_STORE_FILE")?.let(::file)
+            storePassword = System.getenv("IVY_SIGNING_STORE_PASSWORD")
+            keyAlias = System.getenv("IVY_SIGNING_KEY_ALIAS")
+            keyPassword = System.getenv("IVY_SIGNING_KEY_PASSWORD")
         }
     }
 
@@ -53,9 +53,13 @@ android {
             isDebuggable = false
             isDefault = false
 
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (providers.gradleProperty("ivyUnsignedRelease").orNull == "true") {
+                null
+            } else {
+                signingConfigs.getByName("release")
+            }
 
-            resValue("string", "app_name", "Ivy Wallet")
+            resValue("string", "app_name", "Ivy Wallet Optimized")
         }
 
         debug {
@@ -87,7 +91,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
 
             applicationIdSuffix = ".debug"
-            resValue("string", "app_name", "Ivy Wallet")
+            resValue("string", "app_name", "Ivy Wallet Optimized")
         }
     }
 
@@ -109,8 +113,8 @@ android {
     lint {
         disable += "ComposeViewModelInjection"
         checkDependencies = true
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
         htmlReport = true
         htmlOutput = file("${project.rootDir}/build/reports/lint/lint.html")
         xmlReport = true
@@ -144,7 +148,6 @@ dependencies {
     implementation(projects.feature.search)
     implementation(projects.feature.settings)
     implementation(projects.feature.transactions)
-    implementation(projects.feature.poll.impl)
     implementation(projects.shared.base)
     implementation(projects.shared.data.core)
     implementation(projects.shared.domain)

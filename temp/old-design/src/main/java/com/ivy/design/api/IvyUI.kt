@@ -8,6 +8,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import com.ivy.base.time.TimeConverter
@@ -74,12 +77,12 @@ private fun WrapWithSurface(
     includeSurface: Boolean,
     content: @Composable () -> Unit,
 ) {
+    val currentContent = rememberUpdatedState(content)
+    val movableContent = remember { movableContentOf { currentContent.value() } }
     if (includeSurface) {
-        Surface {
-            content()
-        }
+        Surface(content = movableContent)
     } else {
-        content()
+        movableContent()
     }
 }
 

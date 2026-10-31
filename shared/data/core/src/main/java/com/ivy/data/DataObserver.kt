@@ -23,7 +23,7 @@ class DataObserver @Inject constructor() {
 }
 
 sealed interface DataWriteEvent {
-    data object AllDataChange : AccountChange, CategoryChange
+    data object AllDataChange : AccountChange, CategoryChange, TagChange
 
     sealed interface AccountChange : DataWriteEvent
     data class SaveAccounts(val accounts: List<Account>) : AccountChange

@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,9 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -103,12 +105,12 @@ fun BoxWithConstraintsScope.MoreMenu(
 ) {
     val ivyContext = ivyWalletCtx()
 
-    val percentExpanded by animateFloatAsState(
+    val percentExpanded = animateFloatAsState(
         targetValue = if (expanded) 1f else 0f,
         animationSpec = springBounce(),
         label = ""
     )
-    val iconRotation by animateFloatAsState(
+    val iconRotation = animateFloatAsState(
         targetValue = if (expanded) -180f else 0f,
         animationSpec = springBounce(),
         label = ""
@@ -120,15 +122,14 @@ fun BoxWithConstraintsScope.MoreMenu(
     val yBaseCollapsed = 20.dp.toDensityPx() + statusBarInset()
     val yBaseExpanded = ivyContext.screenHeight - 48.dp.toDensityPx() - navigationBarInset()
 
-    val yButton = lerp(
-        start = yBaseCollapsed,
-        end = yBaseExpanded - buttonSizePx,
-        fraction = percentExpanded
-    )
+    val menuVisible by remember(expanded) {
+        derivedStateOf { expanded || percentExpanded.value > 0.01f }
+    }
 
     // Background
     val colorMedium = UI.colors.medium
-    if (percentExpanded > 0.01f) {
+    val colorPure = UI.colors.pure
+    if (menuVisible) {
         Canvas(
             modifier = modifier
                 .fillMaxSize()
@@ -137,14 +138,15 @@ fun BoxWithConstraintsScope.MoreMenu(
                 }
                 .zIndex(500f)
         ) {
+            val progress = percentExpanded.value
             val radiusCollapsed = buttonSizePx / 2f
             val radiusExpanded = ivyContext.screenHeight * 1.5f
-            val radius = lerp(radiusCollapsed, radiusExpanded, percentExpanded)
+            val radius = lerp(radiusCollapsed, radiusExpanded, progress)
 
             val yBackground = lerp(
                 start = yBaseCollapsed + radius,
                 end = yBaseExpanded,
-                fraction = percentExpanded
+                fraction = progress
             )
 
             drawCircle(
@@ -158,13 +160,13 @@ fun BoxWithConstraintsScope.MoreMenu(
         }
     }
 
-    if (percentExpanded > 0.01f) {
+    if (menuVisible) {
         Column(
             modifier = modifier
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .fillMaxSize()
-                .alpha(percentExpanded)
+                .graphicsLayer { alpha = percentExpanded.value.coerceIn(0f, 1f) }
                 .verticalScroll(rememberScrollState())
                 .zIndex(510f)
                 .verticalSwipeListener(
@@ -204,18 +206,26 @@ fun BoxWithConstraintsScope.MoreMenu(
                 val placeable = measurable.measure(constraints)
 
                 layout(placeable.width, placeable.height) {
+                    val yButton = lerp(
+                        yBaseCollapsed,
+                        yBaseExpanded - buttonSizePx,
+                        percentExpanded.value
+                    )
                     placeable.place(
                         x = xBase.roundToInt() - buttonSizePx.roundToInt(),
                         y = yButton.roundToInt()
                     )
                 }
             }
-            .rotate(iconRotation)
+            .graphicsLayer { rotationZ = iconRotation.value }
+            .drawBehind {
+                drawCircle(colorLerp(colorMedium, colorPure, percentExpanded.value))
+            }
             .thenIf(expanded) {
                 zIndex(520f)
             }
             .testTag("home_more_menu_arrow"),
-        backgroundColor = colorLerp(UI.colors.medium, UI.colors.pure, percentExpanded),
+        backgroundColor = Color.Transparent,
         icon = R.drawable.ic_expandarrow
     ) {
         setExpanded(!expanded)

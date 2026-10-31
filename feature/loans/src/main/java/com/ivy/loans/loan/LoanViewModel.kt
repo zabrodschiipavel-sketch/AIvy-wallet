@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.base.model.processByType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
@@ -36,7 +38,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDateTime
@@ -142,13 +143,10 @@ class LoanViewModel @Inject constructor(
 
     override fun onEvent(event: LoanScreenEvent) {
         when (event) {
-            is LoanScreenEvent.OnLoanCreate -> {
-                createLoan(event.createLoanData)
-            }
-
             is LoanScreenEvent.OnAddLoan -> {
                 loanModalData = LoanModalData(
                     loan = null,
+                    originalLoan = null,
                     baseCurrency = baseCurrencyCode,
                     selectedAccount = selectedAccount
                 )
@@ -165,10 +163,6 @@ class LoanViewModel @Inject constructor(
 
             is LoanScreenEvent.OnReordered -> {
                 reorder(event.reorderedList)
-            }
-
-            is LoanScreenEvent.OnCreateAccount -> {
-                createAccount(event.accountData)
             }
 
             LoanScreenEvent.OnTogglePaidOffLoanVisibility -> {
@@ -190,9 +184,12 @@ class LoanViewModel @Inject constructor(
     }
 
     private fun start() {
-        viewModelScope.launch(Dispatchers.Default) {
-            TestIdlingResource.increment()
+        viewModelScope.launch { refresh() }
+    }
 
+    private suspend fun refresh() {
+        TestIdlingResource.increment()
+        try {
             dateTime = timeProvider.utcNow()
 
             defaultCurrencyCode = ioThread {
@@ -242,7 +239,7 @@ class LoanViewModel @Inject constructor(
             }
             loadPendingLoans()
             loadCompletedLoans()
-
+        } finally {
             TestIdlingResource.decrement()
         }
     }
@@ -312,18 +309,13 @@ class LoanViewModel @Inject constructor(
         }
     }
 
-    private fun createLoan(data: CreateLoanData) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
-            val uuid = loanCreator.create(data) {
-                start()
-            }
-
-            uuid?.let {
-                loanTransactionsLogic.Loan.createAssociatedLoanTransaction(data = data, loanId = it)
-            }
-
+    suspend fun createLoan(data: CreateLoanData): LoanSaveResult {
+        TestIdlingResource.increment()
+        return try {
+            loanCreator.create(data, writeAssociatedData = { loan ->
+                loanTransactionsLogic.Loan.createAssociatedLoanTransaction(data, loan.id)
+            }, onRefreshUI = { refresh() })
+        } finally {
             TestIdlingResource.decrement()
         }
     }
@@ -356,14 +348,11 @@ class LoanViewModel @Inject constructor(
         pendingLoans = allLoans.filter { loan -> loan.percentPaid < 1.0 }.toImmutableList()
     }
 
-    private fun createAccount(data: CreateAccountData) {
-        viewModelScope.launch {
-            TestIdlingResource.increment()
-
-            accountCreator.createAccount(data) {
-                accounts = accountsAct(Unit)
-            }
-
+    suspend fun createAccount(data: CreateAccountData): AccountSaveResult {
+        TestIdlingResource.increment()
+        return try {
+            accountCreator.createAccount(data) { accounts = accountsAct(Unit) }
+        } finally {
             TestIdlingResource.decrement()
         }
     }

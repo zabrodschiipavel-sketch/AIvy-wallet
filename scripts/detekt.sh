@@ -12,4 +12,4 @@ if [ ! -f "settings.gradle.kts" ]; then
 fi
 
 
-./gradlew detekt || exit 0
+./gradlew detekt || exit 1

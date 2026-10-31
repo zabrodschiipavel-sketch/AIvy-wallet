@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -20,23 +21,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.ivy.design.l0_system.UI
@@ -101,59 +104,31 @@ fun BoxWithConstraintsScope.BottomBar(
     }
 
     val screenHeightDp = densityScope { ivyContext.screenHeight.toDp() }
-    val expandedBackgroundOffset by animateDpAsState(
+    val expandedBackgroundOffset = animateDpAsState(
         targetValue = if (expanded) 0.dp else screenHeightDp,
         animationSpec = springBounceFast()
     )
 
-    val fabRotation by animateFloatAsState(
+    val fabRotation = animateFloatAsState(
         targetValue = if (expanded) 45f else 0f,
         animationSpec = springBounceFast()
     )
 
-    val buttonsShownPercent by animateFloatAsState(
+    val buttonsShownPercent = animateFloatAsState(
         targetValue = if (expanded) 1f else 0f,
         animationSpec = springBounceFast()
     )
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.BottomCenter)
-            .background(pureBlur())
-            .alpha(1f - buttonsShownPercent)
-            .navigationBarsPadding()
-            .clickableNoIndication(rememberInteractionSource()) {
-                // consume click
-            },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Tab(
-            icon = R.drawable.ic_home,
-            name = stringResource(R.string.home),
-            selected = tab == MainTab.HOME,
-            selectedColor = Ivy
-        ) {
-            selectTab(MainTab.HOME)
-        }
+    BottomBarTabs(tab = tab, selectTab = selectTab, buttonsShownPercent = buttonsShownPercent)
 
-        Spacer(Modifier.width(FAB_BUTTON_SIZE))
-
-        Tab(
-            icon = R.drawable.ic_accounts,
-            name = stringResource(R.string.accounts),
-            selected = tab == MainTab.ACCOUNTS,
-            selectedColor = Green
-        ) {
-            selectTab(MainTab.ACCOUNTS)
-        }
+    val backgroundVisible by remember(screenHeightDp) {
+        derivedStateOf { expandedBackgroundOffset.value < screenHeightDp }
     }
-
-    if (expandedBackgroundOffset < screenHeightDp) {
+    if (backgroundVisible) {
         Spacer(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = expandedBackgroundOffset)
+                .offset { IntOffset(0, expandedBackgroundOffset.value.roundToPx()) }
                 .background(UI.colors.pure.copy(alpha = 0.95f))
                 .clickableNoIndication(rememberInteractionSource()) {
                     // consume click, do nothing
@@ -197,7 +172,7 @@ fun BoxWithConstraintsScope.BottomBar(
                 }
             }
             .size(FAB_BUTTON_SIZE)
-            .rotate(fabRotation)
+            .graphicsLayer { rotationZ = fabRotation.value }
             .zIndex(200f)
             .thenIf(tab == MainTab.HOME) {
                 pointerInput(Unit) {
@@ -271,8 +246,48 @@ fun BoxWithConstraintsScope.BottomBar(
 }
 
 @Composable
-private fun TransactionButtons(
-    buttonsShownPercent: Float,
+private fun BoxWithConstraintsScope.BottomBarTabs(
+    tab: MainTab,
+    selectTab: (MainTab) -> Unit,
+    buttonsShownPercent: State<Float>,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .align(Alignment.BottomCenter)
+            .background(pureBlur())
+            .graphicsLayer { alpha = (1f - buttonsShownPercent.value).coerceIn(0f, 1f) }
+            .navigationBarsPadding()
+            .clickableNoIndication(rememberInteractionSource()) {
+                // consume click
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Tab(
+            icon = R.drawable.ic_home,
+            name = stringResource(R.string.home),
+            selected = tab == MainTab.HOME,
+            selectedColor = Ivy
+        ) {
+            selectTab(MainTab.HOME)
+        }
+
+        Spacer(Modifier.width(FAB_BUTTON_SIZE))
+
+        Tab(
+            icon = R.drawable.ic_accounts,
+            name = stringResource(R.string.accounts),
+            selected = tab == MainTab.ACCOUNTS,
+            selectedColor = Green
+        ) {
+            selectTab(MainTab.ACCOUNTS)
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.TransactionButtons(
+    buttonsShownPercent: State<Float>,
     aiEnabled: Boolean,
 
     fabStartX: Float,
@@ -290,7 +305,10 @@ private fun TransactionButtons(
     val bV = 20.dp // 24.dp
     val bCenterV = 74.dp // 80.dp
 
-    if (buttonsShownPercent > 0.01f) {
+    val buttonsVisible by remember(buttonsShownPercent) {
+        derivedStateOf { buttonsShownPercent.value > 0.01f }
+    }
+    if (buttonsVisible) {
         val buttonLeftX = bH.toDensityPx()
         val buttonRightX = ivyContext.screenWidth - bH.toDensityPx() - FAB_BUTTON_SIZE.toDensityPx()
 
@@ -311,7 +329,7 @@ private fun TransactionButtons(
                     }
                 }
                 .padding(horizontal = 8.dp)
-                .alpha(buttonsShownPercent)
+                .graphicsLayer { alpha = buttonsShownPercent.value.coerceIn(0f, 1f) }
                 .zIndex(200f),
             iconStart = R.drawable.ic_planned_payments,
             text = stringResource(R.string.add_planned_payment),
@@ -337,7 +355,7 @@ private fun TransactionButtons(
                         }
                     }
                     .padding(horizontal = 8.dp)
-                    .alpha(buttonsShownPercent)
+                    .graphicsLayer { alpha = buttonsShownPercent.value.coerceIn(0f, 1f) }
                     .zIndex(200f),
                 iconStart = R.drawable.ic_custom_atom_m,
                 text = "Добавить через AI",
@@ -386,7 +404,7 @@ private fun TransactionButtons(
 
 @Composable
 private fun AddIncomeButton(
-    buttonsShownPercent: Float,
+    buttonsShownPercent: State<Float>,
     fabStartX: Float,
     fabStartY: Float,
     buttonLeftX: Float,
@@ -399,14 +417,13 @@ private fun AddIncomeButton(
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
 
-                val x = lerp(fabStartX, buttonLeftX, buttonsShownPercent)
-                val y = lerp(
-                    fabStartY,
-                    sideButtonsY - FAB_BUTTON_SIZE.roundToPx(),
-                    buttonsShownPercent
-                )
-
                 layout(placeable.width, placeable.height) {
+                    val x = lerp(fabStartX, buttonLeftX, buttonsShownPercent.value)
+                    val y = lerp(
+                        fabStartY,
+                        sideButtonsY - FAB_BUTTON_SIZE.roundToPx(),
+                        buttonsShownPercent.value
+                    )
                     placeable.place(
                         x = x.roundToInt(),
                         y = y.roundToInt()
@@ -433,7 +450,7 @@ private fun AddIncomeButton(
                     )
                 }
             }
-            .alpha(buttonsShownPercent)
+            .graphicsLayer { alpha = buttonsShownPercent.value.coerceIn(0f, 1f) }
             .clickableNoIndication(rememberInteractionSource()) {
                 onAddIncome()
             }
@@ -472,7 +489,7 @@ private fun AddIncomeButton(
 
 @Composable
 private fun AddExpenseButton(
-    buttonsShownPercent: Float,
+    buttonsShownPercent: State<Float>,
     fabStartX: Float,
     fabStartY: Float,
     buttonCenterY: Float,
@@ -484,14 +501,13 @@ private fun AddExpenseButton(
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
 
-                val y =
-                    lerp(
-                        fabStartY,
-                        buttonCenterY - FAB_BUTTON_SIZE.roundToPx(),
-                        buttonsShownPercent
-                    )
-
                 layout(placeable.width, placeable.height) {
+                    val y =
+                        lerp(
+                            fabStartY,
+                            buttonCenterY - FAB_BUTTON_SIZE.roundToPx(),
+                            buttonsShownPercent.value
+                        )
                     placeable.place(
                         x = fabStartX.roundToInt(),
                         y = y.roundToInt()
@@ -519,7 +535,7 @@ private fun AddExpenseButton(
                     )
                 }
             }
-            .alpha(buttonsShownPercent)
+            .graphicsLayer { alpha = buttonsShownPercent.value.coerceIn(0f, 1f) }
             .clickableNoIndication(rememberInteractionSource()) {
                 onAddExpense()
             }
@@ -558,7 +574,7 @@ private fun AddExpenseButton(
 
 @Composable
 private fun AddTransferButton(
-    buttonsShownPercent: Float,
+    buttonsShownPercent: State<Float>,
     fabStartX: Float,
     fabStartY: Float,
     buttonRightX: Float,
@@ -571,14 +587,13 @@ private fun AddTransferButton(
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
 
-                val x = lerp(fabStartX, buttonRightX, buttonsShownPercent)
-                val y = lerp(
-                    fabStartY,
-                    sideButtonsY - FAB_BUTTON_SIZE.roundToPx(),
-                    buttonsShownPercent
-                )
-
                 layout(placeable.width, placeable.height) {
+                    val x = lerp(fabStartX, buttonRightX, buttonsShownPercent.value)
+                    val y = lerp(
+                        fabStartY,
+                        sideButtonsY - FAB_BUTTON_SIZE.roundToPx(),
+                        buttonsShownPercent.value
+                    )
                     placeable.place(
                         x = x.roundToInt(),
                         y = y.roundToInt()
@@ -605,7 +620,7 @@ private fun AddTransferButton(
                     )
                 }
             }
-            .alpha(buttonsShownPercent)
+            .graphicsLayer { alpha = buttonsShownPercent.value.coerceIn(0f, 1f) }
             .clickableNoIndication(rememberInteractionSource()) {
                 onAddTransfer()
             }

@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivy.base.legacy.Theme
+import com.ivy.base.model.AccountSaveResult
+import com.ivy.base.model.LoanSaveResult
 import com.ivy.data.model.LoanType
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
@@ -50,6 +52,7 @@ import com.ivy.navigation.LoansScreen
 import com.ivy.navigation.navigation
 import com.ivy.ui.R
 import com.ivy.ui.rememberScrollPositionListState
+import com.ivy.wallet.domain.deprecated.logic.model.CreateLoanData
 import com.ivy.wallet.ui.theme.Blue
 import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.components.BalanceRow
@@ -73,6 +76,8 @@ fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
     val state = viewModel.uiState()
     UI(
         state = state,
+        onCreateAccount = viewModel::createAccount,
+        onCreateLoan = viewModel::createLoan,
         onEventHandler = viewModel::onEvent
     )
 }
@@ -80,6 +85,9 @@ fun BoxWithConstraintsScope.LoansScreen(screen: LoansScreen) {
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: LoanScreenState,
+    onCreateLoan: suspend (CreateLoanData) -> LoanSaveResult = { LoanSaveResult.Saved },
+    onCreateAccount: suspend (com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData) ->
+    AccountSaveResult = { AccountSaveResult.Saved },
     onEventHandler: (LoanScreenEvent) -> Unit = {}
 ) {
     val nav = navigation()
@@ -191,14 +199,10 @@ private fun BoxWithConstraintsScope.UI(
     if (state.loanModalData != null) {
         LoanModal(
             accounts = state.accounts,
-            onCreateAccount = {
-                onEventHandler.invoke(LoanScreenEvent.OnCreateAccount(accountData = it))
-            },
+            onCreateAccount = onCreateAccount,
             modal = state.loanModalData,
-            onCreateLoan = {
-                onEventHandler.invoke(LoanScreenEvent.OnLoanCreate(createLoanData = it))
-            },
-            onEditLoan = { _, _ -> },
+            onCreateLoan = onCreateLoan,
+            onEditLoan = { _, _, _ -> LoanSaveResult.Saved },
             dismiss = {
                 onEventHandler.invoke(LoanScreenEvent.OnLoanModalDismiss)
             },

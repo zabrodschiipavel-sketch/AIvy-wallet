@@ -24,8 +24,8 @@ import com.ivy.wallet.ui.theme.gradientCutBackgroundTop
 
 @Composable
 fun BoxWithConstraintsScope.PlannedPaymentsBottomBar(
-    bottomInset: Dp = navigationBarInset().toDensityDp(),
     onClose: () -> Unit,
+    bottomInset: Dp = navigationBarInset().toDensityDp(),
     onAdd: () -> Unit
 ) {
     ActionsRow(

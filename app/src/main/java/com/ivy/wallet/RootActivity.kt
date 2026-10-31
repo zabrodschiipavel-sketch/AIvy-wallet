@@ -20,16 +20,22 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
-import com.google.android.play.core.review.ReviewManagerFactory
 import com.ivy.IvyNavGraph
 import com.ivy.base.legacy.Theme
 import com.ivy.base.time.TimeConverter
@@ -38,7 +44,6 @@ import com.ivy.design.api.IvyDesign
 import com.ivy.design.api.IvyUI
 import com.ivy.design.system.IvyMaterial3Theme
 import com.ivy.domain.RootScreen
-import com.ivy.home.customerjourney.CustomerJourneyCardsProvider
 import com.ivy.legacy.Constants
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.appDesign
@@ -55,6 +60,7 @@ import com.ivy.widget.balance.WalletBalanceWidgetReceiver
 import com.ivy.widget.transaction.AddTransactionWidget
 import com.ivy.widget.transaction.AddTransactionWidgetCompact
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
@@ -67,9 +73,6 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     @Inject
     lateinit var navigation: Navigation
-
-    @Inject
-    lateinit var customerJourneyLogic: CustomerJourneyCardsProvider
 
     @Inject
     lateinit var timeConverter: TimeConverter
@@ -96,8 +99,8 @@ class RootActivity : AppCompatActivity(), RootScreen {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setupApp()
+        observePreparedSettings()
         setContent {
-            val viewModel: RootViewModel = viewModel()
             val isSystemInDarkTheme = isSystemInDarkTheme()
 
             LaunchedEffect(isSystemInDarkTheme) {
@@ -105,39 +108,40 @@ class RootActivity : AppCompatActivity(), RootScreen {
             }
 
             val appLocked by viewModel.appLocked.collectAsState()
-            when (appLocked) {
-                null -> { // display nothing
+            val startupError by viewModel.startupError.collectAsState()
+            if (startupError) {
+                StartupRecoveryErrorDialog(dark = isSystemInDarkTheme) {
+                    viewModel.start(isSystemInDarkTheme, intent)
                 }
-                true -> {
-                    IvyUI(
-                        design = appDesign(ivyContext),
-                        timeConverter = timeConverter,
-                        timeProvider = timeProvider,
-                        timeFormatter = timeFormatter,
-                    ) {
-                        AppLockedScreen(
-                            onShowOSBiometricsModal = {
-                                authenticateWithOSBiometricsModal(
-                                    biometricPromptCallback = viewModel.handleBiometricAuthResult()
-                                )
-                            },
-                            onContinueWithoutAuthentication = {
-                                viewModel.unlockApp()
-                            }
-                        )
+            } else {
+                when (appLocked) {
+                    null -> { // display nothing
                     }
-                }
-
-                false -> {
-                    NavigationRoot(navigation = navigation) { screen ->
+                    true -> {
                         IvyUI(
                             design = appDesign(ivyContext),
-                            includeSurface = screen?.isLegacy ?: true,
                             timeConverter = timeConverter,
                             timeProvider = timeProvider,
                             timeFormatter = timeFormatter,
                         ) {
-                            IvyNavGraph(screen)
+                            AppLockedScreen(
+                                onShowOSBiometricsModal = ::requestAppAuthentication,
+                                onContinueWithoutAuthentication = viewModel::unlockApp,
+                            )
+                        }
+                    }
+
+                    false -> {
+                        NavigationRoot(navigation = navigation) { screen ->
+                            IvyUI(
+                                design = appDesign(ivyContext),
+                                includeSurface = screen?.isLegacy ?: true,
+                                timeConverter = timeConverter,
+                                timeProvider = timeProvider,
+                                timeFormatter = timeFormatter,
+                            ) {
+                                IvyNavGraph(screen)
+                            }
                         }
                     }
                 }
@@ -155,14 +159,48 @@ class RootActivity : AppCompatActivity(), RootScreen {
         }
     }
 
+    @Composable
+    private fun StartupRecoveryErrorDialog(
+        dark: Boolean,
+        modifier: Modifier = Modifier,
+        onRetry: () -> Unit,
+    ) {
+        IvyMaterial3Theme(dark = dark, isTrueBlack = false) {
+            AlertDialog(
+                modifier = modifier,
+                onDismissRequest = {},
+                title = { Text("Unable to start") },
+                text = { Text("Your data could not be prepared. Please retry.") },
+                confirmButton = {
+                    TextButton(onClick = onRetry) { Text("Retry") }
+                },
+            )
+        }
+    }
+
+    private fun requestAppAuthentication() {
+        authenticateWithOSBiometricsModal(viewModel.handleBiometricAuthResult())
+    }
+
     private fun setupApp() {
         setupActivityForResultLaunchers()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setupDatePicker()
         setupTimePicker()
-        AddTransactionWidget.updateBroadcast(this)
-        AddTransactionWidgetCompact.updateBroadcast(this)
-        WalletBalanceWidgetReceiver.updateBroadcast(this)
+    }
+
+    private fun observePreparedSettings() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.settingsPrepared.collect { generation ->
+                    if (generation > 0 && !viewModel.startupError.value) {
+                        AddTransactionWidget.updateBroadcast(this@RootActivity)
+                        AddTransactionWidgetCompact.updateBroadcast(this@RootActivity)
+                        WalletBalanceWidgetReceiver.updateBroadcast(this@RootActivity)
+                    }
+                }
+            }
+        }
     }
 
     private companion object {
@@ -171,9 +209,9 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     private fun setupDatePicker() {
         ivyContext.onShowDatePicker = { minDate,
-                                        maxDate,
-                                        initialDate,
-                                        onDatePicked ->
+                maxDate,
+                initialDate,
+                onDatePicked ->
             val datePicker =
                 MaterialDatePicker.Builder.datePicker()
                     .setSelection(
@@ -211,7 +249,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
 
     private fun setupTimePicker() {
         ivyContext.onShowTimePicker = { initialTime,
-                                        onTimePicked ->
+                onTimePicked ->
             val nowLocal = initialTime ?: timeProvider.localTimeNow()
             val is24Hour = android.text.format.DateFormat.is24HourFormat(this)
             val timeFormat = if (is24Hour) TimeFormat.CLOCK_24H else TimeFormat.CLOCK_12H
@@ -340,7 +378,7 @@ class RootActivity : AppCompatActivity(), RootScreen {
             )
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
             )
             .setConfirmationRequired(false)
             .build()
@@ -431,32 +469,6 @@ class RootActivity : AppCompatActivity(), RootScreen {
         get() = BuildConfig.VERSION_NAME
     override val buildVersionCode: Int
         get() = BuildConfig.VERSION_CODE
-
-    override fun reviewIvyWallet(dismissReviewCard: Boolean) {
-        val manager = ReviewManagerFactory.create(this)
-        val request = manager.requestReviewFlow()
-        request.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                // We got the ReviewInfo object
-                val reviewInfo = task.result
-                reviewInfo.let { review ->
-                    val flow = manager.launchReviewFlow(this, review!!)
-                    flow.addOnCompleteListener {
-                        // The flow has finished. The API does not indicate whether the user
-                        // reviewed or not, or even whether the review dialog was shown. Thus, no
-                        // matter the result, we continue our app flow.
-                        if (dismissReviewCard) {
-                            customerJourneyLogic.dismissCard(CustomerJourneyCardsProvider.rateUsCard())
-                        }
-
-                        openGooglePlayAppPage(packageName)
-                    }
-                }
-            } else {
-                openGooglePlayAppPage(packageName)
-            }
-        }
-    }
 
     override fun <T> pinWidget(widget: Class<T>) {
         val appWidgetManager: AppWidgetManager = this.getSystemService(AppWidgetManager::class.java)

@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
 import com.ivy.legacy.IvyWalletPreview
-import com.ivy.legacy.utils.addKeyboardListener
+import com.ivy.legacy.utils.keyboardVisibleState
 import com.ivy.legacy.utils.densityScope
 import com.ivy.legacy.utils.isNotNullOrBlank
 import com.ivy.legacy.utils.keyboardOnlyWindowInsets
@@ -52,14 +51,7 @@ import com.ivy.wallet.ui.theme.components.OnboardingButton
 fun OnboardingSetName(
     onNameSet: (String) -> Unit
 ) {
-    val rootView = LocalView.current
-    var keyboardShown by remember { mutableStateOf(false) }
-
-    onScreenStart {
-        rootView.addKeyboardListener {
-            keyboardShown = it
-        }
-    }
+    val keyboardShown by keyboardVisibleState()
 
     val keyboardShownInsetDp by animateDpAsState(
         targetValue = densityScope {

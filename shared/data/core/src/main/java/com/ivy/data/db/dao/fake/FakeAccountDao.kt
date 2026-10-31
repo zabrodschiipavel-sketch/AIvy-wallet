@@ -26,6 +26,13 @@ class FakeAccountDao : AccountDao, WriteAccountDao {
         accounts[value.id] = value
     }
 
+    override suspend fun upsert(value: AccountEntity): Unit = save(value)
+    override suspend fun accountForWrite(id: UUID): AccountEntity? = findById(id)
+    override suspend fun baseCurrencyForWrite(): String? = null
+    override suspend fun hasFinancialReferences(id: UUID): Boolean = false
+    override suspend fun hasActiveRules(id: UUID): Boolean = false
+    override suspend fun deleteUnreferenced(id: UUID) { accounts.remove(id) }
+
     override suspend fun saveMany(values: List<AccountEntity>) {
         values.forEach { save(it) }
     }

@@ -347,6 +347,7 @@ private fun PreviewAccountsTabCompactModeDisabled(theme: Theme = Theme.LIGHT) {
             icon = null,
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
 
         val acc2 = Account(
@@ -357,6 +358,7 @@ private fun PreviewAccountsTabCompactModeDisabled(theme: Theme = Theme.LIGHT) {
             icon = null,
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
 
         val acc3 = Account(
@@ -367,6 +369,7 @@ private fun PreviewAccountsTabCompactModeDisabled(theme: Theme = Theme.LIGHT) {
             icon = IconAsset.unsafe("revolut"),
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
 
         val acc4 = Account(
@@ -377,6 +380,7 @@ private fun PreviewAccountsTabCompactModeDisabled(theme: Theme = Theme.LIGHT) {
             icon = IconAsset.unsafe("cash"),
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
         val state = AccountsState(
             baseCurrency = "BGN",
@@ -434,6 +438,7 @@ private fun PreviewAccountsTabCompactModeEnabled(theme: Theme = Theme.LIGHT) {
             icon = null,
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
 
         val acc2 = Account(
@@ -444,6 +449,7 @@ private fun PreviewAccountsTabCompactModeEnabled(theme: Theme = Theme.LIGHT) {
             icon = null,
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
 
         val acc3 = Account(
@@ -454,6 +460,7 @@ private fun PreviewAccountsTabCompactModeEnabled(theme: Theme = Theme.LIGHT) {
             icon = IconAsset.unsafe("revolut"),
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
 
         val acc4 = Account(
@@ -464,6 +471,7 @@ private fun PreviewAccountsTabCompactModeEnabled(theme: Theme = Theme.LIGHT) {
             icon = IconAsset.unsafe("cash"),
             includeInBalance = true,
             orderNum = 0.0,
+            archived = false,
         )
         val state = AccountsState(
             baseCurrency = "BGN",

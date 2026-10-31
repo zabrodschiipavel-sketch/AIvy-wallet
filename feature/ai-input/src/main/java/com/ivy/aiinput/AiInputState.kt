@@ -27,6 +27,7 @@ sealed interface AiError {
 enum class Phase {
     /** Empty input or after a reset — waiting for the user to type and press Parse. */
     Input,
+
     /** Round-trip to Gemini in flight; on success we navigate to the editor. */
     Parsing,
 }
